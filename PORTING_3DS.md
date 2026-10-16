@@ -1,6 +1,7 @@
 # OpenBW on the original Nintendo 3DS
 
-Status: asset-backed simulation and stick/A/B movement tested in the emulator;
+Status: original terrain, animated sprite atlases, minimap and stick/A/B
+movement tested in the emulator;
 **not yet a playable StarCraft port**. No original-console measurements yet.
 Updated: 2026-10-16. Baseline: `heiner/openbw` commit
 `469d2037e2fd03085dac4729912f4188bc2a778b`.
@@ -28,6 +29,34 @@ Updated: 2026-10-16. Baseline: `heiner/openbw` commit
   Private test data was staged locally and into the emulator SD directory.
   Do not fetch game archives from
   third-party download sites or run the inherited `web/scdat.py fetch` command.
+
+## Renderer milestone
+
+The upper screen now draws the actual map terrain and simulation-driven sprite
+frames, including player colors, horizontal flips and basic shadows. The bottom
+screen has a real terrain minimap. The default scenario is **Two marines**:
+press L to load it, A to select, Circle Pad to aim, B to move. R cycles the next
+load mode (idle melee, empty, two marines). A loading message is shown before
+blocking SD reads. See `nintendo3ds/reports/RENDERER_VALIDATION.md`.
+
+Graphics are prepared offline from the user's data and kept out of Git:
+
+```sh
+make -C nintendo3ds test-graphics HOST_CXX=clang++
+make -C nintendo3ds DEVKITPRO=/Users/karolynaz/devkitpro -j2
+cp nintendo3ds/out/openbw-3ds.3dsx nintendo3ds/local-data/3ds/openbw/
+```
+
+Run the staging command below before `test-graphics` on a fresh checkout. The
+resulting private `/3ds/openbw/` folder must contain **graphics.bin as well as
+the updated executable**. Copying only the .3dsx will retain the diagnostic
+fallback if graphics.bin is absent. The package is tied to this map's terrain;
+prepare it again after changing maps. To use different data/map locations:
+
+```sh
+make -C nintendo3ds test-graphics HOST_CXX=clang++ \
+  ASSET_ROOT="/path/to/classic/data" MAP="/path/to/map.scx"
+```
 
 ## Build on this Mac
 
@@ -73,6 +102,8 @@ sdmc:/3ds/openbw/
   BrooDat.mpq
   StarDat.mpq
   maps/probe.scx
+  graphics.bin
+  openbw-3ds.3dsx
   logs/                 # optional CSV output
 ```
 
@@ -131,16 +162,16 @@ the bottom minimap rectangle (x=8..127, y=144..231).
 | R | Choose the scenario for the next load |
 | SELECT | Pause/resume simulation |
 | Y | Advance one tick while paused |
-| X | Toggle CSV logging to `logs/benchmark.csv` |
+| X | Toggle CSV logging to `logs/renderer-benchmark.csv` |
 | START | Exit to the homebrew launcher |
 
-On load, the camera and cursor focus on the first own visible unit so A can
-select it immediately. The upper screen shows a diagnostic grid, cursor and simple colored
-unit markers when data is loaded. This is not StarCraft terrain/sprite rendering
-or fog-of-war rendering. The minimap similarly shows unit markers and the
-camera rectangle rather than decoded terrain. Selection with A and movement with B have now been tested with the real
-engine in the emulator; host tests also verify the resulting coordinates.
-Physical touchscreen input still requires a reliable integration test.
+On load, the camera and cursor focus on the first own visible unit. Actual
+terrain and supported unit/building/resource sprites replace the diagnostic
+grid when graphics.bin passes validation. A/B selection/movement and minimap
+camera relocation are verified in the emulator; touching outside the minimap
+leaves camera/cursor unchanged. Fog-of-war rendering, health bars and a full
+command panel remain future work. The renderer currently reveals the map and
+all sprite-list units; it does not change the simulation's vision state.
 
 ## Architecture analysis
 
@@ -196,10 +227,11 @@ behavior.
 
 Treat approximately 268 MHz ARM11 and constrained application memory as the
 baseline; total system RAM is not the application heap, and the second CPU core
-is not assumed to double available simulation throughput. Reserve 40 MiB normal
-heap, 4 MiB linear heap and 256 KiB stack explicitly. These are chosen budgets,
+is not assumed to double available simulation throughput. Reserve 36 MiB normal
+heap, 8 MiB linear heap and 256 KiB stack explicitly. These are chosen budgets,
 not the device's entire available RAM. The tested map and idle 1v1 state fit:
-normal heap was about 23.53 MiB, plus about 2.06 MiB linear usage in the
+normal heap was about 23.6 MiB, plus about 5.06 MiB linear usage including
+3 MiB of atlases in the
 emulator. This does not establish load-time high-water or real-console RAM
 usage. The final ELF's resident sections
 are approximately 0.81 MiB before stacks/heaps/framebuffers; the debug ELF's
@@ -229,7 +261,9 @@ are now in `nintendo3ds/reports/ASSET_VALIDATION.md`:
   warrant ARM profiling. Avoid broad algorithm changes before a baseline.
 - CPU palette conversion/full-frame texture uploads would spend memory bandwidth;
   the eventual terrain/sprite renderer should use preconverted atlas pages,
-  bounded caches, view culling and batching. Runtime conversion is not implemented.
+  bounded caches, view culling and batching. Runtime conversion is not implemented; six pre-swizzled atlas pages are
+  now loaded once on SD initialization, with bounded metadata and no frame
+  allocations in the renderer.
 
 The scheduler adds exactly 24 tick credits per second using integer arithmetic.
 Each simulation step still invokes one unchanged next_frame. At most two ticks
@@ -243,23 +277,25 @@ HUD have overhead and must be compared enabled/disabled during profiling.
 
 ## Test evidence and remaining work
 
-See `nintendo3ds/reports/VALIDATION.md` for commands and measured results.
+See `nintendo3ds/reports/RENDERER_VALIDATION.md` for current results and
+`ASSET_VALIDATION.md` / `VALIDATION.md` for the earlier milestones.
 Asset-backed initialization, 2400-tick host scenarios and emulator A/B movement
 now pass; see `nintendo3ds/reports/ASSET_VALIDATION.md` and the raw CSV results.
 The emulator was temporarily set to original-3DS mode at 100% CPU-clock setting.
 The tested scenarios sustain approximately 24 TPS and 60 FPS there, with zero
 observed tick debt. This does not prove original-hardware performance.
 The two melee players remain idle human slots; AI, economy/building controls,
-attack controls, networking, authentic sprite/terrain rendering and a pause menu
-are not implemented. Unit markers are capped at 128 for diagnostic rendering;
-this cap is not a gameplay unit limit.
+attack controls, networking and a pause menu are not implemented. Rendering
+is bounded to 512 on-screen image layers and 128 minimap/selection unit entries;
+these are renderer limits, not gameplay unit limits. The atlas profile covers
+the current Terran probe scenarios, not the full unit roster or effects set.
 
 Next milestone:
 
 1. Run the current empty/two/movement/idle-melee tests on an **original 3DS**;
    record load-time memory high-water, sustained TPS and tick-time distributions.
-2. Add offline-preconverted terrain and limited sprite atlas pages now that
-   the initial simulation/data path works. Keep the diagnostic/headless baseline.
+2. Extend rendering with fog visibility and selection/health information,
+   preserving the measured atlas and fixed-step simulation budgets.
 3. Add controlled combat fixtures and profile pathfinding before adding basic
    AI and economy commands. Preserve stick/A/B and minimap-only touch controls.
 4. New 3DS enhancements remain deferred until original hardware is evaluated.

@@ -1,5 +1,8 @@
 # Asset-backed validation — 2026-10-16
 
+Historical milestone before the terrain/sprite renderer. Current results are
+in [RENDERER_VALIDATION.md](RENDERER_VALIDATION.md).
+
 The user supplied classic game archives under the private, Git-ignored
 `data files/` directory. No third-party game downloads were used. Only these
 archives are needed by the current core: Patch_rt.mpq (984571 bytes),

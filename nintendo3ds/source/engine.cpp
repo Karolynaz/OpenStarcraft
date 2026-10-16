@@ -1,5 +1,6 @@
 #include "engine.h"
 #include "actions.h"
+#include "graphics_format.h"
 #include <cstdio>
 #include <cstring>
 #include <stdexcept>
@@ -166,6 +167,39 @@ std::size_t Engine::visible_units(UnitView* output, std::size_t capacity) const 
         if (funcs.unit_dead(u)) continue;
         output[n++] = {u->sprite->position.x, u->sprite->position.y, static_cast<unsigned>(u->owner), u == selected};
     }
+    return n;
+}
+std::uint32_t Engine::terrain_signature() const {
+    if (!ready()) return 0;
+    const auto& st = impl_->player->st();
+    auto hash = terrain_hash_step(2166136261u, st.game->map_tile_width);
+    hash = terrain_hash_step(hash, st.game->map_tile_height);
+    hash = terrain_hash_step(hash, st.game->tileset_index);
+    for (auto tile : st.tiles_mega_tile_index) hash = terrain_hash_step(hash, tile);
+    return hash;
+}
+std::size_t Engine::visible_images(SpriteView* output, std::size_t capacity, int cx, int cy) const {
+    if (!ready()) return 0;
+    const auto& st = impl_->player->st();
+    const auto& funcs = impl_->player->funcs();
+    std::size_t n = 0;
+    for (const auto& line : st.sprites_on_tile_line) for (const auto& sprite : line) {
+        if (sprite.flags & sprite_t::flag_hidden) continue;
+        unsigned layer = 0;
+        for (const auto& img : reverse(sprite.images)) {
+            if (img.flags & image_t::flag_hidden) continue;
+            const auto p = funcs.get_image_map_position(&img);
+            const auto& frame = img.grp->frames.at(img.frame_index);
+            if (p.x >= cx + 400 || p.y >= cy + 240 || p.x + static_cast<int>(frame.size.x) <= cx ||
+                p.y + static_cast<int>(frame.size.y) <= cy) continue;
+            if (n == capacity) continue;
+            output[n++] = {p.x, p.y, static_cast<unsigned>(img.image_type->id), static_cast<unsigned>(img.frame_index),
+                           static_cast<unsigned>(sprite.owner), (img.flags & image_t::flag_horizontally_flipped) != 0,
+                           img.modifier == 10,
+                           ((static_cast<std::uint64_t>(sprite.elevation_level) * 8192 + sprite.position.y) * 4096 + sprite.index) * 64 + layer++};
+        }
+    }
+    std::sort(output, output + n, [](const SpriteView& a, const SpriteView& b) { return a.order < b.order; });
     return n;
 }
 std::size_t state_size() { return sizeof(state); }

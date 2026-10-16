@@ -2,14 +2,15 @@
 #include <citro2d.h>
 #include "controls.h"
 #include "engine.h"
+#include "graphics.h"
 #include "scheduler.h"
 #include <cstdio>
 #include <malloc.h>
 #include <sys/stat.h>
 
 extern "C" {
-u32 __ctru_heap_size = 40 * 1024 * 1024;
-u32 __ctru_linear_heap_size = 4 * 1024 * 1024;
+u32 __ctru_heap_size = 36 * 1024 * 1024;
+u32 __ctru_linear_heap_size = 8 * 1024 * 1024;
 u32 __stacksize__ = 256 * 1024;
 }
 namespace {
@@ -48,10 +49,12 @@ int main() {
     if (R_SUCCEEDED(audio)) ndspSetOutputMode(NDSP_OUTPUT_STEREO);
     {
         port3ds::Engine engine;
+        port3ds::Graphics graphics;
         port3ds::Scheduler scheduler;
         port3ds::Controls controls;
-        unsigned scenario = 0, loaded_scenario = 0;
+        unsigned scenario = 1, loaded_scenario = 1;
         bool paused = true;
+        bool pending_load = false;
         u64 previous = now_us(), interval = previous, next_text = 0;
         unsigned renders = 0, ticks = 0;
         double tick_sum = 0, tick_max = 0, fps = 0, tps = 0, mean = 0, worst = 0;
@@ -59,6 +62,8 @@ int main() {
         const char* action = "L loads your SD game files";
         C2D_Text diagnostics{}, commands{}, message{};
         port3ds::UnitView units[128];
+        port3ds::SpriteView images[512];
+        unsigned missing_images = 0;
         while (aptMainLoop()) {
             hidScanInput();
             const u32 down = hidKeysDown();
@@ -69,9 +74,22 @@ int main() {
             if (!paused && engine.ready()) scheduler.add(elapsed);
             previous = now;
             if (down & KEY_R) scenario = (scenario + 1) % 3;
+            const bool load_now = pending_load;
+            pending_load = false;
             if ((down & KEY_L) && self_test) {
+                pending_load = true;
+                action = "Loading map, game data and graphics...";
+                next_text = 0;
+            }
+            // Present the loading message for one frame before blocking SD IO.
+            if (load_now) {
                 loaded_scenario = scenario;
                 paused = !engine.load(root, map, static_cast<port3ds::Scenario>(scenario));
+                if (engine.ready()) graphics.load("sdmc:/3ds/openbw/graphics.bin", engine.terrain_signature());
+                else graphics.clear();
+                // Atlas descriptors keep their addresses across reloads, while
+                // their GPU buffers can move. Invalidate Citro2D's texture cache.
+                C2D_Prepare();
                 scheduler.reset();
                 controls = port3ds::Controls{};
                 const auto state = engine.snapshot();
@@ -93,9 +111,9 @@ int main() {
                 if (log) { std::fclose(log); log = nullptr; action = "CSV logging closed"; }
                 else {
                     mkdir("sdmc:/3ds/openbw/logs", 0777);
-                    log = std::fopen("sdmc:/3ds/openbw/logs/benchmark.csv", "a");
-                    if (log) std::fprintf(log, "scenario,frame,units,fps,tps,mean_tick_us,max_tick_us,heap_bytes,linear_used,backlog\n");
-                    action = log ? "CSV logging enabled" : "Cannot open logs/benchmark.csv";
+                    log = std::fopen("sdmc:/3ds/openbw/logs/renderer-benchmark.csv", "a");
+                    if (log) std::fprintf(log, "scenario,frame,units,fps,tps,mean_tick_us,max_tick_us,heap_bytes,linear_used,backlog,atlas_bytes,missing_images\n");
+                    action = log ? "CSV logging enabled" : "Cannot open logs/renderer-benchmark.csv";
                 }
             }
             circlePosition circle{};
@@ -133,10 +151,10 @@ int main() {
                 fps = renders / seconds; tps = ticks / seconds;
                 mean = ticks ? tick_sum / ticks : 0; worst = tick_max;
                 if (log) {
-                    std::fprintf(log, "%u,%lu,%u,%.2f,%.2f,%.1f,%.1f,%d,%lu,%llu\n",
+                    std::fprintf(log, "%u,%lu,%u,%.2f,%.2f,%.1f,%.1f,%d,%lu,%llu,%u,%u\n",
                         loaded_scenario, static_cast<unsigned long>(state.frame), state.units,
                         fps, tps, mean, worst, heap.uordblks, static_cast<unsigned long>(linear_used),
-                        static_cast<unsigned long long>(scheduler.backlog()));
+                        static_cast<unsigned long long>(scheduler.backlog()), graphics.texture_bytes(), missing_images);
                     std::fflush(log);
                 }
                 renders = ticks = 0; tick_sum = tick_max = 0; interval = sample_time;
@@ -148,16 +166,17 @@ int main() {
                     "%s  Frame %lu  Units %u\nFPS %.1f   TPS %.1f / 24\n"
                     "Tick avg %.1f / max %.1f us\nHeap %d KiB  Linear %lu KiB\n"
                     "Debt %llu  Cursor %.0f,%.0f\nCamera %.0f,%.0f  CSV %s\n"
-                    "Next load: %s",
+                    "Next load: %s\nAtlas %lu KiB  Missing sprites %u",
                     self_test ? "PASS" : "FAIL", R_SUCCEEDED(audio) ? "ready" : "off",
                     !engine.ready() ? "NOT LOADED" : paused ? "PAUSED" : "RUNNING",
                     static_cast<unsigned long>(state.frame), state.units, fps, tps, mean, worst,
                     heap.uordblks / 1024, static_cast<unsigned long>(linear_used / 1024),
                     static_cast<unsigned long long>(scheduler.backlog()), controls.cursor_x, controls.cursor_y,
-                    controls.camera_x, controls.camera_y, log ? "ON" : "OFF", scenario_name(scenario));
+                    controls.camera_x, controls.camera_y, log ? "ON" : "OFF", scenario_name(scenario),
+                    static_cast<unsigned long>(graphics.texture_bytes()/1024), missing_images);
                 std::snprintf(help, sizeof help,
                     "Stick: cursor\nA: select\nB: move\nL: load  R: scenario\nSELECT: pause\nY: step  X: CSV\nSTART: exit");
-                std::snprintf(error, sizeof error, "%s\n%.100s", action, engine.error());
+                std::snprintf(error, sizeof error, "%s\n%.100s", action, graphics.ready() ? engine.error() : graphics.error());
                 C2D_TextBufClear(text_buf);
                 C2D_TextParse(&diagnostics, text_buf, status); C2D_TextOptimize(&diagnostics);
                 C2D_TextParse(&commands, text_buf, help); C2D_TextOptimize(&commands);
@@ -169,19 +188,27 @@ int main() {
             const u32 green = C2D_Color32(100, 240, 180, 255), white = C2D_Color32(215, 230, 235, 255);
             C3D_FrameBegin(C3D_FRAME_SYNCDRAW);
             C2D_TargetClear(top, bg); C2D_SceneBegin(top);
-            for (int x = -static_cast<int>(controls.camera_x) % 32; x < 400; x += 32)
-                C2D_DrawLine(x, 0, grid, x, 240, grid, 1, 0);
-            for (int y = -static_cast<int>(controls.camera_y) % 32; y < 240; y += 32)
-                C2D_DrawLine(0, y, grid, 400, y, grid, 1, 0);
-            // Diagnostic unit markers, not a terrain/sprite renderer. They
-            // intentionally show all visible-list units, without fog rendering.
+            if (graphics.ready()) graphics.terrain(controls.camera_x,controls.camera_y);
+            else {
+                for (int x = -static_cast<int>(controls.camera_x) % 32; x < 400; x += 32)
+                    C2D_DrawLine(x, 0, grid, x, 240, grid, 1, 0);
+                for (int y = -static_cast<int>(controls.camera_y) % 32; y < 240; y += 32)
+                    C2D_DrawLine(0, y, grid, 400, y, grid, 1, 0);
+            }
             for (std::size_t i = 0; i != count; ++i) {
                 const auto& u = units[i];
                 const float x = u.x - controls.camera_x, y = u.y - controls.camera_y;
                 if (x < -8 || x > 408 || y < -8 || y > 248) continue;
-                if (u.selected) C2D_DrawRectSolid(x - 7, y - 7, 0, 14, 14, white);
-                C2D_DrawRectSolid(x - 4, y - 4, 0, 8, 8, u.owner == 0 ? green : C2D_Color32(240, 110, 100, 255));
+                if (u.selected) {
+                    C2D_DrawLine(x-12,y-7,green,x+12,y-7,green,1,0);
+                    C2D_DrawLine(x-12,y+7,green,x+12,y+7,green,1,0);
+                    C2D_DrawLine(x-12,y-7,green,x-12,y+7,green,1,0);
+                    C2D_DrawLine(x+12,y-7,green,x+12,y+7,green,1,0);
+                }
+                if (!graphics.ready()) C2D_DrawRectSolid(x - 4, y - 4, 0, 8, 8, u.owner == 0 ? green : C2D_Color32(240, 110, 100, 255));
             }
+            const auto image_count=engine.visible_images(images,512,controls.camera_x,controls.camera_y);
+            missing_images=graphics.sprites(images,image_count,controls.camera_x,controls.camera_y);
             const float cx = controls.cursor_x, cy = controls.cursor_y;
             C2D_DrawLine(cx - 6, cy, green, cx + 6, cy, green, 2, 0);
             C2D_DrawLine(cx, cy - 6, green, cx, cy + 6, green, 2, 0);
@@ -191,6 +218,7 @@ int main() {
             C2D_DrawText(&commands, C2D_WithColor, 140, 144, 0, 0.40f, 0.40f, white);
             using C = port3ds::Controls;
             C2D_DrawRectSolid(C::minimap_x, C::minimap_y, 0, C::minimap_w, C::minimap_h, grid);
+            graphics.minimap(C::minimap_x,C::minimap_y,C::minimap_w,C::minimap_h);
             const float sx = C::minimap_w / controls.map_width(), sy = C::minimap_h / controls.map_height();
             for (std::size_t i = 0; i != count; ++i)
                 C2D_DrawRectSolid(C::minimap_x + units[i].x * sx, C::minimap_y + units[i].y * sy, 0, 2, 2,

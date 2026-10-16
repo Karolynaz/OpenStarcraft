@@ -12,10 +12,10 @@ COMMON := -std=gnu++14 -O2 -g -fno-strict-aliasing -ffunction-sections -fdata-se
 # -fno-rtti/-fno-exceptions options into this build.
 ARM_FLAGS := $(COMMON) $(ARCH) -mword-relocations -D__3DS__ -I$(DEVKITPRO)/libctru/include
 HEADERS := $(wildcard include/*.h ../*.h)
-OBJECTS := build/main.o build/engine.o
+OBJECTS := build/main.o build/engine.o build/graphics.o
 LIBS := -L$(DEVKITPRO)/libctru/lib -lcitro2d -lcitro3d -lctru -lm
 
-.PHONY: all check-toolchain verify-arm11 host test clean
+.PHONY: all check-toolchain verify-arm11 host test prepare-graphics test-graphics clean
 all: out/openbw-3ds.3dsx verify-arm11
 verify-arm11: out/openbw-3ds.elf
 	python3 tools/verify_arm11.py "$(DEVKITARM)/bin/arm-none-eabi-readelf" $<
@@ -33,6 +33,16 @@ out/openbw-3ds.elf: $(OBJECTS) arm11.specs Makefile | out
 out/openbw-3ds.3dsx: out/openbw-3ds.elf
 	"$(DEVKITPRO)/tools/bin/3dsxtool" $< $@
 host: build/host-sim
+build/graphics-export: tools/graphics_export.cpp $(HEADERS) | build
+	$(HOST_CXX) $(COMMON) tools/graphics_export.cpp -o $@
+ASSET_ROOT ?= ../data files
+MAP ?= local-data/3ds/openbw/maps/probe.scx
+prepare-graphics: build/graphics-export
+	mkdir -p local-data/graphics-work
+	./build/graphics-export "$(ASSET_ROOT)" "$(MAP)" local-data/graphics-work/raw.bin
+	python3 tools/prepare_graphics.py local-data/graphics-work/raw.bin local-data/3ds/openbw/graphics.bin
+test-graphics: prepare-graphics
+	python3 tests/graphics.py local-data/graphics-work/raw.bin local-data/3ds/openbw/graphics.bin
 build/host-sim: source/engine.cpp source/host_main.cpp $(HEADERS) | build
 	$(HOST_CXX) $(COMMON) source/engine.cpp source/host_main.cpp -o $@
 build/scheduler-test: tests/scheduler.cpp include/scheduler.h | build
@@ -46,4 +56,4 @@ test: build/host-sim build/scheduler-test build/controls-test
 	python3 tests/preflight.py
 clean:
 	rm -rf build out
--include build/main.d build/engine.d
+-include build/main.d build/engine.d build/graphics.d

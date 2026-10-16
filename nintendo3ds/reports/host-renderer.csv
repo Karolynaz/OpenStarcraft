@@ -1,0 +1,5 @@
+scenario,platform,map_width,map_height,frame,units,load_ms,tick_mean_us,tick_max_us
+empty,host,64,64,2400,0,153.55,0.07,1.33
+two,host,64,64,2400,2,152.19,0.18,34.83
+move,host,64,64,2400,2,151.14,0.17,28.79
+melee,host,64,64,2400,34,151.48,1.33,15.08

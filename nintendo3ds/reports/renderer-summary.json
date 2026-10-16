@@ -1,0 +1,32 @@
+[
+  {
+    "scenario": 1,
+    "samples": 6431,
+    "first_frame": 361,
+    "last_frame": 155116,
+    "units": 2,
+    "mean_fps": 59.83,
+    "mean_tps": 24.0,
+    "mean_tick_us": 14.4,
+    "max_tick_us": 391.0,
+    "max_heap_bytes": 24703624,
+    "max_linear_bytes": 5307392,
+    "max_backlog": 0,
+    "max_missing_images": 0
+  },
+  {
+    "scenario": 2,
+    "samples": 104,
+    "first_frame": 24,
+    "last_frame": 2503,
+    "units": 34,
+    "mean_fps": 59.83,
+    "mean_tps": 24.0,
+    "mean_tick_us": 177.6,
+    "max_tick_us": 823.0,
+    "max_heap_bytes": 24736864,
+    "max_linear_bytes": 5307392,
+    "max_backlog": 0,
+    "max_missing_images": 0
+  }
+]
