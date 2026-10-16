@@ -55,12 +55,14 @@ int main() {
         unsigned scenario = 1, loaded_scenario = 1;
         bool paused = true;
         bool pending_load = false;
+        bool placing = false;
+        auto building = port3ds::Command::depot;
         u64 previous = now_us(), interval = previous, next_text = 0;
         unsigned renders = 0, ticks = 0;
         double tick_sum = 0, tick_max = 0, fps = 0, tps = 0, mean = 0, worst = 0;
         FILE* log = nullptr;
         const char* action = "L loads your SD game files";
-        C2D_Text diagnostics{}, commands{}, message{};
+        C2D_Text diagnostics{}, commands{}, message{}, resources{};
         port3ds::UnitView units[128];
         port3ds::SpriteView images[512];
         unsigned missing_images = 0;
@@ -83,6 +85,7 @@ int main() {
             }
             // Present the loading message for one frame before blocking SD IO.
             if (load_now) {
+                placing = false;
                 loaded_scenario = scenario;
                 paused = !engine.load(root, map, static_cast<port3ds::Scenario>(scenario));
                 if (engine.ready()) graphics.load("sdmc:/3ds/openbw/graphics.bin", engine.terrain_signature());
@@ -104,10 +107,10 @@ int main() {
                 previous = interval = now_us();
                 renders = ticks = 0; tick_sum = tick_max = 0;
                 fps = tps = mean = worst = 0;
-                action = engine.ready() ? "A select / B move to cursor" : "Load failed; check SD files";
+                action = engine.ready() ? "A select / B act / D-pad build or train" : "Load failed; check SD files";
             }
             if (down & KEY_SELECT) { paused = !paused; scheduler.reset(); }
-            if (down & KEY_X) {
+            if ((down & KEY_X) && paused) {
                 if (log) { std::fclose(log); log = nullptr; action = "CSV logging closed"; }
                 else {
                     mkdir("sdmc:/3ds/openbw/logs", 0777);
@@ -125,12 +128,32 @@ int main() {
                 touchPosition touch{}; hidTouchRead(&touch);
                 controls.minimap_touch(touch.px, touch.py);
             }
-            if (down & KEY_A)
+            if ((down & KEY_A) && placing) { placing=false; action="Building placement cancelled"; }
+            else if (down & KEY_A)
                 action = !engine.ready() ? "Load game with L first" :
                     engine.select(controls.world_x(), controls.world_y()) ? "Own unit selected" : "Selection cleared";
-            if (down & KEY_B)
-                action = !engine.ready() ? "Load game with L first" :
-                    engine.move_selected(controls.world_x(), controls.world_y()) ? "Move order accepted" : "Select a movable unit with A";
+            auto command = [&](port3ds::Command c) {
+                engine.command(c, controls.world_x(), controls.world_y());
+                action = engine.command_status();
+            };
+            if (down & KEY_B) {
+                if (placing) {
+                    if (engine.command(building,controls.world_x(),controls.world_y())) placing=false;
+                    action=engine.command_status();
+                } else command(port3ds::Command::context);
+            }
+            if ((down & KEY_X) && !paused) command(port3ds::Command::attack);
+            if ((down & KEY_Y) && !paused) command(port3ds::Command::stop);
+            if (down & KEY_DUP) command(port3ds::Command::train);
+            if (down & (KEY_DRIGHT|KEY_DDOWN)) {
+                building = (down & KEY_DRIGHT) ? port3ds::Command::barracks : port3ds::Command::depot;
+                placing=true;
+                action = building == port3ds::Command::depot ? "Depot: 100 minerals. B place / A cancel" : "Barracks: 150 minerals. B place / A cancel";
+            }
+            if (down & KEY_DLEFT) {
+                if (placing) { placing=false; action="Building placement cancelled"; }
+                else command(port3ds::Command::cancel);
+            }
             const bool step = (down & KEY_Y) && paused;
             for (unsigned n = 0; n != 2 && engine.ready(); ++n) {
                 if (!(step && n == 0) && (paused || !scheduler.due())) break;
@@ -160,7 +183,7 @@ int main() {
                 renders = ticks = 0; tick_sum = tick_max = 0; interval = sample_time;
             }
             if (sample_time >= next_text || down) {
-                char status[900], help[350], error[220];
+                char status[900], help[350], error[220], hud[200];
                 std::snprintf(status, sizeof status,
                     "OpenBW / ORIGINAL 3DS\nCore DCL/endian: %s   DSP: %s\n"
                     "%s  Frame %lu  Units %u\nFPS %.1f   TPS %.1f / 24\n"
@@ -175,12 +198,16 @@ int main() {
                     controls.camera_x, controls.camera_y, log ? "ON" : "OFF", scenario_name(scenario),
                     static_cast<unsigned long>(graphics.texture_bytes()/1024), missing_images);
                 std::snprintf(help, sizeof help,
-                    "Stick: cursor\nA: select\nB: move\nL: load  R: scenario\nSELECT: pause\nY: step  X: CSV\nSTART: exit");
+                    "A select / B act\nX attack / Y stop\nD-up: train unit\nD-right: Barracks\nD-down: Depot\nD-left: cancel\nL load / R mode\nSELECT pause\nPaused: X CSV / Y step");
+                std::snprintf(hud, sizeof hud, "Minerals %d   Gas %d   Supply %d/%d\n%s  HP %d/%d  Queue %u",
+                    state.minerals, state.gas, state.supply, state.supply_max, state.selected_name,
+                    state.selected_hp, state.selected_max_hp, state.queue);
                 std::snprintf(error, sizeof error, "%s\n%.100s", action, graphics.ready() ? engine.error() : graphics.error());
                 C2D_TextBufClear(text_buf);
                 C2D_TextParse(&diagnostics, text_buf, status); C2D_TextOptimize(&diagnostics);
                 C2D_TextParse(&commands, text_buf, help); C2D_TextOptimize(&commands);
                 C2D_TextParse(&message, text_buf, error); C2D_TextOptimize(&message);
+                C2D_TextParse(&resources, text_buf, hud); C2D_TextOptimize(&resources);
                 next_text = sample_time + 250000;
             }
             const auto count = engine.visible_units(units, 128);
@@ -200,22 +227,36 @@ int main() {
                 const float x = u.x - controls.camera_x, y = u.y - controls.camera_y;
                 if (x < -8 || x > 408 || y < -8 || y > 248) continue;
                 if (u.selected) {
-                    C2D_DrawLine(x-12,y-7,green,x+12,y-7,green,1,0);
-                    C2D_DrawLine(x-12,y+7,green,x+12,y+7,green,1,0);
-                    C2D_DrawLine(x-12,y-7,green,x-12,y+7,green,1,0);
-                    C2D_DrawLine(x+12,y-7,green,x+12,y+7,green,1,0);
+                    const float w = std::max(12, u.width/2), h = std::max(7, u.height/2);
+                    C2D_DrawLine(x-w,y-h,green,x+w,y-h,green,1,0);
+                    C2D_DrawLine(x-w,y+h,green,x+w,y+h,green,1,0);
+                    C2D_DrawLine(x-w,y-h,green,x-w,y+h,green,1,0);
+                    C2D_DrawLine(x+w,y-h,green,x+w,y+h,green,1,0);
                 }
                 if (!graphics.ready()) C2D_DrawRectSolid(x - 4, y - 4, 0, 8, 8, u.owner == 0 ? green : C2D_Color32(240, 110, 100, 255));
             }
             const auto image_count=engine.visible_images(images,512,controls.camera_x,controls.camera_y);
             missing_images=graphics.sprites(images,image_count,controls.camera_x,controls.camera_y);
+            if (placing) {
+                const auto site=engine.placement(building,controls.world_x(),controls.world_y());
+                const u32 color=site.valid ? C2D_Color32(70,230,100,100) : C2D_Color32(240,60,60,100);
+                C2D_DrawRectSolid(site.x-controls.camera_x,site.y-controls.camera_y,0,site.width,site.height,color);
+            }
+            for (std::size_t i = 0; i != count; ++i) if (units[i].selected && units[i].max_hp > 0) {
+                const float x = units[i].x-controls.camera_x, y = units[i].y-controls.camera_y;
+                const float w = std::max(24, units[i].width);
+                C2D_DrawRectSolid(x-w/2,y-units[i].height/2-5,0,w,3,C2D_Color32(35,35,35,255));
+                C2D_DrawRectSolid(x-w/2,y-units[i].height/2-5,0,w*units[i].hp/units[i].max_hp,3,green);
+            }
             const float cx = controls.cursor_x, cy = controls.cursor_y;
             C2D_DrawLine(cx - 6, cy, green, cx + 6, cy, green, 2, 0);
             C2D_DrawLine(cx, cy - 6, green, cx, cy + 6, green, 2, 0);
+            C2D_DrawRectSolid(0,0,0,400,29,C2D_Color32(8,16,24,210));
+            C2D_DrawText(&resources, C2D_WithColor, 8, 1, 0, 0.40f, 0.40f, white);
             C2D_DrawText(&message, C2D_WithColor | C2D_WordWrap, 8, 206, 0, 0.38f, 0.38f, white, 384.0f);
             C2D_TargetClear(bottom, bg); C2D_SceneBegin(bottom);
             C2D_DrawText(&diagnostics, C2D_WithColor, 8, 4, 0, 0.42f, 0.42f, white);
-            C2D_DrawText(&commands, C2D_WithColor, 140, 144, 0, 0.40f, 0.40f, white);
+            C2D_DrawText(&commands, C2D_WithColor, 140, 144, 0, 0.34f, 0.34f, white);
             using C = port3ds::Controls;
             C2D_DrawRectSolid(C::minimap_x, C::minimap_y, 0, C::minimap_w, C::minimap_h, grid);
             graphics.minimap(C::minimap_x,C::minimap_y,C::minimap_w,C::minimap_h);

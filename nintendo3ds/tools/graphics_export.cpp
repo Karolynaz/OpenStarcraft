@@ -1,5 +1,6 @@
 // Host-only reader: use OpenBW's proven MPQ/GRP code, not a second decoder.
 #include "actions.h"
+#include "../tests/gameplay.h"
 #include <cstdio>
 #include <set>
 #include <stdexcept>
@@ -10,7 +11,9 @@ static void u32(unsigned v) { u16(v & 65535); u16(v >> 16); }
 static void bytes(const void* p, size_t n) { if (std::fwrite(p, 1, n, out) != n) throw std::runtime_error("write failed"); }
 static void collect(state& st, std::set<unsigned>& ids) {
     for (auto& line : st.sprites_on_tile_line) for (auto& sprite : line)
-        for (auto& image : sprite.images) ids.insert((unsigned)image.image_type->id);
+        for (auto& image : sprite.images)
+            if (image.modifier == 0 || image.modifier == 1 || image.modifier == 10)
+                ids.insert((unsigned)image.image_type->id);
 }
 int main(int argc, char** argv) {
     if (argc != 4) { std::fprintf(stderr, "graphics-export DATA MAP OUTPUT\n"); return 2; }
@@ -18,6 +21,17 @@ int main(int argc, char** argv) {
         auto assets = data_loading::data_files_directory(argv[1]);
         std::unique_ptr<game_player> current;
         std::set<unsigned> ids;
+        // Drive the same public commands as the device, covering cargo,
+        // construction, training, weapons and death effects as well as idle.
+        port3ds::SpriteView images[512];
+        gameplay_tests(argv[1], argv[2], [&](port3ds::Engine& engine) {
+            const auto map = engine.snapshot();
+            for (unsigned y=0; y<map.height*32; y+=240)
+                for (unsigned x=0; x<map.width*32; x+=400) {
+                    const auto count=engine.visible_images(images,512,x,y);
+                    for (unsigned i=0;i<count;++i) ids.insert(images[i].image);
+                }
+        });
         for (unsigned mode = 0; mode != 2; ++mode) {
             // Like the device adapter, use a fresh state for each map load.
             // Reusing upstream's live state leaves stale unit-finder pointers.

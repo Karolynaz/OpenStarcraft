@@ -103,27 +103,43 @@ def main():
             src = tiles[tilemap[(wy // 32) * width + wx // 32]]
             mini.append(colors[src[(wy % 32) * 32 + wx % 32]])
     mini_ref = add(128, 128, mini)
-    # Shelf packing by height; a one-pixel transparent gutter and nearest
-    # filtering prevent adjacent frames from bleeding into one another.
-    pages = []; px = py = row_h = 0; page = -1
+    # MaxRects best-short-side fit recovers the space below shorter sprites.
+    # This keeps construction/combat in the same original-3DS 4 MiB budget.
+    # One-pixel gutters and nearest filtering isolate adjacent frames.
+    pages = []; free_pages = []
     for r in sorted(records, key=lambda r: (-r['h'], -r['w'])):
         w, h = max(1, r['w']), max(1, r['h'])
         if w + 2 > SIDE or h + 2 > SIDE: raise ValueError('Frame larger than atlas')
-        if page < 0 or py + h + 2 > SIDE:
-            page += 1; px = py = row_h = 0
-            if page >= MAX_PAGES: raise ValueError('Graphics exceeds original-3DS 4 MiB atlas budget')
+        rw, rh = w + 2, h + 2
+        choices = []
+        for p, free in enumerate(free_pages):
+            for fx, fy, fw, fh in free:
+                if rw <= fw and rh <= fh:
+                    choices.append((min(fw-rw, fh-rh), max(fw-rw, fh-rh), fy, fx, p))
+        if choices:
+            _, _, py, px, page = min(choices)
+        else:
+            if len(pages) >= MAX_PAGES: raise ValueError('Graphics exceeds original-3DS 4 MiB atlas budget')
+            page = len(pages); px = py = 0
             pages.append(array('H', [0]) * (SIDE * SIDE))
-        if px + w + 2 > SIDE:
-            px = 0; py += row_h; row_h = 0
-            if py + h + 2 > SIDE:
-                page += 1; px = py = row_h = 0
-                if page >= MAX_PAGES: raise ValueError('Graphics exceeds atlas budget')
-                pages.append(array('H', [0]) * (SIDE * SIDE))
+            free_pages.append([(0, 0, SIDE, SIDE)])
+        split = []
+        for fx, fy, fw, fh in free_pages[page]:
+            if px >= fx+fw or px+rw <= fx or py >= fy+fh or py+rh <= fy:
+                split.append((fx, fy, fw, fh)); continue
+            if px > fx: split.append((fx, fy, px-fx, fh))
+            if px+rw < fx+fw: split.append((px+rw, fy, fx+fw-px-rw, fh))
+            if py > fy: split.append((fx, fy, fw, py-fy))
+            if py+rh < fy+fh: split.append((fx, py+rh, fw, fy+fh-py-rh))
+        split = list(dict.fromkeys(split))
+        free_pages[page] = [a for i, a in enumerate(split) if not any(
+            i != j and a[0] >= b[0] and a[1] >= b[1] and
+            a[0]+a[2] <= b[0]+b[2] and a[1]+a[3] <= b[1]+b[3]
+            for j, b in enumerate(split))]
         x, y = px + 1, py + 1
         r['rect'] = (page, x, y, r['w'], r['h'])
         for line in range(r['h']):
             pages[page][(y + line) * SIDE + x:(y + line) * SIDE + x + r['w']] = r['pixels'][line * r['w']:(line + 1) * r['w']]
-        px += w + 2; row_h = max(row_h, h + 2)
     rect = lambda ref: struct.pack('<5H', *records[ref]['rect'])
     args.output.parent.mkdir(parents=True, exist_ok=True)
     with args.output.open('wb') as out:

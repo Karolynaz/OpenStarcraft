@@ -1,0 +1,13 @@
+{
+  "samples": 402,
+  "frame_first": 413,
+  "frame_last": 10027,
+  "fps_mean": 59.83,
+  "tps_mean": 23.85,
+  "units_max": 39.0,
+  "max_tick_us_max": 1047.0,
+  "heap_bytes_max": 24759880.0,
+  "linear_used_max": 6355968.0,
+  "backlog_max": 0.0,
+  "missing_images_max": 0.0
+}

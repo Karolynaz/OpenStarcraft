@@ -27,9 +27,12 @@ for scenario in ("empty", "two", "move", "melee"):
     else:
         assert int(row["units"]) >= 10, row
     rows.append({"scenario": scenario, **row})
+result = subprocess.run([str(exe), str(args.data), str(args.map), "commands"],
+                        check=True, capture_output=True, text=True)
+print(result.stdout, end="")
 if args.output:
     with args.output.open("w", newline="") as f:
         writer = csv.DictWriter(f, fieldnames=rows[0].keys())
         writer.writeheader()
         writer.writerows(rows)
-print(f"Private-asset initialization / {args.ticks}-tick scenarios / select-and-move PASS")
+print(f"Private-asset initialization / {args.ticks}-tick scenarios / movement / economy / production / combat PASS")

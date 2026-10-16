@@ -1,8 +1,8 @@
 # OpenBW on the original Nintendo 3DS
 
-Status: original terrain, animated sprite atlases, minimap and stick/A/B
-movement tested in the emulator;
-**not yet a playable StarCraft port**. No original-console measurements yet.
+Status: terrain/sprites, stick/A/B commands and a limited Terran economy/
+production/combat loop implemented;
+**still an experimental prototype with no opponent AI**. No original-console measurements yet.
 Updated: 2026-10-16. Baseline: `heiner/openbw` commit
 `469d2037e2fd03085dac4729912f4188bc2a778b`.
 
@@ -35,7 +35,8 @@ Updated: 2026-10-16. Baseline: `heiner/openbw` commit
 The upper screen now draws the actual map terrain and simulation-driven sprite
 frames, including player colors, horizontal flips and basic shadows. The bottom
 screen has a real terrain minimap. The default scenario is **Two marines**:
-press L to load it, A to select, Circle Pad to aim, B to move. R cycles the next
+press L to load it, A to select, Circle Pad to aim, B to move/interact/attack.
+The enemy marine now starts at (512,128), on the same accessible test area. R cycles the next
 load mode (idle melee, empty, two marines). A loading message is shown before
 blocking SD reads. See `nintendo3ds/reports/RENDERER_VALIDATION.md`.
 
@@ -136,7 +137,8 @@ nintendo3ds/build/host-sim nintendo3ds/local-data/3ds/openbw \
 
 Replace `empty` with `two`, `move` (assert select-and-move behavior), or `melee`.
 Host timings are not 3DS benchmarks. The optional private-data suite runs all
-four modes for 2400 ticks each:
+four modes for 2400 ticks each, then asserts gathering, training/refunds,
+construction, supply, Marine production and damage/death without cheats:
 
 ```sh
 python3 nintendo3ds/tests/assets.py --data "data files" \
@@ -155,22 +157,26 @@ the bottom minimap rectangle (x=8..127, y=144..231).
 | Input | Current behavior |
 | --- | --- |
 | Circle Pad | Move the top-screen virtual cursor; scroll camera when pushed into an edge |
-| A | Select the closest own visible unit within 24 world pixels; empty space clears selection |
-| B | Give the selected own unit a Move order at the cursor via OpenBW's action system |
+| A | Select an own unit inside its collision box plus 6-pixel tolerance; cancel an active building preview |
+| B | OpenBW contextual order: move, gather minerals, attack enemy, resume construction/repair, or rally; confirm building placement during preview |
 | Minimap touch/drag | Center/clamp the camera; never move the virtual cursor or issue orders |
 | L | Load/reload the currently chosen probe scenario from SD |
 | R | Choose the scenario for the next load |
 | SELECT | Pause/resume simulation |
-| Y | Advance one tick while paused |
-| X | Toggle CSV logging to `logs/renderer-benchmark.csv` |
+| X / Y | Attack-move to cursor / Stop while running; CSV toggle / one simulation step while paused |
+| D-pad Up | Train SCV at selected Command Center or Marine at selected Barracks |
+| D-pad Right / Down | Preview Barracks (150 minerals) / Supply Depot (100); green/red footprint follows cursor, B places, A cancels |
+| D-pad Left | Cancel placement, incomplete selected building, or last production queue entry |
 | START | Exit to the homebrew launcher |
 
 On load, the camera and cursor focus on the first own visible unit. Actual
 terrain and supported unit/building/resource sprites replace the diagnostic
 grid when graphics.bin passes validation. A/B selection/movement and minimap
 camera relocation are verified in the emulator; touching outside the minimap
-leaves camera/cursor unchanged. Fog-of-war rendering, health bars and a full
-command panel remain future work. The renderer currently reveals the map and
+leaves camera/cursor unchanged. Resources, supply, selection HP and queue length
+are displayed, with a health bar over the selected unit. Fog-of-war rendering
+and a full command panel remain future work. Glow/cloak/warp palette-remap layers
+are omitted to avoid drawing their indices as colors. The renderer reveals the map and
 all sprite-list units; it does not change the simulation's vision state.
 
 ## Architecture analysis
@@ -261,7 +267,7 @@ are now in `nintendo3ds/reports/ASSET_VALIDATION.md`:
   warrant ARM profiling. Avoid broad algorithm changes before a baseline.
 - CPU palette conversion/full-frame texture uploads would spend memory bandwidth;
   the eventual terrain/sprite renderer should use preconverted atlas pages,
-  bounded caches, view culling and batching. Runtime conversion is not implemented; six pre-swizzled atlas pages are
+  bounded caches, view culling and batching. Runtime conversion is not implemented; eight pre-swizzled atlas pages are
   now loaded once on SD initialization, with bounded metadata and no frame
   allocations in the renderer.
 
@@ -277,15 +283,19 @@ HUD have overhead and must be compared enabled/disabled during profiling.
 
 ## Test evidence and remaining work
 
-See `nintendo3ds/reports/RENDERER_VALIDATION.md` for current results and
+See `nintendo3ds/reports/GAMEPLAY_VALIDATION.md` for current command results,
+`RENDERER_VALIDATION.md` for the initial renderer measurements, and
 `ASSET_VALIDATION.md` / `VALIDATION.md` for the earlier milestones.
 Asset-backed initialization, 2400-tick host scenarios and emulator A/B movement
 now pass; see `nintendo3ds/reports/ASSET_VALIDATION.md` and the raw CSV results.
 The emulator was temporarily set to original-3DS mode at 100% CPU-clock setting.
 The tested scenarios sustain approximately 24 TPS and 60 FPS there, with zero
 observed tick debt. This does not prove original-hardware performance.
-The two melee players remain idle human slots; AI, economy/building controls,
-attack controls, networking and a pause menu are not implemented. Rendering
+The two melee slots remain human controlled with no opponent AI; networking
+and a pause menu are not implemented. The supported command profile is SCV,
+Marine, Command Center, Supply Depot and Barracks. Economy, construction,
+training and combat use unchanged OpenBW rules, costs and build times. See
+`nintendo3ds/reports/GAMEPLAY_VALIDATION.md` for this milestone. Rendering
 is bounded to 512 on-screen image layers and 128 minimap/selection unit entries;
 these are renderer limits, not gameplay unit limits. The atlas profile covers
 the current Terran probe scenarios, not the full unit roster or effects set.
@@ -294,8 +304,8 @@ Next milestone:
 
 1. Run the current empty/two/movement/idle-melee tests on an **original 3DS**;
    record load-time memory high-water, sustained TPS and tick-time distributions.
-2. Extend rendering with fog visibility and selection/health information,
-   preserving the measured atlas and fixed-step simulation budgets.
-3. Add controlled combat fixtures and profile pathfinding before adding basic
-   AI and economy commands. Preserve stick/A/B and minimap-only touch controls.
+2. Extend rendering with fog visibility and broaden the bounded graphics
+   profile; investigate map-independent streaming before expanding the roster.
+3. Profile active economy/combat on hardware, enforce a practical unit budget
+   and then add a small opponent AI. Preserve stick/A/B and minimap-only touch.
 4. New 3DS enhancements remain deferred until original hardware is evaluated.

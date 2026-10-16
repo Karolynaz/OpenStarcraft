@@ -12,9 +12,35 @@ struct Engine::Impl {
     char message[192] = "Not loaded";
     bool loaded = false;
     unit_id selected;
+    const char* command_message = "A select / B act";
 };
 
 namespace {
+const char* unit_name(const unit_t* u) {
+    switch (u->unit_type->id) {
+    case UnitTypes::Terran_SCV: return "SCV";
+    case UnitTypes::Terran_Marine: return "Marine";
+    case UnitTypes::Terran_Command_Center: return "Command Center";
+    case UnitTypes::Terran_Barracks: return "Barracks";
+    case UnitTypes::Terran_Supply_Depot: return "Supply Depot";
+    default: return "Unit";
+    }
+}
+// Use the engine collision box with a small thumbstick tolerance. Prefer
+// the nearest center when two boxes overlap; never select dead/hidden units.
+unit_t* hit_unit(state_functions& funcs, int x, int y, bool own_only) {
+    unit_t* best = nullptr;
+    int distance = 0x7fffffff;
+    for (auto* u : ptr(funcs.st.visible_units)) {
+        if ((own_only && u->owner != 0) || funcs.unit_dead(u) ||
+            (u->sprite->flags & sprite_t::flag_hidden)) continue;
+        const auto box = funcs.unit_inner_bounding_box(u, u->sprite->position);
+        if (x < box.from.x - 6 || y < box.from.y - 6 || x > box.to.x + 6 || y > box.to.y + 6) continue;
+        const int dx = u->sprite->position.x - x, dy = u->sprite->position.y - y;
+        if (dx * dx + dy * dy < distance) { best = u; distance = dx * dx + dy * dy; }
+    }
+    return best;
+}
 void read_file(a_vector<uint8_t>& dst, const a_string& path) {
     data_loading::file_reader<> file(path);
     dst.resize(file.size());
@@ -95,8 +121,7 @@ bool Engine::load(const char* data_root, const char* map_path, Scenario scenario
         if (scenario == Scenario::two_units) {
             auto* type = loader.get_unit_type(UnitTypes::Terran_Marine);
             if (!loader.create_initial_unit(type, {128, 128}, 0) ||
-                !loader.create_initial_unit(type, {static_cast<int>(width * 32 - 128),
-                                                     static_cast<int>(height * 32 - 128)}, 1))
+                !loader.create_initial_unit(type, {512, 128}, 1))
                 throw std::runtime_error("Could not place the two probe units");
         }
         impl_->loaded = true;
@@ -125,6 +150,16 @@ Snapshot Engine::snapshot() const {
     auto& st = impl_->player->st();
     s.frame = st.current_frame;
     s.width = st.game->map_tile_width; s.height = st.game->map_tile_height;
+    s.minerals = st.current_minerals[0]; s.gas = st.current_gas[0];
+    const auto race = static_cast<unsigned>(race_t::terran);
+    s.supply = st.supply_used[0][race].integer_part();
+    s.supply_max = st.supply_available[0][race].integer_part();
+    const auto& funcs = impl_->player->funcs();
+    if (const auto* u = funcs.get_unit(impl_->selected)) if (!funcs.unit_dead(u)) {
+        s.selected_name = unit_name(u);
+        s.selected_hp = u->hp.integer_part(); s.selected_max_hp = u->unit_type->hitpoints.integer_part();
+        s.queue = u->build_queue.size();
+    }
     for (unsigned p = 0; p != 12; ++p)
         for (const auto& u : st.player_units[p]) { (void)u; ++s.units; }
     return s;
@@ -134,15 +169,84 @@ bool Engine::ready() const { return impl_->loaded; }
 bool Engine::select(int x, int y) {
     if (!ready()) return false;
     auto& funcs = impl_->player->funcs();
-    unit_t* nearest = nullptr;
-    int distance = 24 * 24 + 1;
-    for (auto* u : ptr(impl_->player->st().visible_units)) {
-        if (u->owner != 0 || funcs.unit_dead(u)) continue;
-        const int dx = u->sprite->position.x - x, dy = u->sprite->position.y - y;
-        if (dx * dx + dy * dy < distance) { distance = dx * dx + dy * dy; nearest = u; }
-    }
+    auto* nearest = hit_unit(funcs, x, y, true);
     impl_->selected = nearest ? funcs.get_unit_id(nearest) : unit_id{};
     return nearest != nullptr;
+}
+const char* Engine::command_status() const { return impl_->command_message; }
+PlacementView Engine::placement(Command building, int x, int y) const {
+    PlacementView view;
+    if (!ready() || (building != Command::depot && building != Command::barracks)) return view;
+    const auto& funcs = impl_->player->funcs();
+    auto* type = funcs.get_unit_type(building == Command::depot ? UnitTypes::Terran_Supply_Depot : UnitTypes::Terran_Barracks);
+    view.width = type->placement_size.x; view.height = type->placement_size.y;
+    view.x = (x-view.width/2)/32*32; view.y = (y-view.height/2)/32*32;
+    const auto* u = funcs.get_unit(impl_->selected);
+    view.valid = u && u->owner == 0 && !funcs.unit_dead(u) && funcs.unit_can_build(u,type) &&
+        funcs.has_available_resources_for(0,type) && x >= view.width/2 && y >= view.height/2 &&
+        funcs.can_place_building(u,0,type,{view.x+view.width/2,view.y+view.height/2},true,true);
+    return view;
+}
+bool Engine::command(Command command, int x, int y) {
+    auto fail = [&](const char* why) { impl_->command_message = why; return false; };
+    if (!ready()) return fail("Load game with L first");
+    auto& player = *impl_->player;
+    auto& funcs = player.funcs();
+    auto* u = funcs.get_unit(impl_->selected);
+    if (!u || u->owner != 0 || funcs.unit_dead(u)) return fail("Select an own unit with A");
+    action_state actions;
+    action_functions commands(player.st(), actions);
+    if (!commands.action_select(0, u)) return fail("Unit cannot receive commands");
+    bool accepted = false;
+    const char* message = "Command accepted";
+    switch (command) {
+    case Command::context:
+    case Command::attack: {
+        if (x < 0 || y < 0 || x >= static_cast<int>(player.st().game->map_width) ||
+            y >= static_cast<int>(player.st().game->map_height)) return fail("Target outside map");
+        auto* target = hit_unit(funcs, x, y, false);
+        if (command == Command::context) {
+            accepted = commands.action_default_order(0, {x,y}, target, nullptr, false);
+            message = target && funcs.unit_is_mineral_field(target) ? "Gather minerals" :
+                target && target->owner == 1 ? "Attack target" : "Move / interact / rally";
+        } else {
+            // Attack-move uses the native attack order and acquisition logic.
+            accepted = commands.action_order(0, commands.get_order_type(Orders::AttackMove), {x,y}, nullptr, nullptr, false);
+            message = "Attack-move to cursor";
+        }
+        break;
+    }
+    case Command::stop:
+        accepted = commands.action_stop(0, false); message = "Stop"; break;
+    case Command::train: {
+        if (!funcs.unit_is(u, UnitTypes::Terran_Command_Center) && !funcs.unit_is(u, UnitTypes::Terran_Barracks))
+            return fail("Select Command Center / Barracks");
+        auto* type = funcs.get_unit_type(funcs.unit_is(u, UnitTypes::Terran_Command_Center) ? UnitTypes::Terran_SCV : UnitTypes::Terran_Marine);
+        if (!funcs.unit_can_build(u, type)) return fail("Building incomplete / queue full");
+        if (!funcs.has_available_resources_for(0, type)) return fail("Not enough minerals / gas");
+        if (!funcs.has_available_supply_for(0, type)) return fail("Build more Supply Depots");
+        accepted = commands.action_train(0, type); message = "Unit added to training queue"; break;
+    }
+    case Command::depot:
+    case Command::barracks: {
+        auto* type = funcs.get_unit_type(command == Command::depot ? UnitTypes::Terran_Supply_Depot : UnitTypes::Terran_Barracks);
+        if (!funcs.unit_can_build(u, type)) return fail("Select an available SCV");
+        if (!funcs.has_available_resources_for(0, type)) return fail("Not enough minerals / gas");
+        const auto site = placement(command,x,y);
+        if (!site.valid)
+            return fail("Cannot build here: blocked / unexplored");
+        accepted = commands.action_build(0, commands.get_order_type(Orders::PlaceBuilding), type,
+                                         {static_cast<std::size_t>(site.x/32), static_cast<std::size_t>(site.y/32)});
+        message = "SCV moving to construction site"; break;
+    }
+    case Command::cancel:
+        if (!funcs.u_completed(u) && funcs.ut_building(u)) accepted = commands.action_cancel_building_unit(0);
+        else accepted = commands.action_cancel_build_queue(0, 254);
+        message = "Construction / last queued unit cancelled"; break;
+    }
+    if (!accepted) return fail("Command unavailable for this unit");
+    impl_->command_message = message;
+    return true;
 }
 bool Engine::move_selected(int x, int y) {
     if (!ready()) return false;
@@ -165,7 +269,11 @@ std::size_t Engine::visible_units(UnitView* output, std::size_t capacity) const 
     for (const auto* u : ptr(impl_->player->st().visible_units)) {
         if (n == capacity) break;
         if (funcs.unit_dead(u)) continue;
-        output[n++] = {u->sprite->position.x, u->sprite->position.y, static_cast<unsigned>(u->owner), u == selected};
+        const auto* t = u->unit_type;
+        output[n++] = {u->sprite->position.x, u->sprite->position.y, static_cast<unsigned>(u->owner), u == selected,
+                       static_cast<unsigned>(t->id), u->hp.integer_part(), t->hitpoints.integer_part(),
+                       t->dimensions.from.x + t->dimensions.to.x + 1, t->dimensions.from.y + t->dimensions.to.y + 1,
+                       funcs.u_completed(u), funcs.ut_worker(u), funcs.unit_is_mineral_field(u)};
     }
     return n;
 }
@@ -188,6 +296,10 @@ std::size_t Engine::visible_images(SpriteView* output, std::size_t capacity, int
         unsigned layer = 0;
         for (const auto& img : reverse(sprite.images)) {
             if (img.flags & image_t::flag_hidden) continue;
+            // Glow/cloak/warp GRPs contain palette remap indices rather than
+            // ordinary colors. Omit those effects until their blending tables
+            // are supported; drawing them directly produces opaque artifacts.
+            if (img.modifier != 0 && img.modifier != 1 && img.modifier != 10) continue;
             const auto p = funcs.get_image_map_position(&img);
             const auto& frame = img.grp->frames.at(img.frame_index);
             if (p.x >= cx + 400 || p.y >= cy + 240 || p.x + static_cast<int>(frame.size.x) <= cx ||

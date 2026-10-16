@@ -27,6 +27,11 @@ texture_start = pos
 assert len(packed) == texture_start + pages * 512 * 512 * 2
 for page, x, y, w, h in [mini, *tiles, *sprites.values()]:
     assert page < pages and x + w <= 512 and y + h <= 512
+rectangles = sorted(set([mini, *tiles, *sprites.values()]))
+for i, (p, x, y, w, h) in enumerate(rectangles):
+    for q, u, v, a, b in rectangles[i + 1:]:
+        if p == q:
+            assert x + w < u or u + a < x or y + h < v or v + b < y, 'Overlapping atlas frames/gutters'
 
 def pixel(rect, x, y):
     page, rx, ry, _, _ = rect

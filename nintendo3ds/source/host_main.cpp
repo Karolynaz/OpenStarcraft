@@ -3,6 +3,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <string>
+#include "../tests/gameplay.h"
 
 int main(int argc, char** argv) {
     if (!port3ds::core_self_test()) { std::fprintf(stderr, "Core self test FAILED\n"); return 1; }
@@ -10,7 +11,11 @@ int main(int argc, char** argv) {
                 port3ds::state_size(), port3ds::unit_size());
     if (argc == 2 && std::string(argv[1]) == "--self-test") return 0;
     if (argc < 3) {
-        std::fprintf(stderr, "Usage: host-sim DATA_ROOT MAP [empty|two|move|melee] [ticks]\n"); return 2;
+        std::fprintf(stderr, "Usage: host-sim DATA_ROOT MAP [empty|two|move|melee|commands] [ticks]\n"); return 2;
+    }
+    if (argc > 3 && std::string(argv[3]) == "commands") {
+        try { gameplay_tests(argv[1],argv[2]); return 0; }
+        catch (const std::exception& e) { std::fprintf(stderr,"Gameplay test failed: %s\n",e.what()); return 1; }
     }
     port3ds::Scenario scenario = port3ds::Scenario::empty;
     bool test_movement = false;

@@ -1,5 +1,8 @@
 # Terrain and sprite renderer — 2026-10-16
 
+This is the initial renderer milestone. See `GAMEPLAY_VALIDATION.md` for the
+new executable, expanded eight-page graphics profile and command controls.
+
 The original 3DS build now displays StarCraft terrain, animated sprite frames,
 player colors, basic shadows and a terrain minimap using the user's game data.
 The simulation and input schemes remain unchanged: Circle Pad cursor/edge

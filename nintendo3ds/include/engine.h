@@ -5,15 +5,24 @@
 
 namespace port3ds {
 enum class Scenario { empty, two_units, melee };
+enum class Command { context, attack, stop, train, depot, barracks, cancel };
+struct PlacementView { int x = 0, y = 0, width = 0, height = 0; bool valid = false; };
 struct Snapshot {
     std::uint32_t frame = 0;
     unsigned units = 0;
     unsigned width = 0, height = 0;
+    int minerals = 0, gas = 0, supply = 0, supply_max = 0;
+    const char* selected_name = "No selection";
+    int selected_hp = 0, selected_max_hp = 0;
+    unsigned queue = 0;
 };
 struct UnitView {
     int x = 0, y = 0;
     unsigned owner = 0;
     bool selected = false;
+    unsigned type = 0;
+    int hp = 0, max_hp = 0, width = 0, height = 0;
+    bool completed = false, worker = false, mineral = false;
 };
 struct SpriteView {
     int x = 0, y = 0;
@@ -33,6 +42,9 @@ public:
     bool ready() const;
     bool select(int world_x, int world_y);
     bool move_selected(int world_x, int world_y);
+    bool command(Command command, int world_x = 0, int world_y = 0);
+    const char* command_status() const;
+    PlacementView placement(Command building, int world_x, int world_y) const;
     std::size_t visible_units(UnitView* output, std::size_t capacity) const;
     std::size_t visible_images(SpriteView* output, std::size_t capacity, int camera_x, int camera_y) const;
     std::uint32_t terrain_signature() const;
