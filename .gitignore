@@ -1,0 +1,7 @@
+/nintendo3ds/build/
+/nintendo3ds/out/
+/nintendo3ds/local-data/
+*.mpq
+*.MPQ
+.DS_Store
+__pycache__/

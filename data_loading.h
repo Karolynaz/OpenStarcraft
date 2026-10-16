@@ -457,7 +457,9 @@ void decompress(uint8_t* input, size_t input_size, uint8_t* output, size_t outpu
 
 	if (distance_bits != 4 && distance_bits != 5 && distance_bits != 6) error("decompress: invalid distance bits %d", distance_bits);
 
-	auto get_length = [&]() {
+	// uint_fast8_t is unsigned int on devkitARM. Keep the return type stable
+	// across integer literals and get_bits expressions on both ARM and desktop.
+	auto get_length = [&]() -> int {
 		switch (r.template get_bits<2>()) {
 		case 3: return 1;
 		case 0:

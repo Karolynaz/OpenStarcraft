@@ -1,0 +1,10 @@
+# Same 3DSX startup/linker script as the SDK, with an ARM11 CP15 memory
+# barrier. This SDK's 3dsx.specs pulls in ARMv7's dmb helper even for armv6k.
+%include <sync-cp15dmb.specs>
+
+*link:
++ -T 3dsx.ld%s -d --emit-relocs --use-blx --gc-sections
+
+*startfile:
+3dsx_crt0%O%s crti%O%s crtbegin%O%s
+

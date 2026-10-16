@@ -1,0 +1,248 @@
+# OpenBW on the original Nintendo 3DS
+
+Status: experimental ARM11 diagnostic application, **not yet a playable port**.
+Updated: 2026-10-16. Baseline: `heiner/openbw` commit
+`469d2037e2fd03085dac4729912f4188bc2a778b`.
+
+## Completed milestone
+
+- Cloned the requested repository into this workspace, preserving history.
+- Created local branch `3ds-port`. The connected GitHub identity was available,
+  but the connector exposes no fork endpoint and `gh` is absent, so used the
+  explicitly allowed local-clone fallback. No GitHub repository was modified.
+- Renamed the source remote `upstream` and disabled its push URL. No push made.
+- Compiled the complete upstream headless simulation probe to an ARM11 object.
+- Built and linked a 3DS application containing the real OpenBW simulation,
+  map loader and action system, without SDL, ASIO, BWAPI or networking.
+- Produced `nintendo3ds/out/openbw-3ds.3dsx` and launched it in Emuautotest/Azahar.
+  On the 3DS binary, the MPQ DCL decoder / unaligned endian / fixed-point
+  self-test reports PASS. Both screens render; diagnostic rendering runs at
+  approximately 60 FPS in this emulator with no game loaded.
+- Added host tests for exact 24 Hz scheduling, retained tick debt, pause reset,
+  stick input, minimap-only touch, and invalid-map / missing-asset recovery.
+- Added three load modes: empty map, two marines, and two idle melee players.
+  These modes are **implemented and compiled, not asset-tested**.
+- User will provide their purchased game data. Do not fetch game archives from
+  third-party download sites or run the inherited `web/scdat.py fetch` command.
+
+## Build on this Mac
+
+The existing SDK was found at `/Users/karolynaz/devkitpro`, outside PATH.
+Compiler: devkitARM GCC 16.1.0. Existing libctru, Citro2D, Citro3D and 3dsxtool
+were used without installing or modifying the SDK.
+
+From the repository root:
+
+```sh
+export DEVKITPRO=/Users/karolynaz/devkitpro
+export DEVKITARM="$DEVKITPRO/devkitARM"
+make -C nintendo3ds -j2
+make -C nintendo3ds test HOST_CXX=clang++
+```
+
+Output: `nintendo3ds/out/openbw-3ds.3dsx`. ELF and linker map are adjacent.
+`make -C nintendo3ds clean` removes only this port's generated build/output.
+Python 3.11+ is used for staging/tests; the C++ target requires GNU C++14.
+The Makefile uses relative project paths so this workspace's spaces work.
+For a different SDK location set `DEVKITPRO`; `DEVKITARM` can also be overridden.
+A missing toolchain produces an actionable error. For a new machine use the
+[official devkitPro pacman installation instructions](https://devkitpro.org/wiki/devkitPro_pacman)
+and install `3ds-dev` using `sudo dkp-pacman -S 3ds-dev`.
+The official [3DS examples](https://github.com/devkitPro/3ds-examples) document
+SDK usage; [pacman releases](https://github.com/devkitPro/pacman/releases) provide
+the macOS installer. Installation was unnecessary on this machine.
+
+## Data and SD layout
+
+No Blizzard data is committed or embedded in the executable. Game data should
+come from the user's own installation/extracted purchase. The observed
+`/Applications/StarCraft` installation has CASC `Data/` storage and maps, rather
+than the three classic MPQs expected by upstream. No game files were copied;
+the user has elected to provide classic data separately. The requested
+`/Applications/Games` directory did not contain those MPQs either.
+
+```text
+sdmc:/3ds/openbw/
+  Patch_rt.mpq
+  BrooDat.mpq
+  StarDat.mpq
+  maps/probe.scx
+  logs/                 # optional CSV output
+```
+
+Names above are exact. Use a trusted map 32..64 tiles in each dimension, with
+at least two playable start positions for melee mode. A `.scm` map may be
+copied as `probe.scx`: the engine uses the archive contents, not the extension.
+Large maps and duplicate/truncated DIM sections are rejected before global
+asset initialization. The loader is not hardened for arbitrary hostile maps.
+The internal MPQ reader requires a header at offset zero and supports a subset
+of compression methods; newer archives may require offline extraction.
+
+When the user's files arrive, stage a private SD folder:
+
+```sh
+python3 nintendo3ds/tools/stage_assets.py \
+  --source "/path/to/your/classic/StarCraft" \
+  --map "/path/to/your/small/map.scx"
+```
+
+This locates archive names case-insensitively, checks MPQ signatures, hashes
+files, and refuses to overwrite different existing files. It prepares
+`nintendo3ds/local-data/3ds/openbw/`, which is Git-ignored. Copy that directory
+onto SD under `/3ds/openbw/`. Map size is checked by the application when loaded.
+A desktop host probe accepts a raw `.chk` map as well:
+
+```sh
+nintendo3ds/build/host-sim nintendo3ds/local-data/3ds/openbw \
+  nintendo3ds/local-data/3ds/openbw/maps/probe.scx empty 240
+```
+
+Replace `empty` with `two` or `melee`. Host timings are not 3DS benchmarks.
+An optional loose-asset loader is compiled too: when `arr/units.dat` exists,
+it reads required paths directly below the supplied data root. Offline CASC
+extraction is not implemented or validated; renaming CASC blobs to MPQ cannot
+work. Loose filenames must match upstream's path spelling and case.
+
+## Controls: stick and A/B, no mouse
+
+The game has no mouse input backend. The touchscreen is used **only** inside
+the bottom minimap rectangle (x=8..127, y=144..231).
+
+| Input | Current behavior |
+| --- | --- |
+| Circle Pad | Move the top-screen virtual cursor; scroll camera when pushed into an edge |
+| A | Select the closest own visible unit within 24 world pixels; empty space clears selection |
+| B | Give the selected own unit a Move order at the cursor via OpenBW's action system |
+| Minimap touch/drag | Center/clamp the camera; never move the virtual cursor or issue orders |
+| L | Load/reload the currently chosen probe scenario from SD |
+| R | Choose the scenario for the next load |
+| SELECT | Pause/resume simulation |
+| Y | Advance one tick while paused |
+| X | Toggle CSV logging to `logs/benchmark.csv` |
+| START | Exit to the homebrew launcher |
+
+The upper screen currently shows a diagnostic grid, cursor and simple colored
+unit markers when data is loaded. This is not StarCraft terrain/sprite rendering
+or fog-of-war rendering. The minimap similarly shows unit markers and the
+camera rectangle rather than decoded terrain. Real selection/movement and
+marker rendering require an asset-backed test before being called working.
+
+## Architecture analysis
+
+| Component | Source | Port decision / observed result |
+| --- | --- | --- |
+| Simulation, movement, combat, triggers, region generation | `bwgame.h` | Header-based C++14 core; compiles for ARM11 after one MPQ fix |
+| Shared types and fixed-point math | `data_types.h`, `game_types.h`, `util.h` | Keep; platform `int_fastN_t` widths differ, so desktop behavior alone cannot prove ARM correctness |
+| Orders, selection and action parsing | `actions.h` | Reuse action_select/action_order for physical controls; no synthetic mouse events |
+| MPQ, DAT, CHK, binary readers, PKWARE decoder | `data_loading.h` | Reuse paged stdio reader on SD; one explicit lambda return type required |
+| Allocators and containers | `containers.h`, `game_types.h` | Standard allocator, vector/deque/list/map and chunked object pools; not an allocation-free engine |
+| Desktop software graphics | `ui/ui.h`, `ui/native_window_drawing.h`, `ui/sdl2.cpp` | Paletted software drawing/palette expansion; replace platform/rendering layer with Citro2D |
+| Desktop sound | `ui/native_sound.h`, `ui/sdl2.cpp` | SDL audio/mixer implementation excluded. ndsp init/cleanup exists; game WAV decoding/mixing/playback remains future work |
+| Desktop input | `ui/native_window.h`, `ui/sdl2.cpp` | SDL events excluded. libctru HID drives a platform-independent controller |
+| Browser UI/backend/bot | `web/` | Excluded; useful existing `wasm_sim_test.cpp` demonstrates headless separation |
+| Networking / sync | `sync.h`, `sync_server_asio_*.h`, `deps/asio` | Excluded for initial local single-player experiments |
+| Replay / BWAPI | `replay.h` and external BWAPI wrapper | Not required by this probe |
+
+`game_player::init(loader)`, `game_load_functions::load_map_data` and
+`game_player::next_frame()` are sufficient to drive simulation without the UI.
+The engine uses stdio for file access, not an essential desktop OS service.
+No SSE/NEON or desktop thread layer is required by the included core.
+However, headless does **not** mean graphics data is unnecessary: global_init
+loads image metadata, GRPs, animation/iscript and LO offsets, plus VF4/CV5 for
+all eight tilesets. Animation state and collision dimensions participate in
+simulation. Do not disable iscript or discard GRPs without proving equivalent
+behavior.
+
+### ARM11 compatibility fixes and build decisions
+
+1. `data_loading.h`: the DCL decoder's get_length lambda mixed integer literals
+   with expressions derived from uint_fast8_t. On devkitARM this promotes to
+   unsigned int, causing inconsistent deduced return-type errors. Explicit
+   `-> int` preserves decoder values and compiles on both targets. This is the
+   only modification to upstream engine files.
+2. Retain exceptions and RTTI. The usual SDK example's `-fno-exceptions` and
+   `-fno-rtti` cannot be copied unchanged: core code uses `typeid`, and recoverable
+   load errors use C++ exceptions. The UI catches load/tick failures and reports
+   them. OpenBW's alternative OPENBW_NO_EXCEPTIONS abort mode is not enabled.
+3. Use `-march=armv6k -mtune=mpcore -mfloat-abi=hard -mtp=soft`, GNU C++14,
+   `-O2`, function/data sections and linker GC. No New 3DS speedup API or extra
+   RAM mode. No fast-math or simulation-timing changes.
+4. `-fno-strict-aliasing` accommodates upstream binary/type-punning conventions.
+   Existing bounds/alignment checks remain. Unaligned little-endian access is
+   part of the in-application smoke test.
+5. This SDK's standard 3dsx.specs includes sync-dmb.specs, pulling an ARMv7 DMB
+   helper into link attributes even though its code was discarded. The isolated
+   `arm11.specs` uses the SDK's sync-cp15dmb.specs with the normal 3DSX startup
+   objects/linker script. The final ELF advertises ARMv6K, Thumb-1 and VFPv2.
+   `make` verifies these attributes and rejects Thumb-2/NEON. This is an ISA
+   compatibility check, not a substitute for running on an original console.
+
+## Original 3DS performance and memory plan
+
+Treat approximately 268 MHz ARM11 and constrained application memory as the
+baseline; total system RAM is not the application heap, and the second CPU core
+is not assumed to double available simulation throughput. Reserve 40 MiB normal
+heap, 4 MiB linear heap and 256 KiB stack explicitly. These are chosen budgets,
+not evidence that game initialization fits. The final ELF's resident sections
+are approximately 0.81 MiB before stacks/heaps/framebuffers; the debug ELF's
+15 MB on-disk size includes debug information.
+
+The first emulator build reported `sizeof(state)=38740`, `sizeof(unit_t)=716`
+on the target versus 47720/976 on this ARM64 host. Actual dynamic allocations
+are additional. The application displays allocated normal heap and used linear
+heap separately; these are **not** total process memory or peak memory. CSV
+samples once per second can miss short loading peaks.
+
+Likely bottlenecks, identified from source, **not yet profiled with game data**:
+
+- Global GRP/LO/iscript decoding and all-tileset VF4/CV5 loading may consume the
+  budget even for an empty map. Asset preload and loading time must be measured
+  before committing a texture atlas or changing gameplay.
+- `regions_create()` allocates a fixed 1 MiB walkability scratch buffer even for
+  small maps. Region storage reserves 5000 entries; small maps do not eliminate
+  every upstream allocation. Measure before safely specializing these paths.
+- Long/short pathfinding, collision checks, unit-finder updates and trigger work
+  can spike when units move together. Measure idle, movement and combat apart.
+- The unit pool supports 1700 units and grows in chunks of 17; sprite/image/order
+  pools also grow in chunks. Low live-unit counts do not directly equal total
+  memory use. No dangerous upstream pool-size changes have been made.
+- 64-bit arithmetic, division, virtual calls, containers and scattered pointers
+  warrant ARM profiling. Avoid broad algorithm changes before a baseline.
+- CPU palette conversion/full-frame texture uploads would spend memory bandwidth;
+  the eventual terrain/sprite renderer should use preconverted atlas pages,
+  bounded caches, view culling and batching. Runtime conversion is not implemented.
+
+The scheduler adds exactly 24 tick credits per second using integer arithmetic.
+Each simulation step still invokes one unchanged next_frame. At most two ticks
+are processed before rendering, but remaining debt is kept and displayed.
+An overloaded device therefore visibly falls behind rather than silently
+changing gameplay timing. Pause and suspend/resume explicitly clear wall-time
+debt. The target tick budget is 41.667 ms; rendering aims for at least 30 FPS.
+Mean/max tick wall time, TPS, FPS, active-unit count and heap figures are shown;
+this is elapsed tick time, not a hardware CPU-utilization counter. CSV and the
+HUD have overhead and must be compared enabled/disabled during profiling.
+
+## Test evidence and remaining work
+
+See `nintendo3ds/reports/VALIDATION.md` for commands and measured results.
+No real-console benchmark and no successful asset-backed game initialization
+has been performed. Emulator UI FPS with zero game data proves only the shell
+and input/diagnostic path. It does not prove 24 simulation TPS or 1v1 feasibility.
+The two melee players are idle human slots; AI, economy/building controls,
+attack controls, networking, authentic sprite/terrain rendering and a pause menu
+are not implemented. Unit markers are capped at 128 for diagnostic rendering;
+this cap is not a gameplay unit limit.
+
+Next milestone, after the user's files arrive:
+
+1. Validate the archive format and required data using host-sim, then load the
+   same small map on the 3DS binary. Record load time and memory high-water mark.
+2. Run empty, two-unit movement and then small combat scenarios. Verify A/B
+   orders and selections against actual positions, without a mouse backend.
+3. Run each for at least 2400 ticks on an **original 3DS**; record sustained TPS,
+   mean/max (later percentiles) tick time and memory. Do not infer these from
+   emulator wall time.
+4. Profile exact bottlenecks before any timing or gameplay changes. Then add
+   tiled terrain/limited atlas sprites and basic AI, keeping a reproducible
+   headless baseline. Full 1v1 is a later measured milestone.
+5. New 3DS enhancements remain deferred until original hardware is evaluated.
