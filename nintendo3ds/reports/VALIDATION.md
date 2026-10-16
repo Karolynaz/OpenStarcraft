@@ -1,4 +1,7 @@
-# Validation — 2026-10-16
+# Initial validation — 2026-10-16
+
+This report records the initial smoke milestone before game data arrived.
+For current asset-backed results, see [ASSET_VALIDATION.md](ASSET_VALIDATION.md).
 
 Baseline upstream commit: `469d2037e2fd03085dac4729912f4188bc2a778b`.
 Platform: macOS ARM64; devkitARM GCC 16.1.0; existing libctru/Citro2D/Citro3D.

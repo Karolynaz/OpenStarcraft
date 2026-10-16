@@ -18,5 +18,11 @@ int main() {
     assert(c.minimap_touch(8, 144));
     assert(c.camera_x == 0 && c.camera_y == 0);
     assert(!c.minimap_touch(128, 232));
+    c.focus(128, 128);
+    assert(c.world_x() == 128 && c.world_y() == 128);
+    assert(c.camera_x == 0 && c.camera_y == 8);
+    c.focus(800, 800);
+    assert(c.cursor_x == 200 && c.cursor_y == 120);
+    assert(c.world_x() == 800 && c.world_y() == 800);
     std::puts("Stick cursor / edge scroll / minimap-only touch PASS");
 }

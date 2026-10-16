@@ -1,6 +1,7 @@
 # OpenBW on the original Nintendo 3DS
 
-Status: experimental ARM11 diagnostic application, **not yet a playable port**.
+Status: asset-backed simulation and stick/A/B movement tested in the emulator;
+**not yet a playable StarCraft port**. No original-console measurements yet.
 Updated: 2026-10-16. Baseline: `heiner/openbw` commit
 `469d2037e2fd03085dac4729912f4188bc2a778b`.
 
@@ -21,8 +22,11 @@ Updated: 2026-10-16. Baseline: `heiner/openbw` commit
 - Added host tests for exact 24 Hz scheduling, retained tick debt, pause reset,
   stick input, minimap-only touch, and invalid-map / missing-asset recovery.
 - Added three load modes: empty map, two marines, and two idle melee players.
-  These modes are **implemented and compiled, not asset-tested**.
-- User will provide their purchased game data. Do not fetch game archives from
+  All three now load the user-provided MPQs in host and emulator tests. The
+  desktop movement test also verifies the selected marine reaches (256,128).
+- User supplied their purchased game data in the ignored `data files/` folder.
+  Private test data was staged locally and into the emulator SD directory.
+  Do not fetch game archives from
   third-party download sites or run the inherited `web/scdat.py fetch` command.
 
 ## Build on this Mac
@@ -57,8 +61,10 @@ the macOS installer. Installation was unnecessary on this machine.
 No Blizzard data is committed or embedded in the executable. Game data should
 come from the user's own installation/extracted purchase. The observed
 `/Applications/StarCraft` installation has CASC `Data/` storage and maps, rather
-than the three classic MPQs expected by upstream. No game files were copied;
-the user has elected to provide classic data separately. The requested
+than the three classic MPQs expected by upstream. The user subsequently provided classic MPQs in `data files/`; only Patch_rt,
+BrooDat and StarDat plus a 64x64 map from their installation were staged for
+testing. The large StarCraft.mpq/BroodWar.mpq CD containers are not needed for
+this core milestone. The requested
 `/Applications/Games` directory did not contain those MPQs either.
 
 ```text
@@ -78,12 +84,12 @@ asset initialization. The loader is not hardened for arbitrary hostile maps.
 The internal MPQ reader requires a header at offset zero and supports a subset
 of compression methods; newer archives may require offline extraction.
 
-When the user's files arrive, stage a private SD folder:
+To stage a private SD folder from the supplied files:
 
 ```sh
 python3 nintendo3ds/tools/stage_assets.py \
-  --source "/path/to/your/classic/StarCraft" \
-  --map "/path/to/your/small/map.scx"
+  --source "data files" \
+  --map "/Applications/StarCraft/Maps/(2)The Small Divide.scm"
 ```
 
 This locates archive names case-insensitively, checks MPQ signatures, hashes
@@ -97,7 +103,14 @@ nintendo3ds/build/host-sim nintendo3ds/local-data/3ds/openbw \
   nintendo3ds/local-data/3ds/openbw/maps/probe.scx empty 240
 ```
 
-Replace `empty` with `two` or `melee`. Host timings are not 3DS benchmarks.
+Replace `empty` with `two`, `move` (assert select-and-move behavior), or `melee`.
+Host timings are not 3DS benchmarks. The optional private-data suite runs all
+four modes for 2400 ticks each:
+
+```sh
+python3 nintendo3ds/tests/assets.py --data "data files" \
+  --map "/Applications/StarCraft/Maps/(2)The Small Divide.scm"
+```
 An optional loose-asset loader is compiled too: when `arr/units.dat` exists,
 it reads required paths directly below the supplied data root. Offline CASC
 extraction is not implemented or validated; renaming CASC blobs to MPQ cannot
@@ -121,11 +134,13 @@ the bottom minimap rectangle (x=8..127, y=144..231).
 | X | Toggle CSV logging to `logs/benchmark.csv` |
 | START | Exit to the homebrew launcher |
 
-The upper screen currently shows a diagnostic grid, cursor and simple colored
+On load, the camera and cursor focus on the first own visible unit so A can
+select it immediately. The upper screen shows a diagnostic grid, cursor and simple colored
 unit markers when data is loaded. This is not StarCraft terrain/sprite rendering
 or fog-of-war rendering. The minimap similarly shows unit markers and the
-camera rectangle rather than decoded terrain. Real selection/movement and
-marker rendering require an asset-backed test before being called working.
+camera rectangle rather than decoded terrain. Selection with A and movement with B have now been tested with the real
+engine in the emulator; host tests also verify the resulting coordinates.
+Physical touchscreen input still requires a reliable integration test.
 
 ## Architecture analysis
 
@@ -183,7 +198,10 @@ Treat approximately 268 MHz ARM11 and constrained application memory as the
 baseline; total system RAM is not the application heap, and the second CPU core
 is not assumed to double available simulation throughput. Reserve 40 MiB normal
 heap, 4 MiB linear heap and 256 KiB stack explicitly. These are chosen budgets,
-not evidence that game initialization fits. The final ELF's resident sections
+not the device's entire available RAM. The tested map and idle 1v1 state fit:
+normal heap was about 23.53 MiB, plus about 2.06 MiB linear usage in the
+emulator. This does not establish load-time high-water or real-console RAM
+usage. The final ELF's resident sections
 are approximately 0.81 MiB before stacks/heaps/framebuffers; the debug ELF's
 15 MB on-disk size includes debug information.
 
@@ -193,7 +211,8 @@ are additional. The application displays allocated normal heap and used linear
 heap separately; these are **not** total process memory or peak memory. CSV
 samples once per second can miss short loading peaks.
 
-Likely bottlenecks, identified from source, **not yet profiled with game data**:
+Likely bottlenecks identified from source; initial game-data measurements
+are now in `nintendo3ds/reports/ASSET_VALIDATION.md`:
 
 - Global GRP/LO/iscript decoding and all-tileset VF4/CV5 loading may consume the
   budget even for an empty map. Asset preload and loading time must be measured
@@ -225,24 +244,22 @@ HUD have overhead and must be compared enabled/disabled during profiling.
 ## Test evidence and remaining work
 
 See `nintendo3ds/reports/VALIDATION.md` for commands and measured results.
-No real-console benchmark and no successful asset-backed game initialization
-has been performed. Emulator UI FPS with zero game data proves only the shell
-and input/diagnostic path. It does not prove 24 simulation TPS or 1v1 feasibility.
-The two melee players are idle human slots; AI, economy/building controls,
+Asset-backed initialization, 2400-tick host scenarios and emulator A/B movement
+now pass; see `nintendo3ds/reports/ASSET_VALIDATION.md` and the raw CSV results.
+The emulator was temporarily set to original-3DS mode at 100% CPU-clock setting.
+The tested scenarios sustain approximately 24 TPS and 60 FPS there, with zero
+observed tick debt. This does not prove original-hardware performance.
+The two melee players remain idle human slots; AI, economy/building controls,
 attack controls, networking, authentic sprite/terrain rendering and a pause menu
 are not implemented. Unit markers are capped at 128 for diagnostic rendering;
 this cap is not a gameplay unit limit.
 
-Next milestone, after the user's files arrive:
+Next milestone:
 
-1. Validate the archive format and required data using host-sim, then load the
-   same small map on the 3DS binary. Record load time and memory high-water mark.
-2. Run empty, two-unit movement and then small combat scenarios. Verify A/B
-   orders and selections against actual positions, without a mouse backend.
-3. Run each for at least 2400 ticks on an **original 3DS**; record sustained TPS,
-   mean/max (later percentiles) tick time and memory. Do not infer these from
-   emulator wall time.
-4. Profile exact bottlenecks before any timing or gameplay changes. Then add
-   tiled terrain/limited atlas sprites and basic AI, keeping a reproducible
-   headless baseline. Full 1v1 is a later measured milestone.
-5. New 3DS enhancements remain deferred until original hardware is evaluated.
+1. Run the current empty/two/movement/idle-melee tests on an **original 3DS**;
+   record load-time memory high-water, sustained TPS and tick-time distributions.
+2. Add offline-preconverted terrain and limited sprite atlas pages now that
+   the initial simulation/data path works. Keep the diagnostic/headless baseline.
+3. Add controlled combat fixtures and profile pathfinding before adding basic
+   AI and economy commands. Preserve stick/A/B and minimap-only touch controls.
+4. New 3DS enhancements remain deferred until original hardware is evaluated.

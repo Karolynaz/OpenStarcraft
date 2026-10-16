@@ -19,6 +19,13 @@ public:
         height_ = std::max(240.0f, tile_height * 32.0f);
         clamp_camera();
     }
+    void focus(int world_x, int world_y) {
+        camera_x = world_x - 200.0f;
+        camera_y = world_y - 120.0f;
+        clamp_camera();
+        cursor_x = std::max(0.0f, std::min(399.0f, world_x - camera_x));
+        cursor_y = std::max(0.0f, std::min(239.0f, world_y - camera_y));
+    }
     void stick(int dx, int dy, float seconds) {
         auto axis = [](int value) {
             const int magnitude = std::abs(value);

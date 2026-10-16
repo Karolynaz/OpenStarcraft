@@ -75,7 +75,14 @@ int main() {
                 scheduler.reset();
                 controls = port3ds::Controls{};
                 const auto state = engine.snapshot();
-                if (engine.ready()) controls.map_size(state.width, state.height);
+                if (engine.ready()) {
+                    controls.map_size(state.width, state.height);
+                    const auto count = engine.visible_units(units, 128);
+                    for (std::size_t i = 0; i != count; ++i) if (units[i].owner == 0) {
+                        controls.focus(units[i].x, units[i].y);
+                        break;
+                    }
+                }
                 previous = interval = now_us();
                 renders = ticks = 0; tick_sum = tick_max = 0;
                 fps = tps = mean = worst = 0;
