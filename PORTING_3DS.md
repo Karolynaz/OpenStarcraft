@@ -1,8 +1,8 @@
 # OpenBW on the original Nintendo 3DS
 
-Status: terrain/sprites, stick/A/B commands and a limited Terran economy/
-production/combat loop implemented;
-**still an experimental prototype with no opponent AI**. No original-console measurements yet.
+Status: automatic Terran AI vs AI, manual player vs AI, group selection and
+controller bookmarks implemented on the original-3DS build. Fog is deliberately
+disabled. Still a limited experimental profile; no original-console measurements.
 Updated: 2026-10-16. Baseline: `heiner/openbw` commit
 `469d2037e2fd03085dac4729912f4188bc2a778b`.
 
@@ -30,15 +30,31 @@ Updated: 2026-10-16. Baseline: `heiner/openbw` commit
   Do not fetch game archives from
   third-party download sites or run the inherited `web/scdat.py fetch` command.
 
-## Renderer milestone
+## Current AI observer milestone
 
-The upper screen now draws the actual map terrain and simulation-driven sprite
-frames, including player colors, horizontal flips and basic shadows. The bottom
-screen has a real terrain minimap. The default scenario is **Two marines**:
-press L to load it, A to select, Circle Pad to aim, B to move/interact/attack.
-The enemy marine now starts at (512,128), on the same accessible test area. R cycles the next
-load mode (idle melee, empty, two marines). A loading message is shown before
-blocking SD reads. See `nintendo3ds/reports/RENDERER_VALIDATION.md`.
+The application now automatically loads **Terran AI vs AI** on the private
+64x64 Blood Bath map, with no input required. The camera follows bases, moving
+armies and combat, and CSV performance logging starts automatically. The bots
+mine, build Supply Depots and Barracks, train Marines, attack and reach a win
+condition using the original game rules and costs. They are small deterministic
+test controllers, not the original Blizzard campaign AI interpreter.
+
+The previous Small Divide terrain has no ground route between the start areas;
+it remains a historical asset/renderer fixture. AI ground modes now reject
+unconnected starts explicitly. Blood Bath has four start locations, but only
+two player slots are active, giving the requested 1v1.
+
+START opens scenario/camera/logging/exit settings. SELECT pauses. Circle Pad
+moves the virtual pointer, A acts, B cancels; L/R are modifiers only. X selects
+military units on screen, L+X all own workers, Y/L+Y primary/secondary menus.
+R+D-pad saves four groups; a double tap on a direction recalls and centers its
+group. Bottom menus support buttons and touch. See `nintendo3ds/CONTROLS.md` and
+`nintendo3ds/reports/AI_VALIDATION.md` for current controls and test evidence.
+
+Terrain, simulation-driven sprites/player colors, basic shadows, health bars,
+resource/supply readouts and the terrain minimap remain in use. The renderer
+shows the whole map; no fog is drawn. A loading message is presented before
+blocking SD IO.
 
 Graphics are prepared offline from the user's data and kept out of Git:
 
@@ -121,7 +137,7 @@ To stage a private SD folder from the supplied files:
 ```sh
 python3 nintendo3ds/tools/stage_assets.py \
   --source "data files" \
-  --map "/Applications/StarCraft/Maps/(2)The Small Divide.scm"
+  --map "/Applications/StarCraft/Maps/(4)Blood Bath.scm"
 ```
 
 This locates archive names case-insensitively, checks MPQ signatures, hashes
@@ -142,42 +158,34 @@ construction, supply, Marine production and damage/death without cheats:
 
 ```sh
 python3 nintendo3ds/tests/assets.py --data "data files" \
-  --map "/Applications/StarCraft/Maps/(2)The Small Divide.scm"
+  --map "/Applications/StarCraft/Maps/(4)Blood Bath.scm"
 ```
 An optional loose-asset loader is compiled too: when `arr/units.dat` exists,
 it reads required paths directly below the supplied data root. Offline CASC
 extraction is not implemented or validated; renaming CASC blobs to MPQ cannot
 work. Loose filenames must match upstream's path spelling and case.
 
-## Controls: stick and A/B, no mouse
+## Controls and touch
 
-The game has no mouse input backend. The touchscreen is used **only** inside
-the bottom minimap rectangle (x=8..127, y=144..231).
+The current mapping is documented in `nintendo3ds/CONTROLS.md`. A executes
+contextual actions/selection or confirms a menu/placement; B cancels the current
+UI action or clears selection. L and R alone never load/restart anything. START
+provides system options, including player vs AI and the two-Marine probe.
 
-| Input | Current behavior |
-| --- | --- |
-| Circle Pad | Move the top-screen virtual cursor; scroll camera when pushed into an edge |
-| A | Select an own unit inside its collision box plus 6-pixel tolerance; cancel an active building preview |
-| B | OpenBW contextual order: move, gather minerals, attack enemy, resume construction/repair, or rally; confirm building placement during preview |
-| Minimap touch/drag | Center/clamp the camera; never move the virtual cursor or issue orders |
-| L | Load/reload the currently chosen probe scenario from SD |
-| R | Choose the scenario for the next load |
-| SELECT | Pause/resume simulation |
-| X / Y | Attack-move to cursor / Stop while running; CSV toggle / one simulation step while paused |
-| D-pad Up | Train SCV at selected Command Center or Marine at selected Barracks |
-| D-pad Right / Down | Preview Barracks (150 minerals) / Supply Depot (100); green/red footprint follows cursor, B places, A cancels |
-| D-pad Left | Cancel placement, incomplete selected building, or last production queue entry |
-| START | Exit to the homebrew launcher |
+The touchscreen controls camera movement inside the minimap rectangle
+(x=8..127, y=144..231). Following the updated user request, touching an **open**
+bottom menu also activates that row. All other touch locations are ignored.
+No desktop mouse backend is included. In observer mode game orders are blocked
+so incidental input does not change either bot's match.
 
-On load, the camera and cursor focus on the first own visible unit. Actual
-terrain and supported unit/building/resource sprites replace the diagnostic
-grid when graphics.bin passes validation. A/B selection/movement and minimap
-camera relocation are verified in the emulator; touching outside the minimap
-leaves camera/cursor unchanged. Resources, supply, selection HP and queue length
-are displayed, with a health bar over the selected unit. Fog-of-war rendering
-and a full command panel remain future work. Glow/cloak/warp palette-remap layers
-are omitted to avoid drawing their indices as colors. The renderer reveals the map and
-all sprite-list units; it does not change the simulation's vision state.
+Selections/bookmarks use generation-checked 32-bit IDs, with four group slots
+and up to 64 members. Native orders are batched in groups of twelve. Double tap
+within 350 ms centers the recalled group without moving the pointer. Dead
+members are removed on recall; reload clears every group.
+
+Basic SCV construction supports Depot/Barracks; advanced build is a visible
+placeholder until its units, economy and graphics are added. Siege/Unsiege has
+a native primary-action route, but tanks are not in the delivered roster.
 
 ## Architecture analysis
 
@@ -283,29 +291,28 @@ HUD have overhead and must be compared enabled/disabled during profiling.
 
 ## Test evidence and remaining work
 
-See `nintendo3ds/reports/GAMEPLAY_VALIDATION.md` for current command results,
-`RENDERER_VALIDATION.md` for the initial renderer measurements, and
-`ASSET_VALIDATION.md` / `VALIDATION.md` for the earlier milestones.
-Asset-backed initialization, 2400-tick host scenarios and emulator A/B movement
-now pass; see `nintendo3ds/reports/ASSET_VALIDATION.md` and the raw CSV results.
-The emulator was temporarily set to original-3DS mode at 100% CPU-clock setting.
-The tested scenarios sustain approximately 24 TPS and 60 FPS there, with zero
-observed tick debt. This does not prove original-hardware performance.
-The two melee slots remain human controlled with no opponent AI; networking
-and a pause menu are not implemented. The supported command profile is SCV,
-Marine, Command Center, Supply Depot and Barracks. Economy, construction,
-training and combat use unchanged OpenBW rules, costs and build times. See
-`nintendo3ds/reports/GAMEPLAY_VALIDATION.md` for this milestone. Rendering
-is bounded to 512 on-screen image layers and 128 minimap/selection unit entries;
-these are renderer limits, not gameplay unit limits. The atlas profile covers
-the current Terran probe scenarios, not the full unit roster or effects set.
+See `nintendo3ds/reports/AI_VALIDATION.md` for current AI/observer/control results.
+`GAMEPLAY_VALIDATION.md`, `RENDERER_VALIDATION.md`, `ASSET_VALIDATION.md` and
+`VALIDATION.md` preserve the earlier milestones and their historical binaries.
+The host suite covers invalid maps, scheduler/input behavior, private asset
+loading, gathering, construction/training/refunds, thirteen-unit group orders,
+bookmarks, damage/death, and a complete deterministic AI vs AI match.
 
-Next milestone:
+Each bot applies a production budget of 40 live/pending units, six workers and
+up to 24 Marines. It never deletes units or changes native simulation limits.
+The on-device unit/minimap view buffer now holds 192 entries, covering both
+budgets plus the prepared map's neutral resources. Visible image layers remain
+bounded at 512. Normal/linear heap reservations stay 36/8 MiB (44 MiB total).
+The graphics profile fits eight pages / 4 MiB; map/graphics/executable must be
+copied together. Unsupported palette-remap effects remain omitted.
 
-1. Run the current empty/two/movement/idle-melee tests on an **original 3DS**;
-   record load-time memory high-water, sustained TPS and tick-time distributions.
-2. Extend rendering with fog visibility and broaden the bounded graphics
-   profile; investigate map-independent streaming before expanding the roster.
-3. Profile active economy/combat on hardware, enforce a practical unit budget
-   and then add a small opponent AI. Preserve stick/A/B and minimap-only touch.
-4. New 3DS enhancements remain deferred until original hardware is evaluated.
+Still missing: original campaign AI bytecode execution, campaign triggers and
+presentation completeness, advanced buildings/units, gas economy, game audio,
+save/load, networking, and physical original-3DS performance evidence. Fog is
+intentionally deferred according to the user's request. The prepared terrain
+and roster remain a bounded test profile rather than a general StarCraft port.
+
+Next work: measure sustained economy/combat on an original 3DS; use those
+results to choose useful stress presets and unit budgets, then expand the
+Terran roster and advanced command menus without changing the agreed controls.
+New 3DS enhancements remain deferred until original hardware is evaluated.

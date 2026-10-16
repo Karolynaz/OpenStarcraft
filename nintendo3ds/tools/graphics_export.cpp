@@ -1,6 +1,7 @@
 // Host-only reader: use OpenBW's proven MPQ/GRP code, not a second decoder.
 #include "actions.h"
 #include "../tests/gameplay.h"
+#include "../tests/battle.h"
 #include <cstdio>
 #include <set>
 #include <stdexcept>
@@ -23,15 +24,12 @@ int main(int argc, char** argv) {
         std::set<unsigned> ids;
         // Drive the same public commands as the device, covering cargo,
         // construction, training, weapons and death effects as well as idle.
-        port3ds::SpriteView images[512];
-        gameplay_tests(argv[1], argv[2], [&](port3ds::Engine& engine) {
-            const auto map = engine.snapshot();
-            for (unsigned y=0; y<map.height*32; y+=240)
-                for (unsigned x=0; x<map.width*32; x+=400) {
-                    const auto count=engine.visible_images(images,512,x,y);
-                    for (unsigned i=0;i<count;++i) ids.insert(images[i].image);
-                }
-        });
+        auto profile=[&](port3ds::Engine& engine) {
+            unsigned images[256];const auto count=engine.image_types(images,256);
+            for(unsigned i=0;i<count;++i) ids.insert(images[i]);
+        };
+        gameplay_tests(argv[1],argv[2],profile);
+        battle_test(argv[1],argv[2],profile);
         for (unsigned mode = 0; mode != 2; ++mode) {
             // Like the device adapter, use a fresh state for each map load.
             // Reusing upstream's live state leaves stale unit-finder pointers.

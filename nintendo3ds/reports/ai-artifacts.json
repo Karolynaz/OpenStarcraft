@@ -1,0 +1,14 @@
+{
+  "openbw-3ds.3dsx": {
+    "bytes": 879152,
+    "sha256": "dbaa5d2a251f34e8ef81806a775f127a0835c133a10993a4831258cb6e002b4b"
+  },
+  "graphics.bin": {
+    "bytes": 4242724,
+    "sha256": "ed71bd4cb1120b31641ca0c3cd1bad5955916d7859bdce019898e35e13656457"
+  },
+  "maps/probe.scx": {
+    "bytes": 31048,
+    "sha256": "00f955a8d5817cc5194cef4649e690ca892758a1f375cdb75c63e63a8489fdfe"
+  }
+}

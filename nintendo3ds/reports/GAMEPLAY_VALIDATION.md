@@ -1,5 +1,8 @@
 # Limited Terran gameplay — 2026-10-16
 
+This is the earlier gameplay milestone. See `AI_VALIDATION.md` and
+`../CONTROLS.md` for the current automatic AI match and input mapping.
+
 This milestone connects the physical controls to OpenBW's original action
 system. It supports SCV mining, SCV/Marine training, Supply Depot and Barracks
 construction, production cancellation/refunds, contextual attacks, attack-move

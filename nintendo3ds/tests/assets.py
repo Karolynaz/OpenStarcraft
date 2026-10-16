@@ -30,9 +30,12 @@ for scenario in ("empty", "two", "move", "melee"):
 result = subprocess.run([str(exe), str(args.data), str(args.map), "commands"],
                         check=True, capture_output=True, text=True)
 print(result.stdout, end="")
+result = subprocess.run([str(exe), str(args.data), str(args.map), "ai"],
+                        check=True, capture_output=True, text=True)
+print(result.stdout, end="")
 if args.output:
     with args.output.open("w", newline="") as f:
         writer = csv.DictWriter(f, fieldnames=rows[0].keys())
         writer.writeheader()
         writer.writerows(rows)
-print(f"Private-asset initialization / {args.ticks}-tick scenarios / movement / economy / production / combat PASS")
+print(f"Private-asset initialization / {args.ticks}-tick scenarios / movement / economy / production / combat / AI battle PASS")

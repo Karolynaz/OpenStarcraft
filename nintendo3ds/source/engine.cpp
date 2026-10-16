@@ -1,6 +1,7 @@
 #include "engine.h"
 #include "actions.h"
 #include "graphics_format.h"
+#include "battle_ai.h"
 #include <cstdio>
 #include <cstring>
 #include <stdexcept>
@@ -11,7 +12,15 @@ struct Engine::Impl {
     std::unique_ptr<game_player> player;
     char message[192] = "Not loaded";
     bool loaded = false;
-    unit_id selected;
+    static_vector<unit_id_32,64> selected;
+    std::array<static_vector<unit_id_32,64>,4> groups;
+    detail::BattleAI ai;
+    unit_t* first_selected() const {
+        if (!loaded) return nullptr;
+        for (auto id:selected) if (auto* u=player->funcs().get_unit(id))
+            if (!player->funcs().unit_dead(u)) return u;
+        return nullptr;
+    }
     const char* command_message = "A select / B act";
 };
 
@@ -76,7 +85,9 @@ Engine::Engine() : impl_(new Impl) {}
 Engine::~Engine() = default;
 bool Engine::load(const char* data_root, const char* map_path, Scenario scenario) {
     impl_->loaded = false;
-    impl_->selected = unit_id{};
+    impl_->selected.clear();
+    for (auto& g:impl_->groups) g.clear();
+    impl_->ai.reset(scenario==Scenario::ai_battle,scenario==Scenario::ai_battle || scenario==Scenario::versus_ai);
     impl_->player.reset();
     try {
         a_vector<uint8_t> chk;
@@ -106,7 +117,8 @@ bool Engine::load(const char* data_root, const char* map_path, Scenario scenario
         }
         game_load_functions loader(player.st());
         loader.load_map_data(chk.data(), chk.size(), [&]() {
-            loader.setup_info.create_no_units = scenario != Scenario::melee;
+            const bool melee=scenario==Scenario::melee || scenario==Scenario::ai_battle || scenario==Scenario::versus_ai;
+            loader.setup_info.create_no_units = !melee;
             loader.setup_info.victory_condition = 0;
             loader.setup_info.resource_type = 1;
             loader.setup_info.starting_minerals = 50;
@@ -114,7 +126,7 @@ bool Engine::load(const char* data_root, const char* map_path, Scenario scenario
                 auto& p = player.st().players[i];
                 p.controller = i < 2 ? player_t::controller_occupied : player_t::controller_inactive;
                 p.race = race_t::terran;
-                loader.setup_info.create_melee_units_for_player[i] = i < 2 && scenario == Scenario::melee;
+                loader.setup_info.create_melee_units_for_player[i] = i < 2 && melee;
             }
         });
         // Both slots are human/idle: this probe does not claim a functioning AI.
@@ -123,6 +135,13 @@ bool Engine::load(const char* data_root, const char* map_path, Scenario scenario
             if (!loader.create_initial_unit(type, {128, 128}, 0) ||
                 !loader.create_initial_unit(type, {512, 128}, 1))
                 throw std::runtime_error("Could not place the two probe units");
+        }
+        if(scenario==Scenario::ai_battle || scenario==Scenario::versus_ai) {
+            unit_t* bases[2]={nullptr,nullptr};
+            for(unsigned p=0;p!=2;++p) for(auto* u:ptr(player.st().player_units[p]))
+                if(loader.unit_is(u,UnitTypes::Terran_Command_Center)) bases[p]=u;
+            if(!bases[0] || !bases[1] || !loader.is_reachable(bases[0],bases[1]))
+                throw std::runtime_error("AI ground battle needs connected start locations");
         }
         impl_->loaded = true;
         std::snprintf(impl_->message, sizeof impl_->message, "Loaded %ux%u tiles", width, height);
@@ -137,6 +156,7 @@ bool Engine::tick() {
     if (!impl_->loaded) return false;
     try {
         impl_->player->next_frame();
+        impl_->ai.step(*impl_->player);
         return true;
     } catch (const std::exception& e) {
         std::snprintf(impl_->message, sizeof impl_->message, "%s", e.what());
@@ -155,10 +175,26 @@ Snapshot Engine::snapshot() const {
     s.supply = st.supply_used[0][race].integer_part();
     s.supply_max = st.supply_available[0][race].integer_part();
     const auto& funcs = impl_->player->funcs();
-    if (const auto* u = funcs.get_unit(impl_->selected)) if (!funcs.unit_dead(u)) {
+    if (const auto* u = impl_->first_selected()) {
         s.selected_name = unit_name(u);
         s.selected_hp = u->hp.integer_part(); s.selected_max_hp = u->unit_type->hitpoints.integer_part();
         s.queue = u->build_queue.size();
+        s.selection=funcs.ut_worker(u) ? SelectionKind::workers : funcs.unit_is(u,UnitTypes::Terran_Command_Center) ?
+            SelectionKind::command_center : funcs.unit_is(u,UnitTypes::Terran_Barracks) ? SelectionKind::barracks : SelectionKind::other;
+    }
+    for(auto id:impl_->selected) if(auto* u=funcs.get_unit(id)) if(!funcs.unit_dead(u)) ++s.selected;
+    s.observer=impl_->ai.observer(); s.winner=impl_->ai.winner();
+    for(unsigned p=0;p!=2;++p) {
+        auto& v=s.players[p];
+        v.minerals=st.current_minerals[p]; v.gas=st.current_gas[p];
+        v.supply=st.supply_used[p][race].integer_part(); v.supply_max=st.supply_available[p][race].integer_part();
+        v.ai=impl_->ai.enabled(p); v.trained=impl_->ai.trained(p); v.built=impl_->ai.built(p); v.waves=impl_->ai.waves(p); v.lost=impl_->ai.lost(p);
+        for(const auto& u:st.player_units[p]) if(!funcs.unit_dead(&u)) {
+            ++v.live;
+            if(funcs.ut_worker(&u)) ++v.workers;
+            else if(funcs.ut_building(&u)) ++v.buildings;
+            else ++v.army;
+        }
     }
     for (unsigned p = 0; p != 12; ++p)
         for (const auto& u : st.player_units[p]) { (void)u; ++s.units; }
@@ -169,9 +205,91 @@ bool Engine::ready() const { return impl_->loaded; }
 bool Engine::select(int x, int y) {
     if (!ready()) return false;
     auto& funcs = impl_->player->funcs();
-    auto* nearest = hit_unit(funcs, x, y, true);
-    impl_->selected = nearest ? funcs.get_unit_id(nearest) : unit_id{};
-    return nearest != nullptr;
+    auto* nearest = hit_unit(funcs, x, y, !impl_->ai.observer());
+    impl_->selected.clear();
+    if(nearest && nearest->owner<2) impl_->selected.push_back(funcs.get_unit_id_32(nearest));
+    return !impl_->selected.empty();
+}
+void Engine::clear_selection() { impl_->selected.clear(); }
+bool Engine::activate(int x,int y) {
+    if(!ready()) return false;
+    if(impl_->ai.observer()) { const bool ok=select(x,y); impl_->command_message=ok?"Observer selection":"Selection cleared"; return ok; }
+    auto& f=impl_->player->funcs();
+    auto* target=hit_unit(f,x,y,true);
+    const auto* current=impl_->first_selected();
+    if(target && (!current || !f.ut_worker(current) || !f.ut_building(target) ||
+        (f.u_completed(target) && target->hp>=target->unit_type->hitpoints))) {
+        const bool ok=select(x,y); impl_->command_message=ok?"Unit selected":"Selection cleared"; return ok;
+    }
+    if(!current) { const bool ok=select(x,y); impl_->command_message=ok?"Unit selected":"Select a unit first"; return ok; }
+    return command(Command::context,x,y);
+}
+unsigned Engine::select_army(int cx,int cy) {
+    impl_->selected.clear();
+    if(!ready()) return 0;
+    const auto& f=impl_->player->funcs();
+    for(const auto* u:ptr(impl_->player->st().visible_units)) {
+        if(u->owner!=0 || f.unit_dead(u) || !f.u_completed(u) || f.ut_worker(u) || f.ut_building(u) || f.us_hidden(u)) continue;
+        const auto p=u->sprite->position;
+        if(p.x<cx || p.x>=cx+400 || p.y<cy || p.y>=cy+240) continue;
+        if(impl_->selected.size()==64) break;
+        impl_->selected.push_back(f.get_unit_id_32(u));
+    }
+    return impl_->selected.size();
+}
+unsigned Engine::select_workers() {
+    impl_->selected.clear();
+    if(!ready()) return 0;
+    const auto& f=impl_->player->funcs();
+    for(const auto* u:ptr(impl_->player->st().visible_units)) {
+        if(u->owner!=0 || f.unit_dead(u) || !f.u_completed(u) || !f.ut_worker(u) || f.us_hidden(u)) continue;
+        if(impl_->selected.size()==64) break;
+        impl_->selected.push_back(f.get_unit_id_32(u));
+    }
+    return impl_->selected.size();
+}
+bool Engine::store_group(unsigned slot) {
+    if(slot>=4 || !ready()) return false;
+    impl_->groups[slot].clear();
+    const auto& f=impl_->player->funcs();
+    for(auto id:impl_->selected) if(auto* u=f.get_unit(id))
+        if(!f.unit_dead(u)) impl_->groups[slot].push_back(id);
+    return !impl_->groups[slot].empty();
+}
+bool Engine::recall_group(unsigned slot,int* x,int* y) {
+    if(slot>=4 || !ready()) return false;
+    impl_->selected.clear();
+    const auto& f=impl_->player->funcs();
+    int sx=0,sy=0;
+    for(auto id:impl_->groups[slot]) if(auto* u=f.get_unit(id)) {
+        if(f.unit_dead(u) || f.us_hidden(u) || (u->owner!=0 && !impl_->ai.observer())) continue;
+        impl_->selected.push_back(id); sx+=u->sprite->position.x; sy+=u->sprite->position.y;
+    }
+    impl_->groups[slot]=impl_->selected;
+    if(impl_->selected.empty()) return false;
+    if(x) *x=sx/static_cast<int>(impl_->selected.size());
+    if(y) *y=sy/static_cast<int>(impl_->selected.size());
+    return true;
+}
+bool Engine::observer_focus(int& x,int& y) const {
+    if(!ready()) return false;
+    const auto& st=impl_->player->st(); const auto& f=impl_->player->funcs();
+    const unit_t* moving=nullptr;
+    for(unsigned p=0;p!=2;++p) for(const auto* u:ptr(st.player_units[p])) {
+        if(f.unit_dead(u) || !f.unit_is(u,UnitTypes::Terran_Marine)) continue;
+        const auto* target=u->order_target.unit;
+        if(target && target->owner<2 && target->owner!=p && !f.unit_dead(target)) {
+            x=(u->sprite->position.x+target->sprite->position.x)/2;
+            y=(u->sprite->position.y+target->sprite->position.y)/2; return true;
+        }
+        if(u->order_type->id==Orders::AttackMove) moving=u;
+    }
+    if(moving) { x=moving->sprite->position.x; y=moving->sprite->position.y; return true; }
+    const unsigned side=(st.current_frame/360)%2;
+    for(const auto* u:ptr(st.player_units[side])) if(!f.unit_dead(u) && f.ut_building(u)) {
+        x=u->sprite->position.x; y=u->sprite->position.y; return true;
+    }
+    return false;
 }
 const char* Engine::command_status() const { return impl_->command_message; }
 PlacementView Engine::placement(Command building, int x, int y) const {
@@ -181,8 +299,8 @@ PlacementView Engine::placement(Command building, int x, int y) const {
     auto* type = funcs.get_unit_type(building == Command::depot ? UnitTypes::Terran_Supply_Depot : UnitTypes::Terran_Barracks);
     view.width = type->placement_size.x; view.height = type->placement_size.y;
     view.x = (x-view.width/2)/32*32; view.y = (y-view.height/2)/32*32;
-    const auto* u = funcs.get_unit(impl_->selected);
-    view.valid = u && u->owner == 0 && !funcs.unit_dead(u) && funcs.unit_can_build(u,type) &&
+    const auto* u = impl_->first_selected();
+    view.valid = !impl_->ai.enabled(0) && u && u->owner == 0 && !funcs.unit_dead(u) && funcs.unit_can_build(u,type) &&
         funcs.has_available_resources_for(0,type) && x >= view.width/2 && y >= view.height/2 &&
         funcs.can_place_building(u,0,type,{view.x+view.width/2,view.y+view.height/2},true,true);
     return view;
@@ -192,7 +310,8 @@ bool Engine::command(Command command, int x, int y) {
     if (!ready()) return fail("Load game with L first");
     auto& player = *impl_->player;
     auto& funcs = player.funcs();
-    auto* u = funcs.get_unit(impl_->selected);
+    auto* u = impl_->first_selected();
+    if(impl_->ai.enabled(0)) return fail("Observer mode: AI controls both armies");
     if (!u || u->owner != 0 || funcs.unit_dead(u)) return fail("Select an own unit with A");
     action_state actions;
     action_functions commands(player.st(), actions);
@@ -201,23 +320,37 @@ bool Engine::command(Command command, int x, int y) {
     const char* message = "Command accepted";
     switch (command) {
     case Command::context:
-    case Command::attack: {
+    case Command::attack:
+    case Command::stop:
+    case Command::primary: {
         if (x < 0 || y < 0 || x >= static_cast<int>(player.st().game->map_width) ||
             y >= static_cast<int>(player.st().game->map_height)) return fail("Target outside map");
         auto* target = hit_unit(funcs, x, y, false);
+        // Issue group actions in native batches of at most twelve. Buildings
+        // are single-select; no upstream selection limits are changed.
+        static_vector<unit_t*,12> batch;
+        auto issue=[&]() {
+            if(batch.empty()) return;
+            commands.action_select(0,batch);
+            if(command==Command::context) accepted=commands.action_default_order(0,{x,y},target,nullptr,false) || accepted;
+            else if(command==Command::stop) accepted=commands.action_stop(0,false) || accepted;
+            else if(command==Command::primary) {
+                accepted=commands.action_siege(0,false) || accepted;
+                accepted=commands.action_unsiege(0,false) || accepted;
+            } else accepted=commands.action_order(0,commands.get_order_type(Orders::AttackMove),{x,y},nullptr,nullptr,false) || accepted;
+            batch.clear();
+        };
+        for(auto id:impl_->selected) if(auto* member=funcs.get_unit(id)) {
+            if(member->owner!=0 || funcs.unit_dead(member)) continue;
+            batch.push_back(member); if(batch.size()==12) issue();
+        }
+        issue();
         if (command == Command::context) {
-            accepted = commands.action_default_order(0, {x,y}, target, nullptr, false);
             message = target && funcs.unit_is_mineral_field(target) ? "Gather minerals" :
                 target && target->owner == 1 ? "Attack target" : "Move / interact / rally";
-        } else {
-            // Attack-move uses the native attack order and acquisition logic.
-            accepted = commands.action_order(0, commands.get_order_type(Orders::AttackMove), {x,y}, nullptr, nullptr, false);
-            message = "Attack-move to cursor";
-        }
+        } else message=command==Command::stop ? "Stop" : command==Command::primary ? "Siege mode toggled" : "Attack-move to cursor";
         break;
     }
-    case Command::stop:
-        accepted = commands.action_stop(0, false); message = "Stop"; break;
     case Command::train: {
         if (!funcs.unit_is(u, UnitTypes::Terran_Command_Center) && !funcs.unit_is(u, UnitTypes::Terran_Barracks))
             return fail("Select Command Center / Barracks");
@@ -249,10 +382,10 @@ bool Engine::command(Command command, int x, int y) {
     return true;
 }
 bool Engine::move_selected(int x, int y) {
-    if (!ready()) return false;
+    if (!ready() || impl_->ai.enabled(0)) return false;
     auto& player = *impl_->player;
     auto& funcs = player.funcs();
-    auto* u = funcs.get_unit(impl_->selected);
+    auto* u = impl_->first_selected();
     if (!u || u->owner != 0 || funcs.unit_dead(u)) return false;
     if (x < 0 || y < 0 || x >= static_cast<int>(player.st().game->map_width) ||
         y >= static_cast<int>(player.st().game->map_height)) return false;
@@ -264,13 +397,13 @@ bool Engine::move_selected(int x, int y) {
 std::size_t Engine::visible_units(UnitView* output, std::size_t capacity) const {
     if (!ready()) return 0;
     const auto& funcs = impl_->player->funcs();
-    const auto* selected = funcs.get_unit(impl_->selected);
     std::size_t n = 0;
     for (const auto* u : ptr(impl_->player->st().visible_units)) {
         if (n == capacity) break;
         if (funcs.unit_dead(u)) continue;
         const auto* t = u->unit_type;
-        output[n++] = {u->sprite->position.x, u->sprite->position.y, static_cast<unsigned>(u->owner), u == selected,
+        const bool selected=std::find(impl_->selected.begin(),impl_->selected.end(),funcs.get_unit_id_32(u))!=impl_->selected.end();
+        output[n++] = {u->sprite->position.x, u->sprite->position.y, static_cast<unsigned>(u->owner), selected,
                        static_cast<unsigned>(t->id), u->hp.integer_part(), t->hitpoints.integer_part(),
                        t->dimensions.from.x + t->dimensions.to.x + 1, t->dimensions.from.y + t->dimensions.to.y + 1,
                        funcs.u_completed(u), funcs.ut_worker(u), funcs.unit_is_mineral_field(u)};
@@ -285,6 +418,20 @@ std::uint32_t Engine::terrain_signature() const {
     hash = terrain_hash_step(hash, st.game->tileset_index);
     for (auto tile : st.tiles_mega_tile_index) hash = terrain_hash_step(hash, tile);
     return hash;
+}
+std::size_t Engine::image_types(unsigned* output,std::size_t capacity) const {
+    if(!ready()) return 0;
+    bool seen[1024]{};
+    std::size_t n=0;
+    for(const auto& line:impl_->player->st().sprites_on_tile_line) for(const auto& sprite:line)
+        for(const auto& img:sprite.images) {
+            if(img.modifier!=0 && img.modifier!=1 && img.modifier!=10) continue;
+            const unsigned id=static_cast<unsigned>(img.image_type->id);
+            if(id>=1024 || seen[id]) continue;
+            seen[id]=true;
+            if(n<capacity) output[n++]=id;
+        }
+    return n;
 }
 std::size_t Engine::visible_images(SpriteView* output, std::size_t capacity, int cx, int cy) const {
     if (!ready()) return 0;

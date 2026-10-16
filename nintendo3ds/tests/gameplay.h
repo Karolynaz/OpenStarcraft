@@ -28,6 +28,12 @@ inline void gameplay_tests(const char* data, const char* map,
         else base = u;
     }
     require(workers.size() == 4 && base.max_hp == 1500, "starting Terran base");
+    require(engine.select_workers()==4,"L+X selects all starting workers");
+    require(engine.store_group(2),"R+Down stores worker group");
+    engine.clear_selection();
+    int group_x=0,group_y=0;
+    require(engine.recall_group(2,&group_x,&group_y) && engine.snapshot().selected==4,"recall worker group");
+    require(group_x>0 && group_y>0,"group camera center");
     require(engine.select(base.x + 35,base.y), "building edge selection");
     require(engine.command(Command::train), "train SCV");
     require(engine.snapshot().minerals == 0 && engine.snapshot().queue == 1, "training charges minerals");
@@ -84,7 +90,33 @@ inline void gameplay_tests(const char* data, const char* map,
     require(marine,"Marine training completes");
     std::puts("Depot / supply / Barracks / Marine production PASS");
 
+    // Produce a group larger than the native twelve-unit action selection.
+    // This checks real batching, not a test-only spawn or resource shortcut.
+    unsigned army=1;
+    for(unsigned n=0;n!=16000 && army<13;++n) {
+        if(n%24==0) {
+            army=0;
+            for(const auto& u:units()) if(u.owner==0 && u.max_hp==40 && u.completed) ++army;
+            if(army<13 && engine.snapshot().queue==0) engine.command(Command::train);
+        }
+        tick(1);
+    }
+    require(army==13,"produce thirteen Marines");
+    int min_x=8192,min_y=8192,max_x=0,max_y=0;
+    for(const auto& u:units()) if(u.owner==0 && u.max_hp==40 && u.completed) {
+        min_x=std::min(min_x,u.x);min_y=std::min(min_y,u.y);max_x=std::max(max_x,u.x);max_y=std::max(max_y,u.y);
+    }
+    require(max_x-min_x<400 && max_y-min_y<240,"army fits on screen");
+    require(engine.select_army(min_x,min_y)==13,"X selects all thirteen Marines");
+    require(engine.store_group(0),"store military group");
+    require(engine.command(Command::context,min_x+160,min_y),"batched group context command");
+    tick(240);
+    engine.clear_selection();
+    require(engine.recall_group(0) && engine.snapshot().selected==13,"recall military group after movement");
+    std::puts("Worker/military selection / bookmarks / thirteen-unit batched orders PASS");
+
     require(engine.load(data,map,Scenario::two_units),"combat reload");
+    require(!engine.recall_group(0),"reload clears bookmarks");
     tick(24);
     UnitView own{}, enemy{};
     for (const auto& u : units()) (u.owner==0 ? own : enemy)=u;

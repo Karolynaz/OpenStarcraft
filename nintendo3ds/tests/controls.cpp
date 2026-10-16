@@ -24,5 +24,10 @@ int main() {
     c.focus(800, 800);
     assert(c.cursor_x == 200 && c.cursor_y == 120);
     assert(c.world_x() == 800 && c.world_y() == 800);
+    c.cursor_x=73;c.cursor_y=82;
+    c.center_camera(128,128);
+    assert(c.camera_x==0 && c.camera_y==8 && c.cursor_x==73 && c.cursor_y==82);
+    c.follow(800,800,1);
+    assert(c.camera_x==600 && c.camera_y==680 && c.cursor_x==73 && c.cursor_y==82);
     std::puts("Stick cursor / edge scroll / minimap-only touch PASS");
 }
