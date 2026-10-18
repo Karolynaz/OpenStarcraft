@@ -29,6 +29,7 @@ struct Snapshot {
     int winner = -1;
     bool observer = false;
 };
+struct SoundEvent { unsigned id = 0; int x = 0, y = 0; };
 struct UnitView {
     int x = 0, y = 0;
     unsigned owner = 0;
@@ -50,6 +51,8 @@ public:
     ~Engine();
     bool load(const char* data_root, const char* map_path, Scenario scenario);
     bool tick();
+    std::size_t drain_sounds(SoundEvent* output, std::size_t capacity);
+    unsigned dropped_sounds() const;
     Snapshot snapshot() const;
     const char* error() const;
     bool ready() const;

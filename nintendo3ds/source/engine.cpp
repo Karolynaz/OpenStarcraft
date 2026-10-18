@@ -9,7 +9,18 @@
 namespace port3ds {
 using namespace bwgame;
 struct Engine::Impl {
+    struct SoundFunctions : state_functions {
+        std::array<SoundEvent,64> events{};
+        unsigned count=0, dropped=0;
+        explicit SoundFunctions(state& st) : state_functions(st) {}
+        void play_sound(int id, xy pos, const unit_t*, bool race) override {
+            if(id<0) return;
+            if(count==events.size()) { ++dropped; return; }
+            events[count++]={static_cast<unsigned>(id+(race?1:0)),static_cast<int>(pos.x),static_cast<int>(pos.y)};
+        }
+    };
     std::unique_ptr<game_player> player;
+    std::unique_ptr<SoundFunctions> sound;
     char message[192] = "Not loaded";
     bool loaded = false;
     static_vector<unit_id_32,64> selected;
@@ -88,6 +99,7 @@ bool Engine::load(const char* data_root, const char* map_path, Scenario scenario
     impl_->selected.clear();
     for (auto& g:impl_->groups) g.clear();
     impl_->ai.reset(scenario==Scenario::ai_battle,scenario==Scenario::ai_battle || scenario==Scenario::versus_ai);
+    impl_->sound.reset();
     impl_->player.reset();
     try {
         a_vector<uint8_t> chk;
@@ -143,6 +155,7 @@ bool Engine::load(const char* data_root, const char* map_path, Scenario scenario
             if(!bases[0] || !bases[1] || !loader.is_reachable(bases[0],bases[1]))
                 throw std::runtime_error("AI ground battle needs connected start locations");
         }
+        impl_->sound.reset(new Impl::SoundFunctions(player.st()));
         impl_->loaded = true;
         std::snprintf(impl_->message, sizeof impl_->message, "Loaded %ux%u tiles", width, height);
         return true;
@@ -155,7 +168,7 @@ bool Engine::load(const char* data_root, const char* map_path, Scenario scenario
 bool Engine::tick() {
     if (!impl_->loaded) return false;
     try {
-        impl_->player->next_frame();
+        impl_->sound->next_frame();
         impl_->ai.step(*impl_->player);
         return true;
     } catch (const std::exception& e) {
@@ -164,6 +177,14 @@ bool Engine::tick() {
         return false;
     }
 }
+std::size_t Engine::drain_sounds(SoundEvent* out, std::size_t capacity) {
+    if(!impl_->sound) return 0;
+    auto& s=*impl_->sound;
+    const auto n=std::min<std::size_t>(s.count,capacity);
+    std::copy_n(s.events.begin(),n,out);
+    s.dropped+=s.count-n;s.count=0;return n;
+}
+unsigned Engine::dropped_sounds() const { return impl_->sound?impl_->sound->dropped:0; }
 Snapshot Engine::snapshot() const {
     Snapshot s;
     if (!impl_->loaded) return s;
@@ -208,6 +229,10 @@ bool Engine::select(int x, int y) {
     auto* nearest = hit_unit(funcs, x, y, !impl_->ai.observer());
     impl_->selected.clear();
     if(nearest && nearest->owner<2) impl_->selected.push_back(funcs.get_unit_id_32(nearest));
+    if(!impl_->selected.empty()) {
+        auto* u=impl_->first_selected();
+        if(u && u->unit_type->first_what_sound) impl_->sound->play_sound(u->unit_type->first_what_sound,{},u,false);
+    }
     return !impl_->selected.empty();
 }
 void Engine::clear_selection() { impl_->selected.clear(); }
@@ -378,6 +403,7 @@ bool Engine::command(Command command, int x, int y) {
         message = "Construction / last queued unit cancelled"; break;
     }
     if (!accepted) return fail("Command unavailable for this unit");
+    if(u->unit_type->first_yes_sound && !funcs.ut_building(u)) impl_->sound->play_sound(u->unit_type->first_yes_sound,{},u,false);
     impl_->command_message = message;
     return true;
 }

@@ -1,0 +1,41 @@
+{
+  "runs_in_file": 2,
+  "selected_run": "last",
+  "samples": 559,
+  "active_samples": 550,
+  "excluded_zero_tps_samples": 9,
+  "partial_samples": "retained",
+  "first_frame": 24,
+  "last_frame": 13200,
+  "winner": 1,
+  "mean_fps": 59.82781818181819,
+  "mean_tps": 23.93047272727273,
+  "peak_units": 94,
+  "max_tick_us": 2128.0,
+  "peak_heap_bytes": 26518336,
+  "peak_linear_bytes": 7502848,
+  "max_backlog": 0,
+  "missing_sprites": 0,
+  "combat_from_frame5000": {
+    "samples": 342,
+    "mean_fps": 59.830877192982456,
+    "mean_tps": 23.96885964912281
+  },
+  "audio": {
+    "all_samples_ready": true,
+    "sfx_played": 1916,
+    "sfx_culled": 3650,
+    "sfx_missing": 0,
+    "sfx_voice_drops": 229,
+    "event_drops": 0,
+    "music_buffers": 1483,
+    "music_underruns": 0,
+    "audio_io_errors": 0,
+    "dsp_drops": 0,
+    "tracks_seen": [
+      1,
+      2,
+      3
+    ]
+  }
+}

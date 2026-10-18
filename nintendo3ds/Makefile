@@ -12,10 +12,10 @@ COMMON := -std=gnu++14 -O2 -g -fno-strict-aliasing -ffunction-sections -fdata-se
 # -fno-rtti/-fno-exceptions options into this build.
 ARM_FLAGS := $(COMMON) $(ARCH) -mword-relocations -D__3DS__ -I$(DEVKITPRO)/libctru/include
 HEADERS := $(wildcard include/*.h ../*.h)
-OBJECTS := build/main.o build/engine.o build/graphics.o
+OBJECTS := build/main.o build/engine.o build/graphics.o build/audio.o
 LIBS := -L$(DEVKITPRO)/libctru/lib -lcitro2d -lcitro3d -lctru -lm
 
-.PHONY: all check-toolchain verify-arm11 host test prepare-graphics test-graphics clean
+.PHONY: all check-toolchain verify-arm11 host test prepare-graphics test-graphics prepare-audio test-audio clean
 all: out/openbw-3ds.3dsx verify-arm11
 verify-arm11: out/openbw-3ds.elf
 	python3 tools/verify_arm11.py "$(DEVKITARM)/bin/arm-none-eabi-readelf" $<
@@ -59,4 +59,16 @@ test: build/host-sim build/scheduler-test build/controls-test build/input-test
 	python3 tests/preflight.py
 clean:
 	rm -rf build out
--include build/main.d build/engine.d build/graphics.d
+-include build/main.d build/engine.d build/graphics.d build/audio.d
+
+build/audio-export: tools/audio_export.cpp source/engine.cpp tests/gameplay.h tests/battle.h $(HEADERS) | build
+	$(HOST_CXX) $(COMMON) tools/audio_export.cpp source/engine.cpp -o $@
+prepare-audio: build/audio-export
+	mkdir -p local-data/audio-work
+	./build/audio-export "$(ASSET_ROOT)" "$(MAP)" local-data/audio-work
+	python3 tools/prepare_audio.py local-data/audio-work local-data/3ds/openbw/audio
+build/audio-test: tests/audio.cpp tests/fake3ds/3ds.h source/audio.cpp include/audio.h | build
+	$(HOST_CXX) -std=c++14 -O1 -g -fsanitize=address -fno-omit-frame-pointer -pthread -Itests/fake3ds -Iinclude tests/audio.cpp source/audio.cpp -o $@
+test-audio: build/audio-test
+	ASAN_OPTIONS=detect_leaks=0 ./build/audio-test
+	python3 tests/audio_assets.py local-data/audio-work local-data/3ds/openbw/audio

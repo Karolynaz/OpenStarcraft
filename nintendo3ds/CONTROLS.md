@@ -11,7 +11,7 @@ budget, not deletion of excess units or a change to native unit pool limits.
 The camera follows bases, moving armies and combat. Circle Pad or minimap touch
 suspends following for eight seconds. START opens the bottom system menu, where
 following can be disabled completely. CSV logging starts automatically for AI
-vs AI at SD /3ds/openbw/logs/ai-benchmark.csv. SELECT pauses/resumes. A winner is
+vs AI at SD /3ds/openbw/logs/ai-audio-benchmark.csv. SELECT pauses/resumes. A winner is
 declared when one side has no surviving buildings; the observer pauses there.
 START lets you restart or exit. The standard opening takes a few minutes to
 produce the first attacks; no resources or production times are accelerated.
@@ -61,3 +61,8 @@ IDs; recalling drops dead/invalid entries. Reloading clears them. Multi-unit
 orders are issued in native batches of at most twelve, preserving OpenBW's
 selection constraints. Buildings remain single-selection commands. Selection
 HP/queue fields describe the first live member, with the total count alongside.
+
+The audio build plays original Terran music and positional game effects.
+SELECT and the end-of-match pause also pause audio; restarting clears old
+unit effects. The lower screen shows Audio ON/OFF, effect count, and music
+buffer/I/O errors. Automatic logs now use `logs/ai-audio-benchmark.csv`.

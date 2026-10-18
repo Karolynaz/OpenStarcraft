@@ -2,8 +2,9 @@
 
 Status: automatic Terran AI vs AI, manual player vs AI, group selection and
 controller bookmarks implemented on the original-3DS build. Fog is deliberately
-disabled. Still a limited experimental profile; no original-console measurements.
-Updated: 2026-10-16. Baseline: `heiner/openbw` commit
+disabled. Original effects and streamed Terran music are implemented. The user
+completed the no-audio hardware battle; hardware audio measurements are pending.
+Still a limited experimental profile. Updated: 2026-10-18. Baseline: `heiner/openbw` commit
 `469d2037e2fd03085dac4729912f4188bc2a778b`.
 
 ## Completed milestone
@@ -197,14 +198,14 @@ a native primary-action route, but tanks are not in the delivered roster.
 | MPQ, DAT, CHK, binary readers, PKWARE decoder | `data_loading.h` | Reuse paged stdio reader on SD; one explicit lambda return type required |
 | Allocators and containers | `containers.h`, `game_types.h` | Standard allocator, vector/deque/list/map and chunked object pools; not an allocation-free engine |
 | Desktop software graphics | `ui/ui.h`, `ui/native_window_drawing.h`, `ui/sdl2.cpp` | Paletted software drawing/palette expansion; replace platform/rendering layer with Citro2D |
-| Desktop sound | `ui/native_sound.h`, `ui/sdl2.cpp` | SDL audio/mixer implementation excluded. ndsp init/cleanup exists; game WAV decoding/mixing/playback remains future work |
+| Desktop sound | `ui/native_sound.h`, `ui/sdl2.cpp` | SDL excluded; native sound events feed eight NDSP effect voices and streamed Terran music; WAV conversion happens offline |
 | Desktop input | `ui/native_window.h`, `ui/sdl2.cpp` | SDL events excluded. libctru HID drives a platform-independent controller |
 | Browser UI/backend/bot | `web/` | Excluded; useful existing `wasm_sim_test.cpp` demonstrates headless separation |
 | Networking / sync | `sync.h`, `sync_server_asio_*.h`, `deps/asio` | Excluded for initial local single-player experiments |
 | Replay / BWAPI | `replay.h` and external BWAPI wrapper | Not required by this probe |
 
 `game_player::init(loader)`, `game_load_functions::load_map_data` and
-`game_player::next_frame()` are sufficient to drive simulation without the UI.
+`state_functions::next_frame()` are sufficient to drive simulation without the UI.
 The engine uses stdio for file access, not an essential desktop OS service.
 No SSE/NEON or desktop thread layer is required by the included core.
 However, headless does **not** mean graphics data is unnecessary: global_init
@@ -316,3 +317,19 @@ Next work: measure sustained economy/combat on an original 3DS; use those
 results to choose useful stress presets and unit budgets, then expand the
 Terran roster and advanced command menus without changing the agreed controls.
 New 3DS enhancements remain deferred until original hardware is evaluated.
+
+### Audio performance build (2026-10-18)
+
+Native sound events now drive eight DSP effect voices, with streamed original
+Terran music on a ninth channel. See `nintendo3ds/reports/AUDIO_VALIDATION.md`.
+The original three MPQs contain effects; this user's music comes from the
+embedded MPQ in their GOG `data files/StarCraft.mpq` CD container. Host-only
+`make -C nintendo3ds prepare-audio HOST_CXX=clang++` requires FFmpeg and prepares
+private `local-data/3ds/openbw/audio/{effects.bin,terran1.pcm,terran2.pcm,terran3.pcm}`.
+Copy the entire audio folder alongside the new executable on SD. Runtime PCM is
+22050 Hz, mono effects/stereo music, with no WAV/MPQ music decoding during play.
+DSP initialization requires the console's `sdmc:/3ds/dspfirm.cdc`.
+The new automatic log is `logs/ai-audio-benchmark.csv`; the older no-audio log is
+preserved. Check `audio_ready=1`, `sfx_played>0`, increasing `music_buffers`, and
+zero `music_underruns`/`audio_io_errors` alongside FPS/TPS. `Audio OFF` is an asset
+or DSP problem and cannot validate playback performance.

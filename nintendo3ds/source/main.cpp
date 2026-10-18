@@ -5,6 +5,7 @@
 #include "graphics.h"
 #include "scheduler.h"
 #include "input.h"
+#include "audio.h"
 #include <cstdio>
 #include <cstring>
 #include <malloc.h>
@@ -52,6 +53,8 @@ int main() {
     {
         port3ds::Engine engine;
         port3ds::Graphics graphics;
+        port3ds::Audio sound;
+        sound.load("sdmc:/3ds/openbw/audio",R_SUCCEEDED(audio));
         port3ds::Scheduler scheduler;
         port3ds::Controls controls;
         unsigned scenario = 3, loaded_scenario = 3;
@@ -79,9 +82,9 @@ int main() {
         auto toggle_log=[&]() {
             if(log) { std::fclose(log); log=nullptr; action="CSV logging closed"; return; }
             mkdir("sdmc:/3ds/openbw/logs",0777);
-            log=std::fopen("sdmc:/3ds/openbw/logs/ai-benchmark.csv","a");
-            if(log) std::fprintf(log,"scenario,frame,units,fps,tps,mean_tick_us,max_tick_us,heap_bytes,linear_used,backlog,atlas_bytes,missing_images,red_workers,red_army,red_buildings,red_minerals,red_lost,blue_workers,blue_army,blue_buildings,blue_minerals,blue_lost,winner\n");
-            action=log?"CSV logging enabled":"Cannot open ai-benchmark.csv";
+            log=std::fopen("sdmc:/3ds/openbw/logs/ai-audio-benchmark.csv","a");
+            if(log) std::fprintf(log,"scenario,frame,units,fps,tps,mean_tick_us,max_tick_us,heap_bytes,linear_used,backlog,atlas_bytes,missing_images,red_workers,red_army,red_buildings,red_minerals,red_lost,blue_workers,blue_army,blue_buildings,blue_minerals,blue_lost,winner,audio_ready,sfx_played,sfx_culled,sfx_missing,sfx_voice_drops,event_drops,music_buffers,music_underruns,audio_io_errors,music_track,dsp_drops\n");
+            action=log?"CSV logging enabled":"Cannot open ai-audio-benchmark.csv";
         };
         while (aptMainLoop()) {
             hidScanInput();
@@ -98,6 +101,7 @@ int main() {
             // Present the loading message for one frame before blocking SD IO.
             if (load_now) {
                 placing = false; attacking=false; menu=Menu::none;
+                sound.reset();
                 loaded_scenario = scenario;
                 paused = !engine.load(root, map, static_cast<port3ds::Scenario>(scenario));
                 if (engine.ready()) graphics.load("sdmc:/3ds/openbw/graphics.bin", engine.terrain_signature());
@@ -230,6 +234,10 @@ int main() {
             if(state.winner>=0 && !paused) {
                 paused=true;scheduler.reset();action=state.winner==0?"Red wins / START to restart":state.winner==1?"Blue wins / START to restart":"Draw / START to restart";
             }
+            port3ds::SoundEvent sound_events[64];
+            const auto sound_count=engine.drain_sounds(sound_events,64);
+            sound.update(sound_events,sound_count,controls.camera_x,controls.camera_y,paused);
+            const auto sound_stats=sound.stats();
             const auto heap = mallinfo();
             const u32 linear_used = __ctru_linear_heap_size - linearSpaceFree();
             const u64 sample_time = now_us();
@@ -238,12 +246,14 @@ int main() {
                 fps = renders / seconds; tps = ticks / seconds;
                 mean = ticks ? tick_sum / ticks : 0; worst = tick_max;
                 if (log) {
-                    std::fprintf(log, "%u,%lu,%u,%.2f,%.2f,%.1f,%.1f,%d,%lu,%llu,%u,%u,%u,%u,%u,%d,%u,%u,%u,%u,%d,%u,%d\n",
+                    std::fprintf(log, "%u,%lu,%u,%.2f,%.2f,%.1f,%.1f,%d,%lu,%llu,%u,%u,%u,%u,%u,%d,%u,%u,%u,%u,%d,%u,%d,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u\n",
                         loaded_scenario, static_cast<unsigned long>(state.frame), state.units,
                         fps, tps, mean, worst, heap.uordblks, static_cast<unsigned long>(linear_used),
                         static_cast<unsigned long long>(scheduler.backlog()), graphics.texture_bytes(), missing_images,
                         state.players[0].workers,state.players[0].army,state.players[0].buildings,state.players[0].minerals,state.players[0].lost,
-                        state.players[1].workers,state.players[1].army,state.players[1].buildings,state.players[1].minerals,state.players[1].lost,state.winner);
+                        state.players[1].workers,state.players[1].army,state.players[1].buildings,state.players[1].minerals,state.players[1].lost,state.winner,
+                        unsigned(sound_stats.ready),sound_stats.played,sound_stats.culled,sound_stats.missing,sound_stats.voice_drops,engine.dropped_sounds(),
+                        sound_stats.music_buffers,sound_stats.music_underruns,sound_stats.io_errors,sound_stats.music_track,sound_stats.dsp_drops);
                     std::fflush(log);
                 }
                 renders = ticks = 0; tick_sum = tick_max = 0; interval = sample_time;
@@ -254,15 +264,16 @@ int main() {
                     "OpenBW / ORIGINAL 3DS\nCore DCL/endian: %s   DSP: %s\n"
                     "%s  Frame %lu  Units %u\nFPS %.1f   TPS %.1f / 24\n"
                     "Tick avg %.1f / max %.1f us\nHeap %d KiB  Linear %lu KiB\n"
-                    "Debt %llu  Cursor %.0f,%.0f\nCamera %.0f,%.0f  CSV %s\n"
-                    "%s  Selected %u\nAtlas %lu KiB  Missing sprites %u",
+                    "Debt %llu  Camera %.0f,%.0f  CSV %s\n"
+                    "%s  Selected %u\nAtlas %lu KiB  Missing sprites %u\nAudio %s  FX %u  Gaps %u / IO %u",
                     self_test ? "PASS" : "FAIL", R_SUCCEEDED(audio) ? "ready" : "off",
                     !engine.ready() ? "NOT LOADED" : paused ? "PAUSED" : "RUNNING",
                     static_cast<unsigned long>(state.frame), state.units, fps, tps, mean, worst,
                     heap.uordblks / 1024, static_cast<unsigned long>(linear_used / 1024),
-                    static_cast<unsigned long long>(scheduler.backlog()), controls.cursor_x, controls.cursor_y,
+                    static_cast<unsigned long long>(scheduler.backlog()),
                     controls.camera_x, controls.camera_y, log ? "ON" : "OFF", scenario_name(loaded_scenario), state.selected,
-                    static_cast<unsigned long>(graphics.texture_bytes()/1024), missing_images);
+                    static_cast<unsigned long>(graphics.texture_bytes()/1024), missing_images,
+                    sound_stats.ready?"ON":"OFF",sound_stats.played,sound_stats.music_underruns,sound_stats.io_errors);
                 if(menu==Menu::none) std::snprintf(help,sizeof help,"A action / B cancel\nX army / L+X workers\nY primary / L+Y menu\nR+D-pad: save group\nD-pad: recall group\nTwice: center camera\nSELECT pause\nSTART menu");
                 else {
                     const char* system[]={"AI vs AI: restart","Player vs AI","Two Marines",auto_camera?"Auto camera: ON":"Auto camera: OFF",log?"CSV: ON":"CSV: OFF","Reload current","Exit"};
@@ -279,7 +290,7 @@ int main() {
                     state.players[0].minerals,state.players[1].minerals,state.players[0].lost,state.players[1].lost,state.players[0].waves,state.players[1].waves);
                 else std::snprintf(hud,sizeof hud,"Minerals %d   Gas %d   Supply %d/%d\n%s x%u  HP %d/%d  Queue %u",
                     state.minerals,state.gas,state.supply,state.supply_max,state.selected_name,state.selected,state.selected_hp,state.selected_max_hp,state.queue);
-                std::snprintf(error, sizeof error, "%s\n%.100s", action, graphics.ready() ? engine.error() : graphics.error());
+                std::snprintf(error, sizeof error, "%s\n%.100s", action, !sound_stats.ready ? sound.error() : graphics.ready() ? engine.error() : graphics.error());
                 C2D_TextBufClear(text_buf);
                 C2D_TextParse(&diagnostics, text_buf, status); C2D_TextOptimize(&diagnostics);
                 C2D_TextParse(&commands, text_buf, help); C2D_TextOptimize(&commands);

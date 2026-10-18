@@ -1,0 +1,30 @@
+{
+  "openbw-3ds.3dsx": {
+    "bytes": 892612,
+    "sha256": "fdc6fa32f21d396fca27752af3d4f868bd1449401bf394bdfbbd901c06b87e2d"
+  },
+  "graphics.bin": {
+    "bytes": 4242724,
+    "sha256": "ed71bd4cb1120b31641ca0c3cd1bad5955916d7859bdce019898e35e13656457"
+  },
+  "maps/probe.scx": {
+    "bytes": 31048,
+    "sha256": "00f955a8d5817cc5194cef4649e690ca892758a1f375cdb75c63e63a8489fdfe"
+  },
+  "audio/effects.bin": {
+    "bytes": 1751978,
+    "sha256": "9dc46351ab78c57dc0b26955529e659475f9c8cdf8b594661a14565550e1caaa"
+  },
+  "audio/terran1.pcm": {
+    "bytes": 26226432,
+    "sha256": "8753bb972ddd9b722d97910f11bea786eebfc921708fb2d8f7716d7578e85c15"
+  },
+  "audio/terran2.pcm": {
+    "bytes": 21051392,
+    "sha256": "c324ea27ad2afed7ce96be13575210bf7363b6bfe96c0e4920b509741ff4e139"
+  },
+  "audio/terran3.pcm": {
+    "bytes": 23709436,
+    "sha256": "637374cb6ee987254df8e1e4e3697a3f819a923aacf3620b8418d487e9199feb"
+  }
+}
