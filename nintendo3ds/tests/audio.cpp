@@ -7,9 +7,9 @@
 #include <cstdio>
 namespace fake {std::atomic<unsigned> queued{0},allocations{0},pauses{0};}
 static void u32(std::ofstream& f,unsigned n) {for(unsigned i=0;i<4;++i) f.put(n>>(8*i));}
-static void effects(const std::string& root,bool bad=false) {
-    std::ofstream f(root+"/effects.bin",std::ios::binary);f.write("OBWAUD1\0",8);u32(f,1);u32(f,8);
-    u32(f,69);u32(f,bad?9:0);u32(f,4);u32(f,1);u32(f,0);f.write("12345678",8);
+static void effects(const std::string& root,bool bad=false,bool eight=false) {
+    std::ofstream f(root+"/effects.bin",std::ios::binary);f.write(eight?"OBWAUD2\0":"OBWAUD1\0",8);u32(f,1);u32(f,8);if(eight)u32(f,1);
+    u32(f,69);u32(f,bad?9:0);u32(f,eight?8:4);u32(f,1);u32(f,0);f.write("12345678",8);
 }
 int main() {
     char path[]="/tmp/openbw-audio-test-XXXXXX";assert(mkdtemp(path));const std::string root=path;
@@ -29,6 +29,7 @@ int main() {
         audio.reset();assert(audio.stats().voices==0);
         effects(root,true);assert(!audio.load(path,true));assert(!audio.stats().ready && fake::allocations==0);
         effects(root);assert(audio.load(path,true));
+        effects(root,false,true);assert(audio.load(path,true));audio.update(events,1,0,0,false);assert(audio.stats().played==1);
         // A missing/empty music file must stop cleanly, rather than spin at EOF.
         std::ofstream(root+"/terran1.pcm",std::ios::binary).close();
         assert(!audio.load(path,true));assert(fake::allocations==0 && !audio.stats().ready);

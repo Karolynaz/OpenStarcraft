@@ -12,10 +12,10 @@ COMMON := -std=gnu++14 -O2 -g -fno-strict-aliasing -ffunction-sections -fdata-se
 # -fno-rtti/-fno-exceptions options into this build.
 ARM_FLAGS := $(COMMON) $(ARCH) -mword-relocations -D__3DS__ -I$(DEVKITPRO)/libctru/include
 HEADERS := $(wildcard include/*.h ../*.h)
-OBJECTS := build/main.o build/engine.o build/graphics.o build/audio.o
+OBJECTS := build/main.o build/engine.o build/graphics.o build/audio.o build/csv_log.o
 LIBS := -L$(DEVKITPRO)/libctru/lib -lcitro2d -lcitro3d -lctru -lm
 
-.PHONY: all check-toolchain verify-arm11 host test prepare-graphics test-graphics prepare-audio test-audio clean
+.PHONY: all check-toolchain verify-arm11 host test prepare-graphics test-graphics prepare-audio test-audio test-csv test-sprite-cache test-mpq-audio prepare-arena prepare-arena-graphics clean
 all: out/openbw-3ds.3dsx verify-arm11
 verify-arm11: out/openbw-3ds.elf
 	python3 tools/verify_arm11.py "$(DEVKITARM)/bin/arm-none-eabi-readelf" $<
@@ -33,7 +33,7 @@ out/openbw-3ds.elf: $(OBJECTS) arm11.specs Makefile | out
 out/openbw-3ds.3dsx: out/openbw-3ds.elf
 	"$(DEVKITPRO)/tools/bin/3dsxtool" $< $@
 host: build/host-sim
-build/graphics-export: tools/graphics_export.cpp source/engine.cpp tests/gameplay.h tests/battle.h tests/gas.h $(HEADERS) | build
+build/graphics-export: tools/graphics_export.cpp tools/asset_closure.h source/engine.cpp tests/gameplay.h tests/battle.h tests/gas.h tests/terran.h tests/terran_build.h $(HEADERS) | build
 	$(HOST_CXX) $(COMMON) tools/graphics_export.cpp source/engine.cpp -o $@
 ASSET_ROOT ?= ../data files
 MAP ?= local-data/3ds/openbw/maps/probe.scx
@@ -43,7 +43,7 @@ prepare-graphics: build/graphics-export
 	python3 tools/prepare_graphics.py local-data/graphics-work/raw.bin local-data/3ds/openbw/graphics.bin
 test-graphics: prepare-graphics
 	python3 tests/graphics.py local-data/graphics-work/raw.bin local-data/3ds/openbw/graphics.bin
-build/host-sim: source/engine.cpp source/host_main.cpp tests/gameplay.h tests/battle.h tests/gas.h $(HEADERS) | build
+build/host-sim: source/engine.cpp source/host_main.cpp tests/gameplay.h tests/battle.h tests/gas.h tests/terran.h tests/terran_build.h $(HEADERS) | build
 	$(HOST_CXX) $(COMMON) source/engine.cpp source/host_main.cpp -o $@
 build/scheduler-test: tests/scheduler.cpp include/scheduler.h | build
 	$(HOST_CXX) -std=c++14 -Iinclude tests/scheduler.cpp -o $@
@@ -59,9 +59,9 @@ test: build/host-sim build/scheduler-test build/controls-test build/input-test
 	python3 tests/preflight.py
 clean:
 	rm -rf build out
--include build/main.d build/engine.d build/graphics.d build/audio.d
+-include build/main.d build/engine.d build/graphics.d build/audio.d build/csv_log.d
 
-build/audio-export: tools/audio_export.cpp source/engine.cpp tests/gameplay.h tests/battle.h tests/gas.h $(HEADERS) | build
+build/audio-export: tools/audio_export.cpp tools/asset_closure.h source/engine.cpp tests/gameplay.h tests/battle.h tests/gas.h tests/terran.h tests/terran_build.h $(HEADERS) | build
 	$(HOST_CXX) $(COMMON) tools/audio_export.cpp source/engine.cpp -o $@
 prepare-audio: build/audio-export
 	mkdir -p local-data/audio-work
@@ -72,3 +72,26 @@ build/audio-test: tests/audio.cpp tests/fake3ds/3ds.h source/audio.cpp include/a
 test-audio: build/audio-test
 	ASAN_OPTIONS=detect_leaks=0 ./build/audio-test
 	python3 tests/audio_assets.py local-data/audio-work local-data/3ds/openbw/audio
+build/arena-export: tools/arena_export.cpp $(HEADERS) | build
+	$(HOST_CXX) $(COMMON) tools/arena_export.cpp -o $@
+prepare-arena: build/arena-export
+	./build/arena-export "$(ASSET_ROOT)" "$(MAP)" local-data/3ds/openbw/maps/arena.chk
+build/csv-test: tests/csv_log.cpp source/csv_log.cpp include/csv_log.h tests/fake3ds/3ds.h | build
+	$(HOST_CXX) -std=c++14 -O1 -g -fsanitize=address -fno-omit-frame-pointer -pthread -Itests/fake3ds -Iinclude tests/csv_log.cpp source/csv_log.cpp -o $@
+test-csv: build/csv-test
+	ASAN_OPTIONS=detect_leaks=0 ./build/csv-test
+build/sprite-cache-test: tests/sprite_cache.cpp tests/fake3ds/citro2d.h source/graphics.cpp source/engine.cpp $(HEADERS) | build
+	$(HOST_CXX) $(COMMON) -O1 -g -fsanitize=address -fno-omit-frame-pointer -Itests/fake3ds tests/sprite_cache.cpp source/graphics.cpp source/engine.cpp -o $@
+test-sprite-cache: build/sprite-cache-test
+	ASAN_OPTIONS=detect_leaks=0 ./build/sprite-cache-test "$(ASSET_ROOT)" local-data/3ds/openbw/maps/arena.chk local-data/3ds/openbw/graphics-arena.bin local-data/graphics-work/raw.bin
+
+build/mpq-audio-test: tests/mpq_audio.cpp ../data_loading.h | build
+	$(HOST_CXX) -std=c++14 -O1 -g -fsanitize=address -fno-omit-frame-pointer -I.. tests/mpq_audio.cpp -o $@
+test-mpq-audio: build/mpq-audio-test
+	ASAN_OPTIONS=detect_leaks=0 ./build/mpq-audio-test
+
+prepare-arena-graphics: prepare-arena build/graphics-export
+	mkdir -p local-data/graphics-work
+	./build/graphics-export "$(ASSET_ROOT)" local-data/3ds/openbw/maps/arena.chk local-data/graphics-work/arena-raw.bin
+	python3 tools/prepare_graphics.py local-data/graphics-work/arena-raw.bin local-data/3ds/openbw/graphics-arena.bin
+	python3 tests/graphics.py local-data/graphics-work/arena-raw.bin local-data/3ds/openbw/graphics-arena.bin

@@ -966,7 +966,7 @@ size_t decompress_adpcm(uint8_t* input, size_t input_size, uint8_t* output, size
 	for (size_t i = 0; i != channels; ++i) {
 		auto sample = r.template get<int16_t>();
 		previous_sample[i] = sample;
-		if (out_pos - output_size < 2) error("decompress_adpcm: attempt to write past end");
+		if (out_pos > output_size || output_size - out_pos < 2) error("decompress_adpcm: attempt to write past end");
 		set_value_at<little_endian, int16_t>(output + out_pos, sample);
 		out_pos += 2;
 	}
@@ -993,7 +993,7 @@ size_t decompress_adpcm(uint8_t* input, size_t input_size, uint8_t* output, size
 				}
 				
 				previous_sample[channel] = sample;
-				if (out_pos - output_size < 2) error("decompress_adpcm: attempt to write past end");
+				if (out_pos > output_size || output_size - out_pos < 2) error("decompress_adpcm: attempt to write past end");
 				set_value_at<true, int16_t>(output + out_pos, sample);
 				out_pos += 2;
 				
@@ -1005,7 +1005,7 @@ size_t decompress_adpcm(uint8_t* input, size_t input_size, uint8_t* output, size
 				int n = in_value & 0x7f;
 				if (n == 0) {
 					if (step_index[channel] != 0) --step_index[channel];
-					if (out_pos - output_size < 2) error("decompress_adpcm: attempt to write past end");
+					if (out_pos > output_size || output_size - out_pos < 2) error("decompress_adpcm: attempt to write past end");
 					set_value_at<little_endian, int16_t>(output + out_pos, previous_sample[channel]);
 					out_pos += 2;
 				} else if (n == 1) {
@@ -1095,7 +1095,7 @@ struct mpq_archive_file_reader {
 		};
 
 		size_t current_sector_size = sector_data.size();
-		if (current_sector == compressed_sectors.size() - 2) current_sector_size = be.size % sector_size;
+		if (current_sector == compressed_sectors.size() - 2) current_sector_size = std::min(sector_size, size_t(be.size) - current_sector * sector_size);
 
 		if (sector_data_size == current_sector_size && sector_data_size <= sector_size) {
 			if (be.flags & 0x10000) make_encrypted_reader(r, sector_data_size, key + (uint32_t)current_sector, crypt_table).get_bytes(sector_data.data(), sector_data_size);
@@ -1103,9 +1103,10 @@ struct mpq_archive_file_reader {
 		} else {
 			if (be.flags & 0x10000) get_data(make_encrypted_reader(r, sector_data_size, key + (uint32_t)current_sector, crypt_table));
 			else get_data(r);
-			if (compression_flags == 8) decompress(compressed_data.data(), sector_data_size, sector_data.data(), current_sector_size);
+			const size_t compressed_input_size = sector_data_size - ((be.flags & 0x200) ? 1 : 0);
+			if (compression_flags == 8) decompress(compressed_data.data(), compressed_input_size, sector_data.data(), current_sector_size);
 			else {
-				size_t input_size = sector_data_size;
+				size_t input_size = compressed_input_size;
 				auto swap_buffers = [&](size_t new_input_size) {
 					input_size = new_input_size;
 					std::swap(compressed_data, sector_data);

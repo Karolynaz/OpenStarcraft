@@ -9,7 +9,7 @@
 using u64=uint64_t;
 constexpr u64 U64_MAX=~u64(0);
 enum { NDSP_WBUF_FREE,NDSP_WBUF_QUEUED,NDSP_WBUF_PLAYING,NDSP_WBUF_DONE };
-enum { NDSP_INTERP_LINEAR,NDSP_FORMAT_MONO_PCM16,NDSP_FORMAT_STEREO_PCM16 };
+enum { NDSP_INTERP_LINEAR,NDSP_FORMAT_MONO_PCM16,NDSP_FORMAT_STEREO_PCM16,NDSP_FORMAT_MONO_PCM8 };
 struct ndspWaveBuf {const void* data_vaddr=nullptr;unsigned nsamples=0;unsigned char status=0;};
 using Thread=std::thread*;
 namespace fake {extern std::atomic<unsigned> queued;extern std::atomic<unsigned> allocations;extern std::atomic<unsigned> pauses;}

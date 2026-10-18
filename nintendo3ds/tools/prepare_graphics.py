@@ -51,6 +51,7 @@ def main():
     parser.add_argument('raw', type=Path)
     parser.add_argument('output', type=Path)
     parser.add_argument('--preview', type=Path)
+    parser.add_argument('--static-sprites', action='store_true', help='Legacy diagnostic export only')
     args = parser.parse_args()
     data = args.raw.read_bytes(); at = 0
     def take(n):
@@ -89,10 +90,11 @@ def main():
         for frame in range(frames):
             w, h = u16(), u16()
             indices = struct.unpack('<' + str(w * h) + 'H', take(w * h * 2))
-            for team in range(3):
-                remap = teams[(team if team < 2 else 11) * 8:][:8]
-                pixels = array('H', (0 if c == 65535 else colors[remap[c - 8] if 8 <= c < 16 else c] for c in indices))
-                sprites.append(((image << 16) | (frame << 2) | team, add(w, h, pixels)))
+            if args.static_sprites:
+                for team in range(3):
+                    remap = teams[(team if team < 2 else 11) * 8:][:8]
+                    pixels = array('H', (0 if c == 65535 else colors[remap[c - 8] if 8 <= c < 16 else c] for c in indices))
+                    sprites.append(((image << 16) | (frame << 2) | team, add(w, h, pixels)))
     if at != len(data): raise ValueError('Unexpected trailing raw data')
     # A real terrain minimap, prepared once here and uploaded with the atlases.
     mini = array('H')
@@ -143,7 +145,7 @@ def main():
     rect = lambda ref: struct.pack('<5H', *records[ref]['rect'])
     args.output.parent.mkdir(parents=True, exist_ok=True)
     with args.output.open('wb') as out:
-        out.write(struct.pack('<8s7I', b'OB3DGFX1', width, height, signature(width, height, tileset, tilemap),
+        out.write(struct.pack('<8s7I', b'OB3DGFX1' if args.static_sprites else b'OB3DGFX2', width, height, signature(width, height, tileset, tilemap),
                               len(pages), len(tile_refs), len(sprites), len(tilemap)))
         out.write(rect(mini_ref))
         for ref in tile_refs: out.write(rect(ref))
@@ -154,7 +156,7 @@ def main():
             if args.preview:
                 args.preview.mkdir(parents=True, exist_ok=True)
                 png(args.preview / f'atlas-{i}.png', pixels)
-    stats = {'map_tiles': [width, height], 'image_types': groups, 'sprite_records': len(sprites),
+    stats = {'map_tiles': [width, height], 'image_types': groups, 'sprite_records': len(sprites), 'sprite_mode': 'static' if args.static_sprites else 'resident-GRP GPU cache',
              'unique_rects': len(records), 'pages': len(pages), 'texture_bytes': len(pages) * SIDE * SIDE * 2,
              'file_bytes': args.output.stat().st_size}
     args.output.with_suffix('.json').write_text(json.dumps(stats, indent=2) + '\n')

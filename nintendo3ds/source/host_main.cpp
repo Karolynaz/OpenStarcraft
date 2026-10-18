@@ -6,6 +6,8 @@
 #include "../tests/gameplay.h"
 #include "../tests/battle.h"
 #include "../tests/gas.h"
+#include "../tests/terran.h"
+#include "../tests/terran_build.h"
 
 int main(int argc, char** argv) {
     if (!port3ds::core_self_test()) { std::fprintf(stderr, "Core self test FAILED\n"); return 1; }
@@ -18,6 +20,10 @@ int main(int argc, char** argv) {
     if (argc > 3 && std::string(argv[3]) == "commands") {
         try { gameplay_tests(argv[1],argv[2]); return 0; }
         catch (const std::exception& e) { std::fprintf(stderr,"Gameplay test failed: %s\n",e.what()); return 1; }
+    }
+    if(argc>3 && std::string(argv[3])=="terran") {
+        try {terran_construction_tests(argv[1],argv[2]);terran_tests(argv[1],argv[2]);terran_battle_test(argv[1],argv[2]);return 0;}
+        catch(const std::exception& e){std::fprintf(stderr,"Terran tests failed: %s\n",e.what());return 1;}
     }
     if(argc>3 && std::string(argv[3])=="gas") {
         try {gas_tests(argv[1],argv[2]);battle_test(argv[1],argv[2],{},port3ds::Scenario::gas_battle);return 0;}
@@ -33,6 +39,8 @@ int main(int argc, char** argv) {
         const std::string name(argv[3]);
         if (name == "two") scenario = port3ds::Scenario::two_units;
         else if (name == "move") { scenario = port3ds::Scenario::two_units; test_movement = true; }
+        else if (name == "stress") scenario = port3ds::Scenario::terran_battle;
+        else if (name == "lab") scenario = port3ds::Scenario::terran_lab;
         else if (name == "melee") scenario = port3ds::Scenario::melee;
         else if (name != "empty") { std::fprintf(stderr, "Unknown scenario\n"); return 2; }
     }

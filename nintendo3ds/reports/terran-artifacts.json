@@ -1,0 +1,51 @@
+{
+  "build": "full-Terran 2026-10-19",
+  "updated": {
+    "openbw-3ds.3dsx": {
+      "bytes": 923632,
+      "sha256": "ae3daaf7780244ae87d68fb5bf4dbb0f48ea80a4f4807ae71bbad6cfe3aaea1f"
+    },
+    "graphics.bin": {
+      "bytes": 1585542,
+      "sha256": "02ac105a67dd11e52c1a773fa96d0da032f745df060879ce2c44414026aa3acf"
+    },
+    "graphics.json": {
+      "bytes": 218,
+      "sha256": "aa176d54aa382bdaf2524f1a5ed99fde319c3c90bdd364ddd6ae77e07abc3f19"
+    },
+    "graphics-arena.bin": {
+      "bytes": 532536,
+      "sha256": "4b5031a020371d07e86104e1d699b8b0a4a23b186fb9a732306af54ce7731bcc"
+    },
+    "graphics-arena.json": {
+      "bytes": 214,
+      "sha256": "4044177c3795b2f61714c71729fc0220a048bbb8b262ee13518435b641912e9a"
+    },
+    "maps/arena.chk": {
+      "bytes": 68581,
+      "sha256": "38f0eb20ce726f94a994ea73e38933487ab830b818cc6318f539618f8cfcc828"
+    },
+    "audio/effects.bin": {
+      "bytes": 7813866,
+      "sha256": "250ba6be93457a057f024e9442730a2aa336cca47901c83d5633147273cde51b"
+    },
+    "audio/manifest.json": {
+      "bytes": 557,
+      "sha256": "826f28e1df6912b9c9f6a98fc70b61250f579050da6d6c337f092a06997dee1b"
+    },
+    "README.txt": {
+      "bytes": 2317,
+      "sha256": "5a16c8385bfd5e82ea9136d873a9af3d9a9ed2b6f2beb05d7e6edd691c682e9b"
+    }
+  },
+  "retained_verified": [
+    "StarDat.mpq",
+    "BrooDat.mpq",
+    "Patch_rt.mpq",
+    "maps/probe.scx",
+    "audio/terran1.pcm",
+    "audio/terran2.pcm",
+    "audio/terran3.pcm"
+  ],
+  "hardware_run_pending": true
+}

@@ -1,8 +1,11 @@
 // Host-only reader: use OpenBW's proven MPQ/GRP code, not a second decoder.
 #include "actions.h"
+#include "asset_closure.h"
 #include "../tests/gameplay.h"
 #include "../tests/gas.h"
 #include "../tests/battle.h"
+#include "../tests/terran.h"
+#include "../tests/terran_build.h"
 #include <cstdio>
 #include <set>
 #include <stdexcept>
@@ -29,6 +32,10 @@ int main(int argc, char** argv) {
             unsigned images[256];const auto count=engine.image_types(images,256);
             for(unsigned i=0;i<count;++i) ids.insert(images[i]);
         };
+        const std::string map_name(argv[2]);const auto slash=map_name.find_last_of('/');
+        const auto arena=map_name.substr(0,slash==std::string::npos?0:slash+1)+"arena.chk";
+        terran_construction_tests(argv[1],arena.c_str(),profile);
+        terran_tests(argv[1],arena.c_str(),profile);terran_battle_test(argv[1],arena.c_str(),profile);
         gameplay_tests(argv[1],argv[2],profile);
         battle_test(argv[1],argv[2],profile);
         gas_tests(argv[1],argv[2],profile);
@@ -39,8 +46,10 @@ int main(int argc, char** argv) {
             current.reset(new game_player(assets));
             auto& player = *current;
             game_load_functions loader(player.st());
-            data_loading::mpq_file<> map(argv[2]);
-            loader.load_map(map, [&] {
+            a_vector<uint8_t> chk;
+            if(map_name.size()>=4 && map_name.substr(map_name.size()-4)==".chk") {data_loading::file_reader<> file(argv[2]);chk.resize(file.size());file.get_bytes(chk.data(),chk.size());}
+            else {data_loading::mpq_file<> map(argv[2]);map(chk,"staredit/scenario.chk");}
+            loader.load_map_data(chk.data(),chk.size(), [&] {
                 loader.setup_info.create_no_units = mode == 1;
                 loader.setup_info.resource_type = 1;
                 for (unsigned i = 0; i != 12; ++i) {
@@ -57,6 +66,7 @@ int main(int argc, char** argv) {
             for (int n = 0; n != 480; ++n) { collect(player.st(), ids); player.next_frame(); }
         }
         auto& st = current->st(); auto& global = *st.global; auto& game = *st.game;
+        std::set<unsigned> sound_ids;terran_asset_closure(st,ids,sound_ids);
         const char* names[] = {"badlands","platform","install","ashworld","jungle","desert","ice","twilight"};
         a_vector<uint8_t> palette, vr4, vx4, pcx;
         const auto tileset = game.tileset_index;

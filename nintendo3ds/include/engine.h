@@ -5,9 +5,13 @@
 #include <array>
 
 namespace port3ds {
-enum class Scenario { empty, two_units, melee, ai_battle, versus_ai, gas_battle };
+enum class Scenario { empty, two_units, melee, ai_battle, versus_ai, gas_battle, terran_battle, terran_lab };
 enum class Command { context, attack, stop, train, depot, barracks, cancel, primary, refinery };
 enum class SelectionKind { none, workers, command_center, barracks, other };
+enum class OptionKind : unsigned { build=1, addon, train, research, upgrade, order, stim, siege, cloak, liftoff, land, unload, cancel };
+enum class OptionPage { primary, secondary, basic, advanced };
+struct MenuOption { char label[64]{}; unsigned code=0; bool target=false, enabled=false; };
+inline unsigned option_code(OptionKind kind,unsigned id=0) {return (unsigned(kind)<<16)|id;}
 struct PlayerView {
     int minerals = 0, gas = 0, supply = 0, supply_max = 0;
     unsigned workers = 0, army = 0, buildings = 0, live = 0;
@@ -24,10 +28,12 @@ struct Snapshot {
     int selected_hp = 0, selected_max_hp = 0;
     unsigned queue = 0;
     unsigned selected = 0;
+    int selected_energy=0,selected_max_energy=0,work_frames=0;
     SelectionKind selection = SelectionKind::none;
     std::array<PlayerView,2> players{};
     int winner = -1;
-    bool observer = false;
+    bool observer = false, benchmark = false;
+    unsigned battle_seconds=0,end_reason=0,score[2]{};
 };
 struct SoundEvent { unsigned id = 0; int x = 0, y = 0; };
 struct UnitView {
@@ -37,12 +43,15 @@ struct UnitView {
     unsigned type = 0;
     int hp = 0, max_hp = 0, width = 0, height = 0;
     bool completed = false, worker = false, mineral = false, geyser = false, refinery = false;
+    bool flying=false; unsigned cargo=0;
 };
+struct SpriteInfo {unsigned width=0,height=0;bool valid=false;};
 struct SpriteView {
     int x = 0, y = 0;
     unsigned image = 0, frame = 0, owner = 0;
     bool flipped = false, shadow = false;
     std::uint64_t order = 0;
+    unsigned opacity=255;
 };
 // The platform UI never includes the engine's large implementation headers.
 class Engine {
@@ -51,11 +60,18 @@ public:
     ~Engine();
     bool load(const char* data_root, const char* map_path, Scenario scenario);
     bool tick();
+    void advance_wall_time(std::uint64_t microseconds);
+    unsigned options(OptionPage page,MenuOption* output,unsigned capacity) const;
+    bool perform(unsigned code,int world_x=0,int world_y=0);
+    PlacementView placement_unit(unsigned type,int x,int y) const;
     std::size_t drain_sounds(SoundEvent* output, std::size_t capacity);
     unsigned dropped_sounds() const;
     Snapshot snapshot() const;
     const char* error() const;
     bool ready() const;
+    unsigned count_units(unsigned owner,unsigned type,bool completed=true) const;
+    bool researched(unsigned tech) const;
+    unsigned upgrade_level(unsigned upgrade) const;
     bool select(int world_x, int world_y);
     bool activate(int world_x, int world_y);
     void clear_selection();
@@ -70,6 +86,8 @@ public:
     PlacementView placement(Command building, int world_x, int world_y) const;
     std::size_t visible_units(UnitView* output, std::size_t capacity) const;
     std::size_t visible_images(SpriteView* output, std::size_t capacity, int camera_x, int camera_y) const;
+    SpriteInfo sprite_info(unsigned image,unsigned frame) const;
+    bool sprite_pixels(unsigned image,unsigned frame,unsigned owner,std::uint16_t* output,std::size_t capacity) const;
     std::size_t image_types(unsigned* output, std::size_t capacity) const;
     std::uint32_t terrain_signature() const;
 private:

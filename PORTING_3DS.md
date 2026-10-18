@@ -1,10 +1,11 @@
 # OpenBW on the original Nintendo 3DS
 
-Status: automatic Terran AI vs AI, manual player vs AI, group selection and
-controller bookmarks implemented on the original-3DS build. Fog is deliberately
-disabled. Original effects and streamed Terran music are implemented. The user
-completed both the no-audio and audio hardware battles; audio maintained
-58.60 FPS / 24.01 TPS with zero recorded stream errors.
+Status: full standard Terran production, construction, research/upgrades and
+controller ability menus are implemented. The default prepared full-army 1v1
+has a short score/time limit; Terran lab permits manual testing. Original
+music and effects play through NDSP. The earlier gas build was measured on the
+user's original console at 58.47 FPS / 24.03 TPS; the larger Terran build still
+needs its own hardware run. See `nintendo3ds/reports/TERRAN_VALIDATION.md`.
 Still a limited experimental profile. Updated: 2026-10-19. Baseline: `heiner/openbw` commit
 `469d2037e2fd03085dac4729912f4188bc2a778b`.
 
@@ -32,14 +33,16 @@ Still a limited experimental profile. Updated: 2026-10-19. Baseline: `heiner/ope
   Do not fetch game archives from
   third-party download sites or run the inherited `web/scdat.py fetch` command.
 
-## Current AI observer milestone
+## Current observer and full Terran milestone
 
-The application now automatically loads **Terran AI vs AI with Refinery/gas** on the private
-64x64 Blood Bath map, with no input required. The camera follows bases, moving
-armies and combat, and CSV performance logging starts automatically. The bots
-mine minerals/gas, build Supply Depots, Barracks and a Refinery, train Marines, attack and reach a win
-condition using the original game rules and costs. They are small deterministic
-test controllers, not the original Blizzard campaign AI interpreter.
+The application automatically loads **All Terran battle** on a flat 64×64
+arena prepared from the user's original terrain. Each side has 114 troops,
+a prepared nuclear missile and native supply providers (200 supply). Combat
+includes ground/air units, sieging, spell casts, transport and nuclear strikes.
+The minimum 30-second loss threshold and maximum 180-second score/time limit
+avoid waiting for distant buildings to be destroyed. START also offers a full
+Terran manual lab and the earlier economy scenarios. These are small explicit
+test controllers, not the Blizzard campaign AI interpreter.
 
 The previous Small Divide terrain has no ground route between the start areas;
 it remains a historical asset/renderer fixture. AI ground modes now reject
@@ -121,7 +124,11 @@ sdmc:/3ds/openbw/
   BrooDat.mpq
   StarDat.mpq
   maps/probe.scx
+  maps/arena.chk
   graphics.bin
+  graphics-arena.bin
+  audio/effects.bin
+  audio/terran1.pcm ... terran3.pcm
   openbw-3ds.3dsx
   logs/                 # optional CSV output
 ```
@@ -181,13 +188,14 @@ No desktop mouse backend is included. In observer mode game orders are blocked
 so incidental input does not change either bot's match.
 
 Selections/bookmarks use generation-checked 32-bit IDs, with four group slots
-and up to 64 members. Native orders are batched in groups of twelve. Double tap
+and up to 192 members. Native orders are batched in groups of twelve. Double tap
 within 350 ms centers the recalled group without moving the pointer. Dead
 members are removed on recall; reload clears every group.
 
-Basic SCV construction supports Depot/Barracks; advanced build is a visible
-placeholder until its units, economy and graphics are added. Siege/Unsiege has
-a native primary-action route, but tanks are not in the delivered roster.
+All twelve standard SCV buildings, six add-ons, fourteen production products
+(including a nuclear missile), eleven research technologies and fifteen
+upgrade types are exposed through Y/L+Y. Ability menus cover siege, cloaking,
+spells, mines, transport and nuclear targeting. See `nintendo3ds/CONTROLS.md`.
 
 ## Architecture analysis
 
@@ -275,11 +283,10 @@ are now in `nintendo3ds/reports/ASSET_VALIDATION.md`:
   memory use. No dangerous upstream pool-size changes have been made.
 - 64-bit arithmetic, division, virtual calls, containers and scattered pointers
   warrant ARM profiling. Avoid broad algorithm changes before a baseline.
-- CPU palette conversion/full-frame texture uploads would spend memory bandwidth;
-  the eventual terrain/sprite renderer should use preconverted atlas pages,
-  bounded caches, view culling and batching. Runtime conversion is not implemented; eight pre-swizzled atlas pages are
-  now loaded once on SD initialization, with bounded metadata and no frame
-  allocations in the renderer.
+- CPU palette conversion/full-frame texture uploads spend memory bandwidth.
+  The full Terran renderer reuses resident GRPs and uploads only frame-cache
+  misses into bounded GPU pages, with view culling and pinned frame lifetimes.
+  Terrain/minimap pages remain prepared and swizzled offline.
 
 The scheduler adds exactly 24 tick credits per second using integer arithmetic.
 Each simulation step still invokes one unchanged next_frame. At most two ticks
@@ -293,31 +300,25 @@ HUD have overhead and must be compared enabled/disabled during profiling.
 
 ## Test evidence and remaining work
 
-See `nintendo3ds/reports/AI_VALIDATION.md` for current AI/observer/control results.
-`GAMEPLAY_VALIDATION.md`, `RENDERER_VALIDATION.md`, `ASSET_VALIDATION.md` and
-`VALIDATION.md` preserve the earlier milestones and their historical binaries.
-The host suite covers invalid maps, scheduler/input behavior, private asset
-loading, gathering, construction/training/refunds, thirteen-unit group orders,
-bookmarks, damage/death, and a complete deterministic AI vs AI match.
+See `nintendo3ds/reports/TERRAN_VALIDATION.md` for current functionality,
+original-model emulator performance and hardware-test instructions. Earlier
+AI/gameplay/renderer/asset/audio reports preserve their historical milestones.
 
-Each bot applies a production budget of 40 live/pending units, six workers and
-up to 24 Marines. It never deletes units or changes native simulation limits.
-The on-device unit/minimap view buffer now holds 192 entries, covering both
-budgets plus the prepared map's neutral resources. Visible image layers remain
-bounded at 512. Normal/linear heap reservations stay 36/8 MiB (44 MiB total).
-The graphics profile fits eight pages / 4 MiB; map/graphics/executable must be
-copied together. Unsupported palette-remap effects remain omitted.
+Full construction, production, research/upgrades, ability and stress-battle
+integration tests pass with the user's private files. ASan verifies audio,
+CSV and sprite-cache lifetimes and MPQ ADPCM boundary handling. The new large
+battle maintains simulation timing in the emulator but drops rendering FPS
+heavily during dense combat; the original console must measure this profile.
+The earlier smaller gas profile already has console performance evidence.
 
-Still missing: original campaign AI bytecode execution, campaign triggers and
-presentation completeness, advanced buildings/units, gas economy, game audio,
-save/load, networking, and physical original-3DS performance evidence. Fog is
-intentionally deferred according to the user's request. The prepared terrain
-and roster remain a bounded test profile rather than a general StarCraft port.
+Still missing: original campaign AI/presentation completeness, save/load and
+networking. Fog is intentionally deferred. Normal/linear heaps remain 36/8
+MiB; GPU texture storage is bounded at 4 MiB. The prepared arena is a test
+profile rather than a completed general StarCraft port.
 
-Next work: measure sustained economy/combat on an original 3DS; use those
-results to choose useful stress presets and unit budgets, then expand the
-Terran roster and advanced command menus without changing the agreed controls.
-New 3DS enhancements remain deferred until original hardware is evaluated.
+Next work: use the original-console full-battle CSV to identify whether
+pathfinding/collision, rendering or storage needs attention. New 3DS-specific
+enhancements remain deferred until that original-hardware result.
 
 ### Audio performance build (2026-10-18)
 
@@ -335,7 +336,7 @@ preserved. Check `audio_ready=1`, `sfx_played>0`, increasing `music_buffers`, an
 zero `music_underruns`/`audio_io_errors` alongside FPS/TPS. `Audio OFF` is an asset
 or DSP problem and cannot validate playback performance.
 
-### Refinery/gas milestone (2026-10-19)
+### Historical Refinery/gas milestone (2026-10-19, superseded below)
 
 The default scenario is now Gas AI vs AI (scenario 5), with seven workers per
 side and one assigned to the completed Refinery. The original six-worker
@@ -359,3 +360,37 @@ removes the initial two-second logging stall observed in both old baselines.
 Prepare graphics/audio again and update the executable, graphics.bin and
 complete audio/ folder together. Existing map and three MPQs remain valid.
 See nintendo3ds/reports/GAS_VALIDATION.md and HARDWARE_AUDIO_VALIDATION.md.
+
+### Full Terran milestone (2026-10-19)
+
+The current implementation supersedes the older roster/buffer/atlas limits
+above. View buffers hold 512 units / 2048 image layers; groups hold 192 IDs.
+The normal/linear reservations remain 36/8 MiB. Graphics format OB3DGFX2 stores
+only terrain/minimap; native resident GRPs supply a bounded GPU frame cache,
+with no SD sprite reads during play. This avoids preallocating every animation
+frame. PCM8 mono effects keep the larger complete sound set in normal RAM;
+stereo music stays PCM16 and streams on a worker thread. Palette glow against
+the destination remains an approximation, rather than full original software
+palette compositing.
+
+A hardware gas log exposed a 2.064-second main-thread CSV flush. CSV writes now
+use a bounded asynchronous queue; Exit drains it. Logs count queue drops and
+write errors explicitly. The largest full battle must still be measured on
+the original console; emulator timing is not hardware evidence.
+
+Update the executable, both graphics files, maps/arena.chk and effects.bin
+together. Existing MPQs, maps/probe.scx and the three complete music files are
+retained. Full verification details are in TERRAN_VALIDATION.md. Campaign
+presentation, original campaign AI, save/load and networking remain unfinished.
+
+Private-data preparation order on a fresh checkout:
+
+```sh
+make -C nintendo3ds prepare-arena HOST_CXX=clang++
+make -C nintendo3ds prepare-graphics prepare-arena-graphics prepare-audio HOST_CXX=clang++
+make -C nintendo3ds test test-mpq-audio test-audio test-csv test-sprite-cache HOST_CXX=clang++
+```
+
+Stage owned MPQs/map first using the earlier staging instructions. Asset tools
+exercise full construction, production, technology and ability scenarios
+before extracting private art/audio. No Blizzard assets belong in Git.

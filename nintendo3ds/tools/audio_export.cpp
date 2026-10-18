@@ -1,6 +1,9 @@
 // Extract only privately owned audio used by this Terran test roster.
 #include "actions.h"
+#include "asset_closure.h"
 #include "../tests/battle.h"
+#include "../tests/terran.h"
+#include "../tests/terran_build.h"
 #include "../tests/gameplay.h"
 #include "../tests/gas.h"
 #include <set>
@@ -34,10 +37,13 @@ int main(int argc,char** argv) {
         std::set<unsigned> ids;
         unsigned events=0;
         auto observe=[&](port3ds::Engine& e) {
-            port3ds::SoundEvent out[64];auto n=e.drain_sounds(out,64);events+=n;
+            port3ds::SoundEvent out[256];auto n=e.drain_sounds(out,256);events+=n;
             for(unsigned i=0;i<n;++i) ids.insert(out[i].id);
             if(e.dropped_sounds()) throw std::runtime_error("Sound event queue overflow");
         };
+        const std::string map_name(argv[2]);const auto slash=map_name.find_last_of('/');const auto arena=map_name.substr(0,slash==std::string::npos?0:slash+1)+"arena.chk";
+        terran_construction_tests(argv[1],arena.c_str(),observe);
+        terran_tests(argv[1],arena.c_str(),observe);terran_battle_test(argv[1],arena.c_str(),observe);
         battle_test(argv[1],argv[2],observe);
         gameplay_tests(argv[1],argv[2],observe);
         gas_tests(argv[1],argv[2],observe);
@@ -54,11 +60,23 @@ int main(int argc,char** argv) {
             for(int i=u->first_what_sound;i && i<=u->last_what_sound;++i) ids.insert(i);
             for(int i=u->first_yes_sound;i && i<=u->last_yes_sound;++i) ids.insert(i);
         }
+        game_load_functions loader(player.st());
+        a_vector<uint8_t> chk;data_loading::mpq_file<> map(argv[2]);map(chk,"staredit/scenario.chk");
+        loader.load_map_data(chk.data(),chk.size(),[&]{loader.setup_info.create_no_units=true;});
+        std::set<unsigned> images;terran_asset_closure(player.st(),images,ids);
+        // All units speak; keep the full native select/ack ranges for this roster.
+        for(const auto& product:port3ds::terran::units) {
+            const auto* u=loader.get_unit_type(product.type);
+            if(u->ready_sound)ids.insert(u->ready_sound);
+            for(int k=u->first_what_sound;k && k<=u->last_what_sound;++k)ids.insert(k);
+            for(int k=u->first_yes_sound;k && k<=u->last_yes_sound;++k)ids.insert(k);
+        }
         mkdir(argv[3],0777);
         const std::string root=std::string(argv[3])+"/";
         std::ofstream manifest(root+"manifest.tsv");
         auto write=[&](const std::string& file,const a_string& name) {
-            assets(data,name);std::ofstream f(root+file,std::ios::binary);f.write((const char*)data.data(),data.size());
+            try {assets(data,name);}catch(const std::exception& e){throw std::runtime_error(std::string(name.c_str())+": "+e.what());}
+            std::ofstream f(root+file,std::ios::binary);f.write((const char*)data.data(),data.size());
             if(!f) throw std::runtime_error("Audio export write failed");
         };
         for(auto id:ids) {

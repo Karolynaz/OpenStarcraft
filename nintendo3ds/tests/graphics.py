@@ -14,7 +14,7 @@ def read(fmt):
     return result
 
 magic, width, height, signature, pages, tile_count, sprite_count, cells = read('<8s7I')
-assert magic == b'OB3DGFX1' and pages <= 8 and cells == width * height
+assert magic in (b'OB3DGFX1',b'OB3DGFX2') and pages <= 8 and cells == width * height
 mini = read('<5H')
 tiles = [read('<5H') for _ in range(tile_count)]
 map_indices = read('<' + str(cells) + 'H')
@@ -55,10 +55,10 @@ for value in (width, height, era, *source_map):
     for byte in (value & 255, value >> 8): h = ((h ^ byte) * 16777619) & 0xffffffff
 assert signature == h
 n, = struct.unpack_from('<I', raw, at); at += 4
-ids = []
+ids = []; source_tiles = {}
 for i in range(n):
     tile, = struct.unpack_from('<H', raw, at); at += 2
-    ids.append(tile)
+    ids.append(tile); source_tiles[tile]=bytes(raw[at:at+1024])
     for y in range(32):
         for x in range(32): assert pixel(tiles[i], x, y) == colors[raw[at + y * 32 + x]]
     at += 1024
@@ -68,7 +68,7 @@ for _ in range(image_count):
     image, frames = struct.unpack_from('<2H', raw, at); at += 4
     for frame in range(frames):
         w, h = struct.unpack_from('<2H', raw, at); at += 4
-        for team in range(3):
+        for team in range(3) if sprite_count else []:
             rect = sprites[(image << 16) | (frame << 2) | team]
             assert rect[3:] == (w, h)
             for y in range(h):
@@ -81,4 +81,10 @@ for _ in range(image_count):
                     assert pixel(rect, x, y) == expected
         at += w * h * 2
 assert at == len(raw)
-print(f'All terrain/sprite/team/alpha texels and GPU layout verified: {pages} pages PASS')
+for y in range(128):
+    wy=y*height*32//128
+    for x in range(128):
+        wx=x*width*32//128
+        src=source_tiles[source_map[(wy//32)*width+wx//32]]
+        assert pixel(mini,x,y)==colors[src[(wy%32)*32+wx%32]]
+print(f'Terrain/minimap texels, map signature, bounds, GPU swizzle PASS: {pages} static pages; dynamic sprites tested separately')

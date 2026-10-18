@@ -1,0 +1,68 @@
+{
+  "runs_in_file": 9,
+  "selected_run": "last",
+  "samples": 88,
+  "active_samples": 30,
+  "excluded_zero_tps_samples": 58,
+  "partial_samples": "retained",
+  "first_frame": 24,
+  "last_frame": 720,
+  "winner": 1,
+  "mean_fps": 45.28433333333333,
+  "mean_tps": 23.71966666666667,
+  "peak_units": 332,
+  "max_tick_us": 67153.0,
+  "peak_heap_bytes": 33685256,
+  "peak_linear_bytes": 7789568,
+  "max_backlog": 1,
+  "missing_sprites": 0,
+  "max_previous_csv_flush_us": 1000.0,
+  "gas": {
+    "red_gas": 0,
+    "blue_gas": 0
+  },
+  "audio": {
+    "all_samples_ready": true,
+    "sfx_played": 149,
+    "sfx_culled": 4,
+    "sfx_missing": 0,
+    "sfx_voice_drops": 2352,
+    "event_drops": 0,
+    "music_buffers": 83,
+    "music_underruns": 0,
+    "audio_io_errors": 0,
+    "dsp_drops": 0,
+    "tracks_seen": [
+      1
+    ]
+  },
+  "battle": {
+    "battle_seconds": 30,
+    "red_score": 475,
+    "blue_score": 575,
+    "end_reason": 2
+  },
+  "cache": {
+    "cache_misses": 9196,
+    "cache_overflows": 0,
+    "upload_pixels": 17423047
+  },
+  "csv": {
+    "csv_dropped": 0,
+    "csv_errors": 0
+  },
+  "min_fps": 11.61,
+  "max_fps": 59.89,
+  "environment": {
+    "emulator": "Emuautotest/Azahar 2126.2",
+    "is_new_3ds": false,
+    "cpu_clock_percentage": 100,
+    "physical_console": false
+  },
+  "partial_final_sample": {
+    "frame": 720,
+    "tps": 15.96,
+    "included_in_mean": true
+  },
+  "mean_tps_excluding_partial_final_sample": 23.987241379310344
+}

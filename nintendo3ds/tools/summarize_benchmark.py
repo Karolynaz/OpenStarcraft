@@ -33,6 +33,10 @@ if 'audio_ready' in r[0]:
     keys=['sfx_played','sfx_culled','sfx_missing','sfx_voice_drops','event_drops','music_buffers','music_underruns','audio_io_errors','dsp_drops']
     s['audio']={'all_samples_ready':all(x['audio_ready']=='1' for x in r),
                 **{k:int(peak(k)) for k in keys},'tracks_seen':sorted({int(x['music_track']) for x in r})}
+if 'end_reason' in r[0]:
+    s['battle']={k:int(r[-1][k]) for k in ['battle_seconds','red_score','blue_score','end_reason']}
+    s['cache']={k:int(peak(k)) for k in ['cache_misses','cache_overflows','upload_pixels']}
+    s['csv']={k:int(peak(k)) for k in ['csv_dropped','csv_errors']}
 text=json.dumps(s,indent=2)+'\n'
 if a.output:a.output.write_text(text)
 print(text,end='')

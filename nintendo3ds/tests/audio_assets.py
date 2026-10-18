@@ -3,13 +3,15 @@
 import pathlib,sys,struct,subprocess,hashlib,json
 src,out=map(pathlib.Path,sys.argv[1:]);data=(out/'effects.bin').read_bytes()
 magic,n,size=struct.unpack_from('<8sII',data)
-assert magic==b'OBWAUD1\0' and 0<n<=1200 and size<=4*1024*1024 and len(data)==16+20*n+size
-payload=data[16+20*n:];ids=set();end=0
+width=struct.unpack_from('<I',data,16)[0] if magic==b'OBWAUD2\0' else 2
+header=20 if magic==b'OBWAUD2\0' else 16
+assert magic in (b'OBWAUD1\0',b'OBWAUD2\0') and width in (1,2) and 0<n<=1200 and size<=8*1024*1024 and len(data)==header+20*n+size
+payload=data[header+20*n:];ids=set();end=0
 for i in range(n):
-    ident,offset,samples,priority,flags=struct.unpack_from('<IIIII',data,16+20*i)
-    assert ident not in ids and ident<1200 and offset==end and 0<samples*2<=128*1024
-    pcm=payload[offset:offset+samples*2];assert len(pcm)==samples*2 and any(pcm)
-    ref=subprocess.check_output(['ffmpeg','-v','error','-i',str(src/f'{ident}.wav'),'-f','s16le','-ac','1','-ar','22050','-'])
+    ident,offset,samples,priority,flags=struct.unpack_from('<IIIII',data,header+20*i)
+    assert ident not in ids and ident<1200 and offset==end and 0<samples*width<=256*1024
+    pcm=payload[offset:offset+samples*width];assert len(pcm)==samples*width and any(pcm)
+    ref=subprocess.check_output(['ffmpeg','-v','error','-i',str(src/f'{ident}.wav'),'-f','s8' if width==1 else 's16le','-ac','1','-ar','22050','-'])
     assert ref==pcm;ids.add(ident);end=offset+len(pcm)
 assert end==size
 for i in range(1,4):
