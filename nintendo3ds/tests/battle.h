@@ -4,10 +4,11 @@
 #include <cstdio>
 #include <stdexcept>
 inline void battle_test(const char* data,const char* map,
-                        const std::function<void(port3ds::Engine&)>& observe={}) {
+                        const std::function<void(port3ds::Engine&)>& observe={},
+                        port3ds::Scenario scenario=port3ds::Scenario::ai_battle) {
     using namespace port3ds;
     Engine engine;
-    if(!engine.load(data,map,Scenario::ai_battle)) throw std::runtime_error(engine.error());
+    if(!engine.load(data,map,scenario)) throw std::runtime_error(engine.error());
     UnitView start[128]; const auto count=engine.visible_units(start,128);
     for(unsigned i=0;i<count;++i) if(start[i].owner<2 && start[i].max_hp==1500) {
         if(!engine.select(start[i].x,start[i].y) || !engine.store_group(start[i].owner)) throw std::runtime_error("Observer bookmarks");
@@ -35,6 +36,7 @@ inline void battle_test(const char* data,const char* map,
     if(s.winner<2 && engine.recall_group(1-s.winner)) throw std::runtime_error("Dead bookmark must not select a recycled unit");
     for(const auto& p:s.players) if(!p.ai || p.trained<6 || p.built<2 || !p.waves)
         throw std::runtime_error("Both AIs must gather, construct, train and launch waves");
+    if(scenario==Scenario::gas_battle && (!s.players[0].gas || !s.players[1].gas)) throw std::runtime_error("Both AIs must harvest real gas");
     if(!damage || !s.players[0].lost || !s.players[1].lost) throw std::runtime_error("AI battle did not produce damage and losses on both sides");
     std::printf("AI vs AI PASS: frame=%u peak_objects=%u winner=%d losses=%u/%u\n",s.frame,peak,s.winner,s.players[0].lost,s.players[1].lost);
     if(!engine.load(data,map,Scenario::versus_ai)) throw std::runtime_error(engine.error());

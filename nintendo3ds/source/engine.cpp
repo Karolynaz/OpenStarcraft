@@ -42,6 +42,7 @@ const char* unit_name(const unit_t* u) {
     case UnitTypes::Terran_Marine: return "Marine";
     case UnitTypes::Terran_Command_Center: return "Command Center";
     case UnitTypes::Terran_Barracks: return "Barracks";
+    case UnitTypes::Terran_Refinery: return "Refinery";
     case UnitTypes::Terran_Supply_Depot: return "Supply Depot";
     default: return "Unit";
     }
@@ -98,7 +99,8 @@ bool Engine::load(const char* data_root, const char* map_path, Scenario scenario
     impl_->loaded = false;
     impl_->selected.clear();
     for (auto& g:impl_->groups) g.clear();
-    impl_->ai.reset(scenario==Scenario::ai_battle,scenario==Scenario::ai_battle || scenario==Scenario::versus_ai);
+    impl_->ai.reset(scenario==Scenario::ai_battle || scenario==Scenario::gas_battle,
+        scenario==Scenario::ai_battle || scenario==Scenario::versus_ai || scenario==Scenario::gas_battle,scenario==Scenario::gas_battle);
     impl_->sound.reset();
     impl_->player.reset();
     try {
@@ -129,7 +131,7 @@ bool Engine::load(const char* data_root, const char* map_path, Scenario scenario
         }
         game_load_functions loader(player.st());
         loader.load_map_data(chk.data(), chk.size(), [&]() {
-            const bool melee=scenario==Scenario::melee || scenario==Scenario::ai_battle || scenario==Scenario::versus_ai;
+            const bool melee=scenario==Scenario::melee || scenario==Scenario::ai_battle || scenario==Scenario::versus_ai || scenario==Scenario::gas_battle;
             loader.setup_info.create_no_units = !melee;
             loader.setup_info.victory_condition = 0;
             loader.setup_info.resource_type = 1;
@@ -148,7 +150,7 @@ bool Engine::load(const char* data_root, const char* map_path, Scenario scenario
                 !loader.create_initial_unit(type, {512, 128}, 1))
                 throw std::runtime_error("Could not place the two probe units");
         }
-        if(scenario==Scenario::ai_battle || scenario==Scenario::versus_ai) {
+        if(scenario==Scenario::ai_battle || scenario==Scenario::versus_ai || scenario==Scenario::gas_battle) {
             unit_t* bases[2]={nullptr,nullptr};
             for(unsigned p=0;p!=2;++p) for(auto* u:ptr(player.st().player_units[p]))
                 if(loader.unit_is(u,UnitTypes::Terran_Command_Center)) bases[p]=u;
@@ -243,7 +245,7 @@ bool Engine::activate(int x,int y) {
     auto* target=hit_unit(f,x,y,true);
     const auto* current=impl_->first_selected();
     if(target && (!current || !f.ut_worker(current) || !f.ut_building(target) ||
-        (f.u_completed(target) && target->hp>=target->unit_type->hitpoints))) {
+        (f.u_completed(target) && target->hp>=target->unit_type->hitpoints && !f.unit_is_refinery(target)))) {
         const bool ok=select(x,y); impl_->command_message=ok?"Unit selected":"Selection cleared"; return ok;
     }
     if(!current) { const bool ok=select(x,y); impl_->command_message=ok?"Unit selected":"Select a unit first"; return ok; }
@@ -286,11 +288,16 @@ bool Engine::recall_group(unsigned slot,int* x,int* y) {
     impl_->selected.clear();
     const auto& f=impl_->player->funcs();
     int sx=0,sy=0;
+    static_vector<unit_id_32,64> retained;
     for(auto id:impl_->groups[slot]) if(auto* u=f.get_unit(id)) {
-        if(f.unit_dead(u) || f.us_hidden(u) || (u->owner!=0 && !impl_->ai.observer())) continue;
+        if(f.unit_dead(u) || (u->owner!=0 && !impl_->ai.observer())) continue;
+        retained.push_back(id);
+        // Entering a refinery is temporary. Keep this live bookmark while the
+        // worker is hidden, but do not select or command an unavailable unit.
+        if(f.us_hidden(u)) continue;
         impl_->selected.push_back(id); sx+=u->sprite->position.x; sy+=u->sprite->position.y;
     }
-    impl_->groups[slot]=impl_->selected;
+    impl_->groups[slot]=retained;
     if(impl_->selected.empty()) return false;
     if(x) *x=sx/static_cast<int>(impl_->selected.size());
     if(y) *y=sy/static_cast<int>(impl_->selected.size());
@@ -319,11 +326,21 @@ bool Engine::observer_focus(int& x,int& y) const {
 const char* Engine::command_status() const { return impl_->command_message; }
 PlacementView Engine::placement(Command building, int x, int y) const {
     PlacementView view;
-    if (!ready() || (building != Command::depot && building != Command::barracks)) return view;
+    if (!ready() || (building != Command::depot && building != Command::barracks && building != Command::refinery)) return view;
     const auto& funcs = impl_->player->funcs();
-    auto* type = funcs.get_unit_type(building == Command::depot ? UnitTypes::Terran_Supply_Depot : UnitTypes::Terran_Barracks);
+    auto* type = funcs.get_unit_type(building == Command::depot ? UnitTypes::Terran_Supply_Depot : building == Command::refinery ? UnitTypes::Terran_Refinery : UnitTypes::Terran_Barracks);
     view.width = type->placement_size.x; view.height = type->placement_size.y;
     view.x = (x-view.width/2)/32*32; view.y = (y-view.height/2)/32*32;
+    if(building==Command::refinery) {
+        bool found=false;
+        for(const auto* g:ptr(impl_->player->st().visible_units)) if(funcs.unit_is(g,UnitTypes::Resource_Vespene_Geyser) && !funcs.unit_dead(g)) {
+            const auto p=g->sprite->position;
+            if(std::abs(x-p.x)<=64 && std::abs(y-p.y)<=48) {
+                view.x=p.x-view.width/2;view.y=p.y-view.height/2;found=true;break;
+            }
+        }
+        if(!found) return view;
+    }
     const auto* u = impl_->first_selected();
     view.valid = !impl_->ai.enabled(0) && u && u->owner == 0 && !funcs.unit_dead(u) && funcs.unit_can_build(u,type) &&
         funcs.has_available_resources_for(0,type) && x >= view.width/2 && y >= view.height/2 &&
@@ -372,6 +389,7 @@ bool Engine::command(Command command, int x, int y) {
         issue();
         if (command == Command::context) {
             message = target && funcs.unit_is_mineral_field(target) ? "Gather minerals" :
+                target && funcs.unit_is_refinery(target) && target->owner==0 ? "Gather gas" :
                 target && target->owner == 1 ? "Attack target" : "Move / interact / rally";
         } else message=command==Command::stop ? "Stop" : command==Command::primary ? "Siege mode toggled" : "Attack-move to cursor";
         break;
@@ -386,8 +404,9 @@ bool Engine::command(Command command, int x, int y) {
         accepted = commands.action_train(0, type); message = "Unit added to training queue"; break;
     }
     case Command::depot:
-    case Command::barracks: {
-        auto* type = funcs.get_unit_type(command == Command::depot ? UnitTypes::Terran_Supply_Depot : UnitTypes::Terran_Barracks);
+    case Command::barracks:
+    case Command::refinery: {
+        auto* type = funcs.get_unit_type(command == Command::depot ? UnitTypes::Terran_Supply_Depot : command == Command::refinery ? UnitTypes::Terran_Refinery : UnitTypes::Terran_Barracks);
         if (!funcs.unit_can_build(u, type)) return fail("Select an available SCV");
         if (!funcs.has_available_resources_for(0, type)) return fail("Not enough minerals / gas");
         const auto site = placement(command,x,y);
@@ -432,7 +451,7 @@ std::size_t Engine::visible_units(UnitView* output, std::size_t capacity) const 
         output[n++] = {u->sprite->position.x, u->sprite->position.y, static_cast<unsigned>(u->owner), selected,
                        static_cast<unsigned>(t->id), u->hp.integer_part(), t->hitpoints.integer_part(),
                        t->dimensions.from.x + t->dimensions.to.x + 1, t->dimensions.from.y + t->dimensions.to.y + 1,
-                       funcs.u_completed(u), funcs.ut_worker(u), funcs.unit_is_mineral_field(u)};
+                       funcs.u_completed(u), funcs.ut_worker(u), funcs.unit_is_mineral_field(u),funcs.unit_is(u,UnitTypes::Resource_Vespene_Geyser),funcs.unit_is_refinery(u)};
     }
     return n;
 }

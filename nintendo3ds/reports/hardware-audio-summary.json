@@ -1,0 +1,52 @@
+{
+  "runs_in_file": 1,
+  "selected_run": "last",
+  "samples": 563,
+  "active_samples": 548,
+  "excluded_zero_tps_samples": 15,
+  "partial_samples": "retained",
+  "first_frame": 24,
+  "last_frame": 13200,
+  "winner": 1,
+  "mean_fps": 58.597281021897814,
+  "mean_tps": 24.01463503649635,
+  "peak_units": 94,
+  "max_tick_us": 7134.0,
+  "peak_heap_bytes": 26518224,
+  "peak_linear_bytes": 7502848,
+  "max_backlog": 47,
+  "missing_sprites": 0,
+  "combat_from_frame5000": {
+    "samples": 342,
+    "mean_fps": 58.6595029239766,
+    "mean_tps": 23.955497076023395
+  },
+  "audio": {
+    "all_samples_ready": true,
+    "sfx_played": 1951,
+    "sfx_culled": 3653,
+    "sfx_missing": 0,
+    "sfx_voice_drops": 159,
+    "event_drops": 0,
+    "music_buffers": 1480,
+    "music_underruns": 0,
+    "audio_io_errors": 0,
+    "dsp_drops": 0,
+    "tracks_seen": [
+      1,
+      2,
+      3
+    ]
+  },
+  "device": "User Nintendo 3DS, model not independently identified",
+  "imported_date": "2026-10-19",
+  "backlog_samples": [
+    {
+      "frame": "26",
+      "fps": "0.49",
+      "tps": "0.98",
+      "backlog": "47"
+    }
+  ],
+  "post_frame26_max_backlog": 0
+}

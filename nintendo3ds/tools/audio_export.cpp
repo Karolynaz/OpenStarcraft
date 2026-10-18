@@ -2,6 +2,7 @@
 #include "actions.h"
 #include "../tests/battle.h"
 #include "../tests/gameplay.h"
+#include "../tests/gas.h"
 #include <set>
 #include <fstream>
 #include <sys/stat.h>
@@ -39,13 +40,15 @@ int main(int argc,char** argv) {
         };
         battle_test(argv[1],argv[2],observe);
         gameplay_tests(argv[1],argv[2],observe);
+        gas_tests(argv[1],argv[2],observe);
+        battle_test(argv[1],argv[2],observe,port3ds::Scenario::gas_battle);
         auto assets=data_loading::data_files_directory(argv[1]);
         a_vector<uint8_t> data;assets(data,"arr/sfxdata.dat");
         auto sounds=data_loading::load_sfxdata_dat(data);
         string_table_data tbl;assets(tbl.data,"arr/sfxdata.tbl");
         game_player player(assets);
         auto units=data_loading::load_units_dat(player.st().global->units_dat);
-        for(auto type:{UnitTypes::Terran_SCV,UnitTypes::Terran_Marine,UnitTypes::Terran_Command_Center,UnitTypes::Terran_Barracks,UnitTypes::Terran_Supply_Depot}) {
+        for(auto type:{UnitTypes::Terran_SCV,UnitTypes::Terran_Marine,UnitTypes::Terran_Command_Center,UnitTypes::Terran_Barracks,UnitTypes::Terran_Supply_Depot,UnitTypes::Terran_Refinery}) {
             const auto* u=&units.vec.at(static_cast<unsigned>(type));
             if(u->ready_sound) ids.insert(u->ready_sound);
             for(int i=u->first_what_sound;i && i<=u->last_what_sound;++i) ids.insert(i);

@@ -7,7 +7,7 @@ using namespace bwgame;
 class BattleAI {
     struct Side {
         bool enabled = false, building = false;
-        unit_id_32 builder;
+        unit_id_32 builder, gas_worker;
         UnitTypes plan = UnitTypes::Terran_Supply_Depot;
         unsigned search = 24, trained = 0, built = 0, waves = 0;
         unsigned build_frame = 0, attack_frame = 0;
@@ -16,6 +16,7 @@ class BattleAI {
     };
     std::array<Side,2> sides_{};
     int winner_ = -1;
+    bool gas_economy_ = false;
     static bool idle(const unit_t* u) {
         const auto o=u->order_type->id;
         return o==Orders::PlayerGuard || o==Orders::Guard || o==Orders::Stop || o==Orders::Nothing || o==u->unit_type->return_to_idle->id;
@@ -38,12 +39,13 @@ class BattleAI {
         action_state state;
         action_functions a(st,state);
         static_vector<unit_t*,64> workers, marines, factories;
-        unit_t* base=nullptr; unit_t* unfinished=nullptr;
+        unit_t* base=nullptr; unit_t* unfinished=nullptr; unit_t* refinery=nullptr;
         unsigned live=0, depots=0, barracks=0;
         for(auto* u:ptr(st.player_units[owner])) {
             if(f.unit_dead(u)) continue;
             ++live;
             if(f.unit_is(u,UnitTypes::Terran_Command_Center)) base=u;
+            if(f.unit_is(u,UnitTypes::Terran_Refinery)) refinery=u;
             if(f.unit_is(u,UnitTypes::Terran_Supply_Depot)) ++depots;
             if(f.unit_is(u,UnitTypes::Terran_Barracks)) { ++barracks; if(f.u_completed(u)) factories.push_back(u); }
             if(f.ut_building(u) && !f.u_completed(u)) unfinished=u;
@@ -68,8 +70,27 @@ class BattleAI {
                 break;
             }
         }
+        // Reserve one worker for the completed refinery. Native harvest orders
+        // handle entering, gas cargo, return trips and depleted-geyser behavior.
+        unit_t* gas_worker=f.get_unit(side.gas_worker);
+        if(!refinery || !f.u_completed(refinery) || !gas_worker || f.unit_dead(gas_worker)) {
+            side.gas_worker={};gas_worker=nullptr;
+        }
+        if(gas_economy_ && refinery && f.u_completed(refinery)) {
+            if(!gas_worker) { for(auto* w:workers) if(!(side.building && f.get_unit_id_32(w)==side.builder)) {
+                a.action_select(owner,w);
+                if(a.action_default_order(owner,refinery->sprite->position,refinery,nullptr,false)) {
+                    side.gas_worker=f.get_unit_id_32(w);gas_worker=w;
+                }
+                break;
+            }
+            } else if(idle(gas_worker)) {
+                a.action_select(owner,gas_worker);
+                a.action_default_order(owner,refinery->sprite->position,refinery,nullptr,false);
+            }
+        }
         for(auto* w:workers) {
-            if(!idle(w) || (side.building && f.get_unit_id_32(w)==side.builder)) continue;
+            if(w==gas_worker || !idle(w) || (side.building && f.get_unit_id_32(w)==side.builder)) continue;
             unit_t* mineral=nullptr; int distance=0x7fffffff;
             for(auto* m:ptr(st.visible_units)) if(f.unit_is_mineral_field(m) && !f.unit_dead(m) && m->building.resource.resource_count>0) {
                 const auto d=m->sprite->position-w->sprite->position;
@@ -83,16 +104,30 @@ class BattleAI {
             const int free=(st.supply_available[owner][race]-st.supply_used[owner][race]).integer_part();
             const bool need_depot=depots==0 || (free<=4 && depots<4);
             const bool need_barracks=barracks<2;
-            const auto plan=need_depot ? UnitTypes::Terran_Supply_Depot : UnitTypes::Terran_Barracks;
+            const bool need_refinery=gas_economy_ && !refinery && barracks>=2;
+            const auto plan=need_depot ? UnitTypes::Terran_Supply_Depot : need_barracks ? UnitTypes::Terran_Barracks : UnitTypes::Terran_Refinery;
             const auto* type=f.get_unit_type(plan);
-            if(!side.building && !unfinished && live<unit_budget && (need_depot || need_barracks) && f.has_available_resources_for(owner,type)) {
+            if(!side.building && !unfinished && live<unit_budget && (need_depot || need_barracks || need_refinery) && f.has_available_resources_for(owner,type)) {
                 unit_t* worker=nullptr;
-                for(auto* w:workers) if(f.unit_can_build(w,type)) { worker=w; break; }
+                for(auto* w:workers) if(w!=gas_worker && f.unit_can_build(w,type)) { worker=w; break; }
                 if(worker) {
                     if(side.plan!=plan) { side.plan=plan; side.search=24; }
                     // Bound the expensive placement search to eight candidates
                     // per 12 simulation frames, rather than scanning a whole base.
-                    for(unsigned n=0;n!=8;++n) {
+                    if(plan==UnitTypes::Terran_Refinery) {
+                        unit_t* geyser=nullptr;int best=0x7fffffff;
+                        for(auto* g:ptr(st.visible_units)) if(f.unit_is(g,UnitTypes::Resource_Vespene_Geyser) && !f.unit_dead(g)) {
+                            const auto d=g->sprite->position-base->sprite->position;const int distance=d.x*d.x+d.y*d.y;
+                            if(distance<best) {best=distance;geyser=g;}
+                        }
+                        if(geyser && best<512*512 && f.can_place_building(worker,owner,type,geyser->sprite->position,true,true)) {
+                            const auto tile=(geyser->sprite->position-type->placement_size/2)/32;
+                            a.action_select(owner,worker);
+                            if(a.action_build(owner,a.get_order_type(Orders::PlaceBuilding),type,{static_cast<size_t>(tile.x),static_cast<size_t>(tile.y)})) {
+                                side.builder=f.get_unit_id_32(worker);side.building=true;side.build_frame=st.current_frame;++side.built;++live;
+                            }
+                        }
+                    } else for(unsigned n=0;n!=8;++n) {
                         if(side.search>=624) side.search=24;
                         const auto offset=spiral(side.search++);
                         if(std::max(std::abs(offset.x),std::abs(offset.y))<6) continue;
@@ -118,7 +153,7 @@ class BattleAI {
             }
             // One queue entry at a time and a controller production budget;
             // never delete existing units or change simulation pool limits.
-            if(workers.size()<6 && base->build_queue.empty() && live<unit_budget) {
+            if(workers.size()<(gas_economy_?7u:6u) && base->build_queue.empty() && live<unit_budget) {
                 a.action_select(owner,base);
                 if(a.action_train(owner,a.get_unit_type(UnitTypes::Terran_SCV))) { ++side.trained; ++live; }
             }
@@ -148,7 +183,7 @@ class BattleAI {
     }
 public:
     static constexpr unsigned unit_budget=40;
-    void reset(bool red,bool blue) { sides_={}; sides_[0].enabled=red; sides_[1].enabled=blue; winner_=-1; }
+    void reset(bool red,bool blue,bool gas=false) { gas_economy_=gas; sides_={}; sides_[0].enabled=red; sides_[1].enabled=blue; winner_=-1; }
     bool enabled(unsigned p) const { return p<2 && sides_[p].enabled; }
     bool observer() const { return enabled(0) && enabled(1); }
     int winner() const { return winner_; }

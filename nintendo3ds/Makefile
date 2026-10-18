@@ -33,7 +33,7 @@ out/openbw-3ds.elf: $(OBJECTS) arm11.specs Makefile | out
 out/openbw-3ds.3dsx: out/openbw-3ds.elf
 	"$(DEVKITPRO)/tools/bin/3dsxtool" $< $@
 host: build/host-sim
-build/graphics-export: tools/graphics_export.cpp source/engine.cpp tests/gameplay.h tests/battle.h $(HEADERS) | build
+build/graphics-export: tools/graphics_export.cpp source/engine.cpp tests/gameplay.h tests/battle.h tests/gas.h $(HEADERS) | build
 	$(HOST_CXX) $(COMMON) tools/graphics_export.cpp source/engine.cpp -o $@
 ASSET_ROOT ?= ../data files
 MAP ?= local-data/3ds/openbw/maps/probe.scx
@@ -43,7 +43,7 @@ prepare-graphics: build/graphics-export
 	python3 tools/prepare_graphics.py local-data/graphics-work/raw.bin local-data/3ds/openbw/graphics.bin
 test-graphics: prepare-graphics
 	python3 tests/graphics.py local-data/graphics-work/raw.bin local-data/3ds/openbw/graphics.bin
-build/host-sim: source/engine.cpp source/host_main.cpp tests/gameplay.h tests/battle.h $(HEADERS) | build
+build/host-sim: source/engine.cpp source/host_main.cpp tests/gameplay.h tests/battle.h tests/gas.h $(HEADERS) | build
 	$(HOST_CXX) $(COMMON) source/engine.cpp source/host_main.cpp -o $@
 build/scheduler-test: tests/scheduler.cpp include/scheduler.h | build
 	$(HOST_CXX) -std=c++14 -Iinclude tests/scheduler.cpp -o $@
@@ -61,7 +61,7 @@ clean:
 	rm -rf build out
 -include build/main.d build/engine.d build/graphics.d build/audio.d
 
-build/audio-export: tools/audio_export.cpp source/engine.cpp tests/gameplay.h tests/battle.h $(HEADERS) | build
+build/audio-export: tools/audio_export.cpp source/engine.cpp tests/gameplay.h tests/battle.h tests/gas.h $(HEADERS) | build
 	$(HOST_CXX) $(COMMON) tools/audio_export.cpp source/engine.cpp -o $@
 prepare-audio: build/audio-export
 	mkdir -p local-data/audio-work

@@ -108,3 +108,10 @@ python3 nintendo3ds/tools/summarize_benchmark.py /path/to/ai-audio-benchmark.csv
 
 It selects the latest header/restart run, reports every zero-TPS exclusion, and
 retains all active partial/startup/catch-up samples.
+
+## Subsequent hardware result
+
+The user completed the audio run; see HARDWARE_AUDIO_VALIDATION.md and
+hardware-audio-summary.json. Mean 58.597 FPS / 24.015 TPS, all three tracks,
+zero recorded audio stream errors. The earlier pending-hardware language above
+describes the state at delivery of that audio build.

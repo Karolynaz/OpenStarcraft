@@ -27,6 +27,8 @@ s={'runs_in_file':len(runs),'selected_run':'last','samples':len(r),'active_sampl
    'max_backlog':int(peak('backlog')),'missing_sprites':int(peak('missing_images'))}
 combat=[x for x in active if int(x['frame'])>=5000]
 if combat:s['combat_from_frame5000']={'samples':len(combat),'mean_fps':mean(combat,'fps'),'mean_tps':mean(combat,'tps')}
+if 'csv_flush_us' in r[0]:s['max_previous_csv_flush_us']=peak('csv_flush_us')
+if 'red_gas' in r[0]:s['gas']={k:int(peak(k)) for k in ['red_gas','blue_gas']}
 if 'audio_ready' in r[0]:
     keys=['sfx_played','sfx_culled','sfx_missing','sfx_voice_drops','event_drops','music_buffers','music_underruns','audio_io_errors','dsp_drops']
     s['audio']={'all_samples_ready':all(x['audio_ready']=='1' for x in r),

@@ -3,8 +3,9 @@
 Status: automatic Terran AI vs AI, manual player vs AI, group selection and
 controller bookmarks implemented on the original-3DS build. Fog is deliberately
 disabled. Original effects and streamed Terran music are implemented. The user
-completed the no-audio hardware battle; hardware audio measurements are pending.
-Still a limited experimental profile. Updated: 2026-10-18. Baseline: `heiner/openbw` commit
+completed both the no-audio and audio hardware battles; audio maintained
+58.60 FPS / 24.01 TPS with zero recorded stream errors.
+Still a limited experimental profile. Updated: 2026-10-19. Baseline: `heiner/openbw` commit
 `469d2037e2fd03085dac4729912f4188bc2a778b`.
 
 ## Completed milestone
@@ -33,10 +34,10 @@ Still a limited experimental profile. Updated: 2026-10-18. Baseline: `heiner/ope
 
 ## Current AI observer milestone
 
-The application now automatically loads **Terran AI vs AI** on the private
+The application now automatically loads **Terran AI vs AI with Refinery/gas** on the private
 64x64 Blood Bath map, with no input required. The camera follows bases, moving
 armies and combat, and CSV performance logging starts automatically. The bots
-mine, build Supply Depots and Barracks, train Marines, attack and reach a win
+mine minerals/gas, build Supply Depots, Barracks and a Refinery, train Marines, attack and reach a win
 condition using the original game rules and costs. They are small deterministic
 test controllers, not the original Blizzard campaign AI interpreter.
 
@@ -333,3 +334,28 @@ The new automatic log is `logs/ai-audio-benchmark.csv`; the older no-audio log i
 preserved. Check `audio_ready=1`, `sfx_played>0`, increasing `music_buffers`, and
 zero `music_underruns`/`audio_io_errors` alongside FPS/TPS. `Audio OFF` is an asset
 or DSP problem and cannot validate playback performance.
+
+### Refinery/gas milestone (2026-10-19)
+
+The default scenario is now Gas AI vs AI (scenario 5), with seven workers per
+side and one assigned to the completed Refinery. The original six-worker
+Marines AI vs AI baseline remains in START (scenario 3); Player vs AI remains
+scenario 4 and also permits manual Refinery construction. The 40-unit budget
+and original resource/build/supply rules remain in force. Gas is accumulated;
+Factory/tank production is a later milestone.
+
+SCV Y opens Depot/Barracks/Refinery. Placement snaps to a neutral geyser and is
+revalidated on arrival. A selected SCV's A on an own completed Refinery issues
+a gas harvest order. Native worker hiding/return trips remain active; temporarily
+hidden workers retain their saved control-group identity. Eight START rows use
+12-pixel drawing/touch spacing and fit the lower screen.
+
+The first GPU present and initial CSV header flush finish before the simulation
+clock starts; normal-play debt is never discarded. CSV now includes red_gas,
+blue_gas and csv_flush_us (the preceding CSV flush duration, or initial header
+flush for the first sample). A hardware run is needed to confirm whether this
+removes the initial two-second logging stall observed in both old baselines.
+
+Prepare graphics/audio again and update the executable, graphics.bin and
+complete audio/ folder together. Existing map and three MPQs remain valid.
+See nintendo3ds/reports/GAS_VALIDATION.md and HARDWARE_AUDIO_VALIDATION.md.

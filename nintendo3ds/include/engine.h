@@ -5,8 +5,8 @@
 #include <array>
 
 namespace port3ds {
-enum class Scenario { empty, two_units, melee, ai_battle, versus_ai };
-enum class Command { context, attack, stop, train, depot, barracks, cancel, primary };
+enum class Scenario { empty, two_units, melee, ai_battle, versus_ai, gas_battle };
+enum class Command { context, attack, stop, train, depot, barracks, cancel, primary, refinery };
 enum class SelectionKind { none, workers, command_center, barracks, other };
 struct PlayerView {
     int minerals = 0, gas = 0, supply = 0, supply_max = 0;
@@ -36,7 +36,7 @@ struct UnitView {
     bool selected = false;
     unsigned type = 0;
     int hp = 0, max_hp = 0, width = 0, height = 0;
-    bool completed = false, worker = false, mineral = false;
+    bool completed = false, worker = false, mineral = false, geyser = false, refinery = false;
 };
 struct SpriteView {
     int x = 0, y = 0;

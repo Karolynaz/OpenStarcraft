@@ -28,8 +28,8 @@ u64 now_us() {
     return ticks / SYSCLOCK_ARM11 * 1000000 + ticks % SYSCLOCK_ARM11 * 1000000 / SYSCLOCK_ARM11;
 }
 const char* scenario_name(unsigned s) {
-    static const char* names[] = {"Empty map", "Two marines", "Manual base", "AI vs AI", "Player vs AI"};
-    return names[s % 5];
+    static const char* names[] = {"Empty map", "Two marines", "Manual base", "AI vs AI", "Player vs AI", "Gas AI vs AI"};
+    return names[s % 6];
 }
 }
 
@@ -57,11 +57,11 @@ int main() {
         sound.load("sdmc:/3ds/openbw/audio",R_SUCCEEDED(audio));
         port3ds::Scheduler scheduler;
         port3ds::Controls controls;
-        unsigned scenario = 3, loaded_scenario = 3;
+        unsigned scenario = 5, loaded_scenario = 5;
         port3ds::InputRouter input;
         enum class Menu { none, system, basic, advanced, abilities };
         Menu menu=Menu::none; unsigned choice=0;
-        bool initial_load=true, auto_camera=true, attacking=false;
+        bool initial_load=true, auto_camera=true, attacking=false, warming=false;
         u64 camera_manual_until=0;
         bool paused = true;
         bool pending_load = false;
@@ -71,9 +71,10 @@ int main() {
         unsigned renders = 0, ticks = 0;
         double tick_sum = 0, tick_max = 0, fps = 0, tps = 0, mean = 0, worst = 0;
         FILE* log = nullptr;
+        u64 last_log_flush_us=0;
         const char* action = "Starting Terran AI vs AI...";
         C2D_Text diagnostics{}, commands{}, message{}, resources{};
-        C2D_Text menu_rows[7]{};
+        C2D_Text menu_rows[8]{};
         // 40 controlled units per side plus the map's neutral resources.
         constexpr unsigned unit_view_capacity=192;
         port3ds::UnitView units[unit_view_capacity];
@@ -83,7 +84,10 @@ int main() {
             if(log) { std::fclose(log); log=nullptr; action="CSV logging closed"; return; }
             mkdir("sdmc:/3ds/openbw/logs",0777);
             log=std::fopen("sdmc:/3ds/openbw/logs/ai-audio-benchmark.csv","a");
-            if(log) std::fprintf(log,"scenario,frame,units,fps,tps,mean_tick_us,max_tick_us,heap_bytes,linear_used,backlog,atlas_bytes,missing_images,red_workers,red_army,red_buildings,red_minerals,red_lost,blue_workers,blue_army,blue_buildings,blue_minerals,blue_lost,winner,audio_ready,sfx_played,sfx_culled,sfx_missing,sfx_voice_drops,event_drops,music_buffers,music_underruns,audio_io_errors,music_track,dsp_drops\n");
+            if(log) std::fprintf(log,"scenario,frame,units,fps,tps,mean_tick_us,max_tick_us,heap_bytes,linear_used,backlog,atlas_bytes,missing_images,red_workers,red_army,red_buildings,red_minerals,red_lost,blue_workers,blue_army,blue_buildings,blue_minerals,blue_lost,winner,audio_ready,sfx_played,sfx_culled,sfx_missing,sfx_voice_drops,event_drops,music_buffers,music_underruns,audio_io_errors,music_track,dsp_drops,red_gas,blue_gas,csv_flush_us\n");
+            if(log) {
+                const u64 start=now_us();std::fflush(log);last_log_flush_us=now_us()-start;
+            }
             action=log?"CSV logging enabled":"Cannot open ai-audio-benchmark.csv";
         };
         while (aptMainLoop()) {
@@ -109,7 +113,7 @@ int main() {
                 // Atlas descriptors keep their addresses across reloads, while
                 // their GPU buffers can move. Invalidate Citro2D's texture cache.
                 C2D_Prepare();
-                scheduler.reset();
+                scheduler.reset();warming=true;
                 controls = port3ds::Controls{};
                 const auto state = engine.snapshot();
                 if (engine.ready()) {
@@ -140,23 +144,24 @@ int main() {
                 engine.command(c,controls.world_x(),controls.world_y()); action=engine.command_status();
             };
             auto menu_count=[&]() -> unsigned {
-                return menu==Menu::system?7:menu==Menu::basic?2:menu==Menu::abilities?4:0;
+                return menu==Menu::system?8:menu==Menu::basic?3:menu==Menu::abilities?4:0;
             };
             bool exit_requested=false;
             auto activate_menu=[&]() {
                 if(menu==Menu::system) {
-                    if(choice==0 || choice==1 || choice==2 || choice==5) {
+                    if(choice<=3 || choice==6) {
                         if(choice==0) scenario=3;
-                        if(choice==1) scenario=4;
-                        if(choice==2) scenario=1;
+                        if(choice==1) scenario=5;
+                        if(choice==2) scenario=4;
+                        if(choice==3) scenario=1;
                         pending_load=true; action="Loading scenario and graphics...";
-                    } else if(choice==3) { auto_camera=!auto_camera; action=auto_camera?"Automatic camera on":"Automatic camera off"; }
-                    else if(choice==4) toggle_log();
-                    else if(choice==6) exit_requested=true;
+                    } else if(choice==4) { auto_camera=!auto_camera; action=auto_camera?"Automatic camera on":"Automatic camera off"; }
+                    else if(choice==5) toggle_log();
+                    else if(choice==7) exit_requested=true;
                 } else if(menu==Menu::basic) {
-                    building=choice==0?port3ds::Command::depot:port3ds::Command::barracks;
+                    building=choice==0?port3ds::Command::depot:choice==1?port3ds::Command::barracks:port3ds::Command::refinery;
                     placing=true; attacking=false;
-                    action=choice==0?"Depot 100: A place / B cancel":"Barracks 150: A place / B cancel";
+                    action=choice==0?"Depot 100: A place / B cancel":choice==1?"Barracks 150: A place / B cancel":"Refinery 100: A on geyser / B cancel";
                 } else if(menu==Menu::abilities) {
                     if(choice==0) command(port3ds::Command::primary);
                     if(choice==1) { attacking=true; placing=false; action="Attack-move: A target / B cancel"; }
@@ -203,7 +208,7 @@ int main() {
                 if(engine.recall_group(event.slot,&x,&y)) {
                     if(event.center) { controls.center_camera(x,y);camera_manual_until=now+8000000; }
                     action=event.center?"Group selected and camera centered":"Group selected";
-                } else action="This D-pad group is empty";
+                } else action="Group empty or temporarily inside building";
                 break;
             }
             default: break;
@@ -211,8 +216,8 @@ int main() {
             // Touch is also allowed on an open bottom-screen command menu.
             if((down&KEY_TOUCH) && menu!=Menu::none) {
                 touchPosition t{};hidTouchRead(&t);
-                if(t.px>=136 && t.px<320 && t.py>=144 && t.py<144+menu_count()*13) {
-                    choice=(t.py-144)/13;activate_menu();
+                if(t.px>=136 && t.px<320 && t.py>=144 && t.py<144+menu_count()*12) {
+                    choice=(t.py-144)/12;activate_menu();
                 }
             }
             if(exit_requested) break;
@@ -246,15 +251,15 @@ int main() {
                 fps = renders / seconds; tps = ticks / seconds;
                 mean = ticks ? tick_sum / ticks : 0; worst = tick_max;
                 if (log) {
-                    std::fprintf(log, "%u,%lu,%u,%.2f,%.2f,%.1f,%.1f,%d,%lu,%llu,%u,%u,%u,%u,%u,%d,%u,%u,%u,%u,%d,%u,%d,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u\n",
+                    std::fprintf(log, "%u,%lu,%u,%.2f,%.2f,%.1f,%.1f,%d,%lu,%llu,%u,%u,%u,%u,%u,%d,%u,%u,%u,%u,%d,%u,%d,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%d,%d,%llu\n",
                         loaded_scenario, static_cast<unsigned long>(state.frame), state.units,
                         fps, tps, mean, worst, heap.uordblks, static_cast<unsigned long>(linear_used),
                         static_cast<unsigned long long>(scheduler.backlog()), graphics.texture_bytes(), missing_images,
                         state.players[0].workers,state.players[0].army,state.players[0].buildings,state.players[0].minerals,state.players[0].lost,
                         state.players[1].workers,state.players[1].army,state.players[1].buildings,state.players[1].minerals,state.players[1].lost,state.winner,
                         unsigned(sound_stats.ready),sound_stats.played,sound_stats.culled,sound_stats.missing,sound_stats.voice_drops,engine.dropped_sounds(),
-                        sound_stats.music_buffers,sound_stats.music_underruns,sound_stats.io_errors,sound_stats.music_track,sound_stats.dsp_drops);
-                    std::fflush(log);
+                        sound_stats.music_buffers,sound_stats.music_underruns,sound_stats.io_errors,sound_stats.music_track,sound_stats.dsp_drops,state.players[0].gas,state.players[1].gas,static_cast<unsigned long long>(last_log_flush_us));
+                    const u64 flush_start=now_us();std::fflush(log);last_log_flush_us=now_us()-flush_start;
                 }
                 renders = ticks = 0; tick_sum = tick_max = 0; interval = sample_time;
             }
@@ -276,8 +281,8 @@ int main() {
                     sound_stats.ready?"ON":"OFF",sound_stats.played,sound_stats.music_underruns,sound_stats.io_errors);
                 if(menu==Menu::none) std::snprintf(help,sizeof help,"A action / B cancel\nX army / L+X workers\nY primary / L+Y menu\nR+D-pad: save group\nD-pad: recall group\nTwice: center camera\nSELECT pause\nSTART menu");
                 else {
-                    const char* system[]={"AI vs AI: restart","Player vs AI","Two Marines",auto_camera?"Auto camera: ON":"Auto camera: OFF",log?"CSV: ON":"CSV: OFF","Reload current","Exit"};
-                    const char* basic[]={"Supply Depot: 100","Barracks: 150"};
+                    const char* system[]={"Marines AI vs AI","Gas AI vs AI","Player vs AI","Two Marines",auto_camera?"Auto camera: ON":"Auto camera: OFF",log?"CSV: ON":"CSV: OFF","Reload current","Exit"};
+                    const char* basic[]={"Supply Depot: 100","Barracks: 150","Refinery: 100"};
                     const char* abilities[]={"Primary ability","Attack-move","Stop","Cancel queue/build"};
                     if(menu==Menu::advanced) std::snprintf(help,sizeof help,"Advanced build\nNot in this profile yet\nB: back");
                     else {
@@ -285,9 +290,9 @@ int main() {
                         for(unsigned i=0;i<menu_count();++i) used+=std::snprintf(help+used,sizeof help-used,"%s %s\n",i==choice?">":" ",menu==Menu::system?system[i]:menu==Menu::basic?basic[i]:abilities[i]);
                     }
                 }
-                if(state.observer) std::snprintf(hud,sizeof hud,"AI vs AI | Red W%u A%u B%u / Blue W%u A%u B%u\nMinerals %d / %d  Losses %u / %u  Waves %u / %u",
+                if(state.observer) std::snprintf(hud,sizeof hud,"AI vs AI | Red W%u A%u B%u / Blue W%u A%u B%u\nMinerals %d/%d Gas %d/%d Losses %u/%u",
                     state.players[0].workers,state.players[0].army,state.players[0].buildings,state.players[1].workers,state.players[1].army,state.players[1].buildings,
-                    state.players[0].minerals,state.players[1].minerals,state.players[0].lost,state.players[1].lost,state.players[0].waves,state.players[1].waves);
+                    state.players[0].minerals,state.players[1].minerals,state.players[0].gas,state.players[1].gas,state.players[0].lost,state.players[1].lost);
                 else std::snprintf(hud,sizeof hud,"Minerals %d   Gas %d   Supply %d/%d\n%s x%u  HP %d/%d  Queue %u",
                     state.minerals,state.gas,state.supply,state.supply_max,state.selected_name,state.selected,state.selected_hp,state.selected_max_hp,state.queue);
                 std::snprintf(error, sizeof error, "%s\n%.100s", action, !sound_stats.ready ? sound.error() : graphics.ready() ? engine.error() : graphics.error());
@@ -353,8 +358,8 @@ int main() {
             C2D_TargetClear(bottom, bg); C2D_SceneBegin(bottom);
             C2D_DrawText(&diagnostics, C2D_WithColor, 8, 4, 0, 0.42f, 0.42f, white);
             if(menu_count()) {
-                C2D_DrawRectSolid(136,144+choice*13,0,184,13,C2D_Color32(25,65,55,255));
-                for(unsigned i=0;i<menu_count();++i) C2D_DrawText(&menu_rows[i],C2D_WithColor,140,144+i*13,0,0.38f,0.38f,white);
+                C2D_DrawRectSolid(136,144+choice*12,0,184,12,C2D_Color32(25,65,55,255));
+                for(unsigned i=0;i<menu_count();++i) C2D_DrawText(&menu_rows[i],C2D_WithColor,140,144+i*12,0,0.38f,0.38f,white);
             } else C2D_DrawText(&commands,C2D_WithColor,140,144,0,0.38f,0.38f,white);
             using C = port3ds::Controls;
             C2D_DrawRectSolid(C::minimap_x, C::minimap_y, 0, C::minimap_w, C::minimap_h, grid);
@@ -373,6 +378,13 @@ int main() {
             C2D_DrawLine(mx, my + 240 * sy, green, mx + 400 * sx, my + 240 * sy, green, 1, 0);
             C3D_FrameEnd(0);
             ++renders;
+            if(warming) {
+                // The first present can include GPU uploads and SD cache work.
+                // Start the simulation clock only after that loading frame.
+                C3D_FrameSync();
+                warming=false;scheduler.reset();previous=interval=now_us();
+                renders=ticks=0;tick_sum=tick_max=0;
+            }
         }
         if (log) std::fclose(log);
     }

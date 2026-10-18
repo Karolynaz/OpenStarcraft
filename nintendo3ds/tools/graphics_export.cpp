@@ -1,6 +1,7 @@
 // Host-only reader: use OpenBW's proven MPQ/GRP code, not a second decoder.
 #include "actions.h"
 #include "../tests/gameplay.h"
+#include "../tests/gas.h"
 #include "../tests/battle.h"
 #include <cstdio>
 #include <set>
@@ -30,6 +31,8 @@ int main(int argc, char** argv) {
         };
         gameplay_tests(argv[1],argv[2],profile);
         battle_test(argv[1],argv[2],profile);
+        gas_tests(argv[1],argv[2],profile);
+        battle_test(argv[1],argv[2],profile,port3ds::Scenario::gas_battle);
         for (unsigned mode = 0; mode != 2; ++mode) {
             // Like the device adapter, use a fresh state for each map load.
             // Reusing upstream's live state leaves stale unit-finder pointers.
