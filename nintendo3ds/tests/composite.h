@@ -6,13 +6,13 @@
 #include <vector>
 // Independent software composition oracle: compare the old ordered sprite
 // stream against the actual reordered draw calls, depth flags and texture bytes.
-inline std::uint32_t blend_pixel(std::uint32_t dst,std::uint16_t pixel,unsigned alpha,bool black) {
+inline std::uint32_t blend_pixel(std::uint32_t dst,std::uint16_t pixel,unsigned alpha,bool black,bool additive=false) {
     std::uint32_t result=0;
     for(unsigned channel=0;channel<3;++channel) {
         const unsigned shift=channel==0?11:channel==1?6:1;
         const unsigned src=black?0:((pixel>>shift)&31)*255/31;
         const unsigned old=(dst>>(channel*8))&255;
-        result|=((src*alpha+old*(255-alpha)+127)/255)<<(channel*8);
+        result|=std::min(255u,(src*alpha+old*(additive?255:255-alpha)+127)/255)<<(channel*8);
     }
     return result;
 }
@@ -33,7 +33,7 @@ inline void verify_composite(const port3ds::Engine& engine,const port3ds::Sprite
         assert(engine.sprite_pixels(v.image,v.frame,v.owner,pixels.data(),pixels.size()));
         raster(v.x-cx,v.y-cy,info.width,info.height,v.flipped,
             [&](unsigned x,unsigned y){return pixels[y*info.width+x];},
-            [&](unsigned at,std::uint16_t c){if(c&1)reference[at]=blend_pixel(reference[at],c,v.shadow?100:v.opacity,v.shadow);});
+            [&](unsigned at,std::uint16_t c){if(c&1)reference[at]=blend_pixel(reference[at],c,v.shadow?100:v.opacity,v.shadow,v.additive);});
     }
     for(const auto& d:fake::draws) {
         assert(d.alpha_test && d.depth_test);
@@ -48,10 +48,11 @@ inline void verify_composite(const port3ds::Engine& engine,const port3ds::Sprite
             },
             [&](unsigned at,std::uint16_t c){
                 if(!(c&1) || d.depth<depths[at])return;
-                actual[at]=blend_pixel(actual[at],c,d.tint>>24,d.blend==1);
+                actual[at]=blend_pixel(actual[at],c,d.tint>>24,d.blend==1,d.additive);
                 if(d.depth_write==GPU_WRITE_ALL)depths[at]=d.depth;
             });
     }
     assert(reference==actual && "Texture grouping changed overlap, transparent holes or translucent layering");
+    assert(!fake::depth_state().additive && "Restore alpha blending before UI");
     assert(!fake::depth_state().enabled && "UI must draw above world sprites");
 }

@@ -734,7 +734,7 @@ bool Engine::sprite_pixels(unsigned image,unsigned frame,unsigned owner,uint16_t
     const bool edge=image==detail::creep_edge_image;
     const auto& type=st.global->image_types.vec[edge?0:image];
     const uint16_t* colors=edge?impl_->palette.data():impl_->team_palette[owner<2?owner:2].data();
-    if(!edge && type.modifier==9 && type.color_shift>=1 && type.color_shift<=7)colors=impl_->lights[type.color_shift-1].data();
+    if(!edge && type.modifier==9 && type.color_shift!=5 && type.color_shift>=1 && type.color_shift<=7)colors=impl_->lights[type.color_shift-1].data();
     for(unsigned y=0;y<info.height;++y) {
         const auto* p=source.data_container.data()+source.line_data_offset[y];unsigned x=0;
         while(x<info.width) {
@@ -743,6 +743,9 @@ bool Engine::sprite_pixels(unsigned image,unsigned frame,unsigned owner,uint16_t
             else {const unsigned end=x+std::min(n,info.width-x);while(x<end)out[y*info.width+x++]=colors[*p++];}
         }
     }
+    // Shadow GRP indices are a coverage mask, not palette colors. Baking
+    // black into the cached mask also keeps it independent of GPU tint state.
+    if(!edge && type.modifier==10)for(size_t i=0;i<size_t(info.width)*info.height;++i)if(out[i]&1)out[i]=1;
     return true;
 }
 std::size_t Engine::image_types(unsigned* output,std::size_t capacity) const {
@@ -781,20 +784,25 @@ std::size_t Engine::visible_images(SpriteView* output, std::size_t capacity, int
         unsigned layer = 0;
         for (const auto& img : reverse(sprite.images)) {
             if((img.flags & image_t::flag_hidden) && !(img.modifier>=2 && img.modifier<=7) && !(sprite.flags&sprite_t::flag_burrowed))continue;
-            // Glow/cloak/warp GRPs contain palette remap indices rather than
-            // ordinary colors. Omit those effects until their blending tables
-            // are supported; drawing them directly produces opaque artifacts.
+            // Keep unsupported distortion effects out of the color pipeline.
+            // Fire/glow tables use an additive RGB approximation; trans50
+            // images retain source/team colors and blend at half opacity.
             if(img.modifier<0 || (img.modifier>7 && img.modifier!=9 && img.modifier!=10 && img.modifier!=12))continue;
             const auto p = funcs.get_image_map_position(&img);
             const auto& frame = img.grp->frames.at(img.frame_index);
             if (p.x >= cx + 400 || p.y >= cy + 240 || p.x + static_cast<int>(frame.size.x) <= cx ||
                 p.y + static_cast<int>(frame.size.y) <= cy) continue;
             if (n == capacity) continue;
+            // The Templar afterimage is a separate native iscript sprite,
+            // not an extra selectable unit. Preserve its native frames and
+            // positions, but soften it instead of drawing a second solid body.
+            const bool trail=img.image_type->id==ImageTypes::IMAGEID_High_Templar_Glow;
+            const bool glow=img.modifier==9 && img.image_type->color_shift!=5;
             output[n++] = {p.x, p.y, static_cast<unsigned>(img.image_type->id), static_cast<unsigned>(img.frame_index),
                            static_cast<unsigned>(sprite.owner), (img.flags & image_t::flag_horizontally_flipped) != 0,
                            img.modifier == 10,
                            ((static_cast<std::uint64_t>(sprite.elevation_level) * 8192 + sprite.position.y) * 4096 + sprite.index) * 64 + layer++,
-                           ((img.modifier>=2 && img.modifier<=7) || (sprite.flags&sprite_t::flag_burrowed))?112u:img.modifier==12?96u:img.modifier==9?200u:255u};
+                           ((img.modifier>=2 && img.modifier<=7) || (sprite.flags&sprite_t::flag_burrowed))?112u:img.modifier==12?96u:trail?128u:img.modifier==9?(glow?255u:128u):255u,glow};
         }
     }
     std::sort(output, output + n, [](const SpriteView& a, const SpriteView& b) { return a.order < b.order; });

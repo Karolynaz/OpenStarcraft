@@ -186,3 +186,32 @@ SD is unmounted and still performance1660ed build, NOT fee7 feature. Do not
 update while user tests; preserve SD test identity and use performance matching
 ELF for any returned Luma dump. Next physical logs can quantify real FPS gains;
 next game milestone is bounded Zerg economy AI/native morph opening.
+
+
+## Rendering correction from physical screenshots — 2026-10-19
+
+User reported colored/translucent duplicate silhouettes, dark Nexus glow discs
+and solid-looking echoes. Shadow cache frames now contain black coverage;
+fire/glow uses additive RGB approximation of the original remap rows. trans50
+keeps source/team colors and half opacity. Native High Templar echo sprite449
+retains native frames/position with half opacity (cloaked112 retained). No fake
+units/trails or simulation changes. Ordered translucent blending restores alpha
+before UI; opaque texture batching and 36/8MiB heaps remain unchanged.
+All3 ASan cache tests pass:35,970,868 cached pixels,75 complete composition
+comparisons, independent original palette/GRP references,234 moving Templar
+afterimages. Original3DS ARMv6K/VFPv2 build passes.
+Executable fd6a1cb0c9cd1412eb9b74d395948fae0fd2916f0721ca550024505fef767b60;
+matching ELF/candidate/rawlogs in local-data/effects-2026-10-19/.
+New local private effects-fix-2026-10-19.zip checked25files/344051472bytes,
+SHA466dc305ff184b9a645585a54deae14bf9cefd0cb198208dae1642efa110edec.
+Includes previous Protoss economy milestone. Existing performance/protoss ZIPs
+retained. Physical SD still untouched1660ed performance build while user tests.
+Original destination-indexed color blending is still approximated in RGB;
+warp/cloak/full palette composition remain later work. Report EFFECTS_VALIDATION.md.
+
+Final effects binary emulator originalmodel/CPU100/HLE: Protoss stress complete
+frame720,blue,scores4400/8227,losses62/41; 29 final-boot active samples
+59.684FPS/23.997TPS, no graphics/audio/I/O/CSV errors.
+Reloaded Proto lab, visually verified Nexus glow/shadow, normal UI; exited
+START > Exit. Emulator stopped and original preferences restored. Summary
+nintendo3ds/reports/effects-emulator.json. SD unchanged during this stage.

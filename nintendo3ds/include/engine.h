@@ -60,6 +60,7 @@ struct SpriteView {
     bool flipped = false, shadow = false;
     std::uint64_t order = 0;
     unsigned opacity=255;
+    bool additive=false;
 };
 // The platform UI never includes the engine's large implementation headers.
 class Engine {

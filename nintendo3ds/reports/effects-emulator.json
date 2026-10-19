@@ -1,0 +1,43 @@
+{
+  "binary_sha256": "fd6a1cb0c9cd1412eb9b74d395948fae0fd2916f0721ca550024505fef767b60",
+  "environment": {
+    "model": "original 3DS",
+    "cpu_percent": 100,
+    "dsp": "HLE",
+    "physical_console": false
+  },
+  "protoss_battle": {
+    "active_samples": 29,
+    "mean_fps": 59.684137931034485,
+    "mean_tps": 23.996896551724138,
+    "final_frame": 720,
+    "winner": 1,
+    "scores": [
+      4400,
+      8227
+    ],
+    "losses": [
+      62,
+      41
+    ],
+    "peak_heap": 34066936,
+    "peak_linear": 7789568
+  },
+  "errors": {
+    "missing_images": 0,
+    "cache_overflows": 0,
+    "sfx_missing": 0,
+    "music_underruns": 0,
+    "audio_io_errors": 0,
+    "dsp_drops": 0,
+    "csv_errors": 0,
+    "csv_dropped": 0
+  },
+  "laboratory": {
+    "scenario": 9,
+    "nexus_glow_visually_checked": true,
+    "shadow_black_coverage_visually_checked": true,
+    "exit": "START > Exit"
+  },
+  "sd_updated": false
+}

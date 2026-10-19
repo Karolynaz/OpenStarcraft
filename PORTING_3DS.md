@@ -441,3 +441,15 @@ make -C nintendo3ds prepare-zerg-audio prepare-zerg-graphics HOST_CXX=clang++
 make -C nintendo3ds test-zerg-cache HOST_CXX=clang++
 ./nintendo3ds/build/host-sim "data files" nintendo3ds/local-data/3ds/openbw/maps/arena.chk zerg
 ```
+
+### Glow, shadow and afterimage correction (2026-10-19)
+
+Nexus/fire glow now uses additive RGB blending rather than an ordinary alpha
+layer that painted dark discs. Shadow cache pixels contain black coverage;
+trans50 effects keep source/team colors at half opacity. Native Templar echo
+sprites retain iscript frames/positions with half opacity instead of solid
+copies. The ordered translucent pass restores alpha blending before UI drawing.
+All three ASan cache/reference tests and 75 full-viewport composition comparisons
+pass, including 234 moving Templar afterimages. The original destination-indexed
+palette remaps still have an RGB approximation; warp/cloak limitations remain.
+See `nintendo3ds/reports/EFFECTS_VALIDATION.md` for release and validation details.

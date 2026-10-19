@@ -143,11 +143,18 @@ unsigned Graphics::sprites(const SpriteView* views,std::size_t count,int cx,int 
     if(changed){C2D_Flush();C3D_TexBind(0,&pages_[terrain_pages_]);}
     unsigned missing=0;
     const Cached* ready[2048]{};
+    auto set_blend=[](bool additive){
+        C2D_Flush();
+        C3D_AlphaBlend(GPU_BLEND_ADD,GPU_BLEND_ADD,GPU_SRC_ALPHA,additive?GPU_ONE:GPU_ONE_MINUS_SRC_ALPHA,GPU_ONE,GPU_ONE_MINUS_SRC_ALPHA);
+    };
     if(count>2048) { // Public API fallback; the application caps views at 2048.
+        bool additive=false;
         for(size_t i=0;i<count;++i){const auto& v=views[i];auto it=cache_.find(sprite_key(v.image,v.frame,v.owner));
             if(it==cache_.end()){++missing;++cache_overflows_;continue;}
+            if(additive!=v.additive){additive=v.additive;set_blend(additive);}
             draw(it->second.rect,v.x-cx,v.y-cy,1,1,v.flipped,v.shadow,v.opacity);
         }
+        if(additive)set_blend(false);
         return missing;
     }
     for(size_t i=0;i<count;++i) {
@@ -164,14 +171,19 @@ unsigned Graphics::sprites(const SpriteView* views,std::size_t count,int cx,int 
     const float depth_step=1.f/(count+1);
     for(unsigned page=terrain_pages_;page<page_count_;++page)for(size_t i=0;i<count;++i) {
         const auto& v=views[i];const auto* entry=ready[i];
-        if(!entry || entry->rect.page!=page || v.shadow || v.opacity<255)continue;
+        if(!entry || entry->rect.page!=page || v.shadow || v.opacity<255 || v.additive)continue;
         draw(entry->rect,v.x-cx,v.y-cy,1,1,v.flipped,false,255,(i+1)*depth_step);
     }
     C2D_Flush();C3D_DepthTest(true,GPU_GEQUAL,GPU_WRITE_COLOR);
+    bool additive=false;
     for(size_t i=0;i<count;++i) {
-        const auto& v=views[i];if(!ready[i] || (!v.shadow && v.opacity==255))continue;
+        const auto& v=views[i];if(!ready[i] || (!v.shadow && v.opacity==255 && !v.additive))continue;
+        if(additive!=v.additive){
+            additive=v.additive;set_blend(additive);
+        }
         draw(ready[i]->rect,v.x-cx,v.y-cy,1,1,v.flipped,v.shadow,v.opacity,(i+1)*depth_step);
     }
+    if(additive)set_blend(false);
     // The following selection bars, cursor, text and minimap are UI overlays.
     C2D_Flush();C3D_DepthTest(false,GPU_ALWAYS,GPU_WRITE_COLOR);
     return missing;
