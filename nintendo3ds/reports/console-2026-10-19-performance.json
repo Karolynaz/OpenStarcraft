@@ -1,0 +1,58 @@
+[
+  {
+    "scenario": 3,
+    "first_frame": 24,
+    "last_frame": 13200,
+    "active_samples": 563,
+    "mean_fps": 58.604,
+    "mean_tps": 23.375
+  },
+  {
+    "scenario": 5,
+    "first_frame": 24,
+    "last_frame": 11016,
+    "active_samples": 475,
+    "mean_fps": 58.487,
+    "mean_tps": 23.123
+  },
+  {
+    "scenario": 10,
+    "first_frame": 18,
+    "last_frame": 690,
+    "active_samples": 28,
+    "mean_fps": 12.536,
+    "mean_tps": 23.675
+  },
+  {
+    "scenario": 8,
+    "first_frame": 23,
+    "last_frame": 717,
+    "active_samples": 29,
+    "mean_fps": 19.854,
+    "mean_tps": 23.976
+  },
+  {
+    "scenario": 10,
+    "first_frame": 18,
+    "last_frame": 692,
+    "active_samples": 28,
+    "mean_fps": 12.66,
+    "mean_tps": 23.785
+  },
+  {
+    "scenario": 7,
+    "first_frame": 24,
+    "last_frame": 2045,
+    "active_samples": 85,
+    "mean_fps": 59.788,
+    "mean_tps": 23.988
+  },
+  {
+    "scenario": 6,
+    "first_frame": 24,
+    "last_frame": 710,
+    "active_samples": 34,
+    "mean_fps": 10.726,
+    "mean_tps": 19.789
+  }
+]

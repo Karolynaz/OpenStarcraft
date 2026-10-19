@@ -1,0 +1,49 @@
+{
+  "model": "original 3DS",
+  "cpu_percent": 100,
+  "dsp": "HLE",
+  "build": "reload-safe-v2",
+  "boot_scenario": 10,
+  "results": [
+    {
+      "scenario": 7,
+      "passed": true,
+      "last": "4001433951488 build=reload-safe-v2 scenario=7 stage=graphics-ready heap_used=25363800 heap_free=3197608 linear_free=1745920 \n4001433953160 build=reload-safe-v2 scenario=7 stage=audio-ready heap_used=33199720 heap_free=2394520 linear_free=599040 Original music + 8 DSP effect voices\n"
+    },
+    {
+      "scenario": 8,
+      "passed": true,
+      "last": "4001433985818 build=reload-safe-v2 scenario=8 stage=graphics-ready heap_used=25653240 heap_free=3051528 linear_free=1745920 \n4001433987607 build=reload-safe-v2 scenario=8 stage=audio-ready heap_used=34048096 heap_free=2455456 linear_free=599040 Original music + 8 DSP effect voices\n"
+    },
+    {
+      "scenario": 9,
+      "passed": true,
+      "last": "4001434024377 build=reload-safe-v2 scenario=9 stage=graphics-ready heap_used=25365432 heap_free=3396680 linear_free=1745920 \n4001434026165 build=reload-safe-v2 scenario=9 stage=audio-ready heap_used=33760288 heap_free=2243552 linear_free=599040 Original music + 8 DSP effect voices\n"
+    },
+    {
+      "scenario": 6,
+      "passed": true,
+      "last": "4001434065459 build=reload-safe-v2 scenario=6 stage=graphics-ready heap_used=25656304 heap_free=3105808 linear_free=1745920 \n4001434067130 build=reload-safe-v2 scenario=6 stage=audio-ready heap_used=33492224 heap_free=1745664 linear_free=599040 Original music + 8 DSP effect voices\n"
+    },
+    {
+      "scenario": 11,
+      "passed": true,
+      "last": "4001434100407 build=reload-safe-v2 scenario=11 stage=graphics-ready heap_used=25442664 heap_free=3978904 linear_free=1745920 \n4001434101811 build=reload-safe-v2 scenario=11 stage=audio-ready heap_used=31902024 heap_free=3020472 linear_free=599040 Original music + 8 DSP effect voices\n"
+    },
+    {
+      "scenario": 8,
+      "passed": true,
+      "last": "4001434135406 build=reload-safe-v2 scenario=8 stage=graphics-ready heap_used=25653312 heap_free=3915712 linear_free=1745920 \n4001434137194 build=reload-safe-v2 scenario=8 stage=audio-ready heap_used=34048168 heap_free=2484056 linear_free=599040 Original music + 8 DSP effect voices\n"
+    },
+    {
+      "scenario": 10,
+      "passed": true,
+      "last": "4001434166276 build=reload-safe-v2 scenario=10 stage=graphics-ready heap_used=25729440 heap_free=3049056 linear_free=1745920 \n4001434167680 build=reload-safe-v2 scenario=10 stage=audio-ready heap_used=32188800 heap_free=2369152 linear_free=599040 Original music + 8 DSP effect voices\n"
+    },
+    {
+      "scenario": 6,
+      "passed": true,
+      "last": "4001434207074 build=reload-safe-v2 scenario=6 stage=graphics-ready heap_used=25656224 heap_free=2745440 linear_free=1745920 \n4001434208762 build=reload-safe-v2 scenario=6 stage=audio-ready heap_used=33492144 heap_free=2220880 linear_free=599040 Original music + 8 DSP effect voices\n"
+    }
+  ]
+}

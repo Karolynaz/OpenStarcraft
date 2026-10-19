@@ -123,3 +123,9 @@ build/reload-test: tests/reload.cpp source/engine.cpp $(HEADERS) | build
 	$(HOST_CXX) $(COMMON) -O1 -g -fsanitize=address -fno-omit-frame-pointer tests/reload.cpp source/engine.cpp -o $@
 test-reload: build/reload-test
 	ASAN_OPTIONS=detect_leaks=0 ./build/reload-test "$(ASSET_ROOT)" local-data/3ds/openbw/maps/arena.chk
+
+build/audio-memory-test: tests/audio_memory.cpp tests/fake3ds/3ds.h source/audio.cpp include/audio.h | build
+	$(HOST_CXX) -std=c++14 -O1 -g -fsanitize=address -fno-omit-frame-pointer -pthread -Itests/fake3ds -Iinclude tests/audio_memory.cpp source/audio.cpp -o $@
+.PHONY: test-audio-memory
+test-audio-memory: build/audio-memory-test
+	ASAN_OPTIONS=detect_leaks=0 ./build/audio-memory-test

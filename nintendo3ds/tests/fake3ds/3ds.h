@@ -23,7 +23,8 @@ inline void ndspChnSetFormat(unsigned,unsigned) {}
 inline void ndspChnSetMix(unsigned,float*) {}
 inline void ndspChnSetPaused(unsigned,bool) {++fake::pauses;}
 inline void DSP_FlushDataCache(const void*,unsigned) {}
-inline void ndspChnWaveBufAdd(unsigned,ndspWaveBuf* b) {assert(b->data_vaddr && b->nsamples);assert(b->status==NDSP_WBUF_FREE);b->status=NDSP_WBUF_QUEUED;++fake::queued;}
+namespace fake {using QueueObserver=void(*)(unsigned,const ndspWaveBuf*);inline QueueObserver& queue_observer(){static QueueObserver observer=nullptr;return observer;}}
+inline void ndspChnWaveBufAdd(unsigned channel,ndspWaveBuf* b) {assert(b->data_vaddr && b->nsamples);assert(b->status==NDSP_WBUF_FREE);b->status=NDSP_WBUF_QUEUED;++fake::queued;if(fake::queue_observer())fake::queue_observer()(channel,b);}
 inline unsigned ndspGetDroppedFrames() {return 0;}
 inline u64 osGetTime() {return std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now().time_since_epoch()).count();}
 inline void svcSleepThread(u64 n) {std::this_thread::sleep_for(std::chrono::nanoseconds(n));}

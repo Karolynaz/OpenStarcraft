@@ -96,3 +96,29 @@ is the user's original-console test with this package; hardware/DSP firmware
 and physical controls remain unmeasured because the SD is absent. Campaign AI
 and a pixel-identical renderer are later work. No empty wake loops/paid-credit
 changes. Temporary caffeinate assertion expires10:27; emulator settings restored.
+
+
+## Returned console SD: scenario loading crashes, evening 2026-10-19
+
+Two new Luma dumps identify the SDK DSP thread pushing onto unmapped stack.
+The initial exception is unproven. A real uncaught Audio::load bad_alloc path
+was reproduced and fixed: effects now use <=64 KiB blocks, partial failure
+cleans up, and streaming music paths do not allocate C++ heap. Load graphics
+scratch before segmented audio; the reverse order was rejected after a caught
+graphics bad_alloc in a repeated Terran load. Keep original 36/8 MiB heaps.
+Automatic per-stage closed journal: logs/scenario-load.log, build reload-safe-v2.
+ASan audio/failure/boundary tests, three PCM-bank equality checks, common host
+regressions and ARM11 build passed. Final original-model/CPU100/HLE emulator
+boot plus eight cross-race reloads all had graphics and audio ready.
+Detailed evidence: nintendo3ds/reports/SCENARIO_RELOAD_FIX.md and
+reload-fix-emulator.json. Raw dumps, old/new matching ELF and executables are
+private under local-data/console-crashes-2026-10-19/.
+Actual console CSV active battle FPS is ~12.5–12.7 Zerg, ~19.9 Protoss,
+~10.7 Terran (TPS ~19.8 in Terran); lab ~59.8 FPS. Rendering optimization
+remains, and emulator performance must not replace these hardware results.
+Final executable SHA 2117f7153527fc98ec2a233055ed8dcc31c8c9c107674add62c11b6fd9001b81.
+Updated SD disk4s1, all25 file hashes checked; only exe/README changed. DSP,
+Luma dumps and CSV unchanged. Prior ZIP retained, new private reload-fix ZIP
+prepared and CRC/input/exe checked. Await user's console retest for crash proof.
+Emulator stopped and original model settings restored.
+SD synced and disk4 safely unmounted after final delivery.

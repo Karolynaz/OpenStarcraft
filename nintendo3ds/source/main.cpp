@@ -29,6 +29,17 @@ u64 now_us() {
     const u64 ticks = svcGetSystemTick();
     return ticks / SYSCLOCK_ARM11 * 1000000 + ticks % SYSCLOCK_ARM11 * 1000000 / SYSCLOCK_ARM11;
 }
+void load_stage(unsigned scenario,const char* stage,const char* detail="") {
+    // Close each record before the next loading stage, including fatal failures.
+    mkdir("sdmc:/3ds/openbw/logs",0777);
+    FILE* f=std::fopen("sdmc:/3ds/openbw/logs/scenario-load.log","a");
+    if(!f)return;
+    const auto heap=mallinfo();
+    std::fprintf(f,"%llu build=reload-safe-v2 scenario=%u stage=%s heap_used=%d heap_free=%d linear_free=%lu %s\n",
+        static_cast<unsigned long long>(osGetTime()),scenario,stage,heap.uordblks,heap.fordblks,
+        static_cast<unsigned long>(linearSpaceFree()),detail);
+    std::fclose(f);
+}
 const char* scenario_name(unsigned s) {
     static const char* names[] = {"Empty map", "Two marines", "Manual base", "AI vs AI", "Player vs AI", "Gas AI vs AI", "All Terran battle", "Terran laboratory", "All Protoss battle", "Protoss laboratory", "All Zerg battle", "Zerg laboratory"};
     return names[s % 12];
@@ -107,13 +118,20 @@ int main() {
                 placing = false; attacking=false; menu=Menu::none;
                 // Release resident PCM and sprite scratch before the core's
                 // temporary MPQ/GRP initialization peak on original hardware.
+                load_stage(scenario,"release-start");
                 sound.unload();graphics.clear();
+                load_stage(scenario,"core-start");
                 const unsigned next_race=scenario>=10?0:scenario>=8?2:1;
                 loaded_scenario = scenario;
                 paused = !engine.load(root, scenario>=6?arena:map, static_cast<port3ds::Scenario>(scenario));
-                if(engine.ready())sound.load(next_race==0?"sdmc:/3ds/openbw/audio/zerg":next_race==2?"sdmc:/3ds/openbw/audio/protoss":"sdmc:/3ds/openbw/audio",R_SUCCEEDED(audio),next_race==0?"zerg":next_race==2?"protoss":"terran");
+                load_stage(scenario,engine.ready()?"core-ready":"core-failed",engine.ready()?"":engine.error());
+                // Reserve the contiguous sprite scratch before segmented PCM
+                // fills smaller holes left by the native core initialization.
                 if (engine.ready()) graphics.load(scenario>=6?"sdmc:/3ds/openbw/graphics-arena.bin":"sdmc:/3ds/openbw/graphics.bin", engine.terrain_signature());
                 else graphics.clear();
+                load_stage(scenario,graphics.ready()?"graphics-ready":"graphics-off",graphics.ready()?"":graphics.error());
+                if(engine.ready())sound.load(next_race==0?"sdmc:/3ds/openbw/audio/zerg":next_race==2?"sdmc:/3ds/openbw/audio/protoss":"sdmc:/3ds/openbw/audio",R_SUCCEEDED(audio),next_race==0?"zerg":next_race==2?"protoss":"terran");
+                load_stage(scenario,sound.stats().ready?"audio-ready":"audio-off",sound.error());
                 // Atlas descriptors keep their addresses across reloads, while
                 // their GPU buffers can move. Invalidate Citro2D's texture cache.
                 C2D_Prepare();
