@@ -17,12 +17,13 @@ struct Input {
 }
 Graphics::~Graphics() { clear(); }
 void Graphics::clear() {
-    if (page_count_) C3D_FrameSync();
+    if (page_count_ || cursor_texture_[0].data || cursor_texture_[1].data) C3D_FrameSync();
+    for(auto& texture:cursor_texture_){if(texture.data)C3D_TexDelete(&texture);texture={};}cursor_key_=~0u;cursor_slot_=0;
     for (unsigned i=0;i<page_count_;++i) C3D_TexDelete(&pages_[i]);
     page_count_=0; loaded_=false;
     tiles_.clear(); map_.clear(); sprites_.clear();decltype(cache_){}.swap(cache_);std::vector<uint16_t>().swap(scratch_);terrain_pages_=0;std::memset(occupied_,0,sizeof occupied_);
 }
-unsigned Graphics::texture_bytes() const { return page_count_*atlas_page_bytes; }
+unsigned Graphics::texture_bytes() const { return page_count_*atlas_page_bytes+(cursor_texture_[0].data?64*64*4:0); }
 bool Graphics::load(const char* path, unsigned signature) {
     clear();
     try {
@@ -63,6 +64,10 @@ bool Graphics::load(const char* path, unsigned signature) {
         if(page_count_<terrain_pages_+3)throw std::runtime_error("Not enough linear RAM for sprite working set");
         cache_.reserve(2048);scratch_.resize(512*512);frame_=0;cache_misses_=cache_overflows_=upload_pixels_=0;
         if(std::fgetc(in.file)!=EOF) throw std::runtime_error("Unexpected graphics data after atlas pages");
+        for(auto& texture:cursor_texture_){
+            if(!C3D_TexInit(&texture,64,64,GPU_RGBA5551))throw std::runtime_error("Not enough linear RAM for original cursor");
+            C3D_TexSetFilter(&texture,GPU_NEAREST,GPU_NEAREST);C3D_TexSetWrap(&texture,GPU_CLAMP_TO_EDGE,GPU_CLAMP_TO_EDGE);
+        }
         loaded_=true; std::snprintf(error_,sizeof error_,"Terrain %u pages + bounded GRP cache",terrain_pages_); return true;
     } catch(const std::exception& e) {
         std::snprintf(error_,sizeof error_,"%s",e.what()); clear(); return false;
@@ -187,6 +192,24 @@ unsigned Graphics::sprites(const SpriteView* views,std::size_t count,int cx,int 
     // The following selection bars, cursor, text and minimap are UI overlays.
     C2D_Flush();C3D_DepthTest(false,GPU_ALWAYS,GPU_WRITE_COLOR);
     return missing;
+}
+bool Graphics::cursor(const SpriteView& v,float x,float y,const Engine& engine) {
+    if(!ready() || v.image<cursor_image_base || v.image>=cursor_image_base+cursor_count)return false;
+    const auto info=engine.sprite_info(v.image,v.frame);
+    if(!info.valid || !info.width || !info.height || info.width>64 || info.height>64)return false;
+    const auto key=sprite_key(v.image,v.frame,11);
+    if(cursor_key_!=key){
+        if(!engine.sprite_pixels(v.image,v.frame,11,cursor_pixels_,64*64))return false;
+        // Alternate uploads so the preceding GPU frame can keep its texture.
+        C2D_Flush();cursor_slot_^=1;auto* out=static_cast<uint16_t*>(cursor_texture_[cursor_slot_].data);std::fill_n(out,64*64,0);
+        for(unsigned row=0;row<info.height;++row)for(unsigned col=0;col<info.width;++col){
+            const unsigned morton=(col&1)|((row&1)<<1)|((col&2)<<1)|((row&2)<<2)|((col&4)<<2)|((row&4)<<3);
+            out[((row/8)*8+col/8)*64+morton]=cursor_pixels_[row*info.width+col];
+        }
+        C3D_TexFlush(&cursor_texture_[cursor_slot_]);cursor_key_=key;
+    }
+    Tex3DS_SubTexture sub={static_cast<u16>(info.width),static_cast<u16>(info.height),0,1,info.width/64.f,1-info.height/64.f};
+    return C2D_DrawImageAt({&cursor_texture_[cursor_slot_],&sub},x+v.x,y+v.y,0,nullptr,1,1);
 }
 void Graphics::minimap(float x,float y,float width,float height) {
     if(ready()) draw(minimap_,x,y,width/minimap_.width,height/minimap_.height);

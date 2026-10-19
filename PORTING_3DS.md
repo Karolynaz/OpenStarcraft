@@ -453,3 +453,14 @@ All three ASan cache/reference tests and 75 full-viewport composition comparison
 pass, including 234 moving Templar afterimages. The original destination-indexed
 palette remaps still have an RGB approximation; warp/cloak limitations remain.
 See `nintendo3ds/reports/EFFECTS_VALIDATION.md` for release and validation details.
+
+### Original cursor art (2026-10-19)
+
+The Circle Pad pointer now uses original cursor GRPs from the owned MPQs:
+animated arrow, ownership hover rings, command targets and eight edge-scroll
+arrows. Native canvas offsets preserve the hotspot; no extra release assets are
+needed. Two 64x64 textures add 16 KiB linear memory and reuse 8 KiB fixed scratch;
+no cursor file reads occur during play. Input mappings remain unchanged.
+ASan independently checks all 17 kinds / 74 frames / 303104 texture pixels and
+24 cross-map/race reloads; all three existing cache suites and controls pass.
+See `nintendo3ds/reports/CURSOR_VALIDATION.md` for implementation limits/tests.

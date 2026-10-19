@@ -8,7 +8,10 @@ class Graphics {
  struct Rect {unsigned page,x,y,width,height;};
  struct Sprite {std::uint32_t key;Rect rect;};
  struct Cached {Rect rect;std::uint64_t age=0;};
- C3D_Tex pages_[8]{};
+ C3D_Tex pages_[8]{},cursor_texture_[2]{};
+ unsigned cursor_slot_=0;
+ std::uint32_t cursor_key_=~0u;
+ uint16_t cursor_pixels_[64*64]{};
  unsigned page_count_=0,terrain_pages_=0,width_=0,height_=0;
  std::vector<Rect> tiles_;
  std::vector<unsigned short> map_;
@@ -32,6 +35,7 @@ public:
  unsigned cache_misses()const{return cache_misses_;}unsigned cache_overflows()const{return cache_overflows_;}unsigned upload_pixels()const{return upload_pixels_;}
  void terrain(int,int);
  unsigned sprites(const SpriteView*,std::size_t,int,int,const Engine&);
+ bool cursor(const SpriteView&,float,float,const Engine&);
  void minimap(float,float,float,float);
 };
 }

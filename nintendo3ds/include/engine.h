@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <memory>
 #include <array>
+#include "cursor.h"
 
 namespace port3ds {
 enum class Scenario { empty, two_units, melee, ai_battle, versus_ai, gas_battle, terran_battle, terran_lab, protoss_battle, protoss_lab, zerg_battle, zerg_lab, protoss_ai_battle, protoss_versus_ai };
@@ -95,6 +96,8 @@ public:
     PlacementView placement(Command building, int world_x, int world_y) const;
     std::size_t visible_units(UnitView* output, std::size_t capacity) const;
     std::size_t visible_images(SpriteView* output, std::size_t capacity, int camera_x, int camera_y) const;
+    CursorKind cursor_kind(int world_x,int world_y,bool targeting=false) const;
+    SpriteView cursor_image(CursorKind kind,std::uint64_t elapsed_us) const;
     SpriteInfo sprite_info(unsigned image,unsigned frame) const;
     bool sprite_pixels(unsigned image,unsigned frame,unsigned owner,std::uint16_t* output,std::size_t capacity) const;
     std::size_t image_types(unsigned* output, std::size_t capacity) const;

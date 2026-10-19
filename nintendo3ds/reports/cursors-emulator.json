@@ -1,0 +1,39 @@
+{
+  "binary_sha256": "39607cd8f58702873c6d4e5c87a4c7f9497e34450863682bc8e953ac3c9df5cb",
+  "environment": {
+    "model": "original 3DS",
+    "cpu_percent": 100,
+    "dsp": "HLE",
+    "physical_console": false
+  },
+  "scope": "Zerg stress smoke plus Protoss lab manual cursor workflow, not a complete stress benchmark",
+  "lab_active_samples": 138,
+  "lab_mean_fps": 59.83601449275362,
+  "lab_mean_tps": 23.995579710144927,
+  "peak_heap": 33704288,
+  "peak_linear": 7805952,
+  "errors": {
+    "missing_images": 0,
+    "cache_overflows": 0,
+    "sfx_missing": 0,
+    "music_underruns": 0,
+    "audio_io_errors": 0,
+    "dsp_drops": 0,
+    "csv_errors": 0,
+    "csv_dropped": 0
+  },
+  "manual_checks": [
+    "enemy red hover ring",
+    "menu arrow",
+    "friendly Nexus hover ring",
+    "A selects Nexus",
+    "Y trains native Probe for 50 minerals",
+    "Circle Pad points at produced Probe; A selects it",
+    "Y build menu",
+    "red invalid placement marker",
+    "green valid placement marker",
+    "B restores arrow",
+    "START > Exit"
+  ],
+  "sd_updated": false
+}

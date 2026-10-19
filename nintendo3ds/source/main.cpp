@@ -83,6 +83,7 @@ int main() {
         bool pending_load = false;
         bool placing = false;
         unsigned placing_code=0, target_code=0;
+        auto shown_cursor=port3ds::CursorKind::arrow;u64 cursor_since=now_us();
         u64 previous = now_us(), interval = previous, next_text = 0;
         unsigned renders = 0, ticks = 0;
         double tick_sum = 0, tick_max = 0, fps = 0, tps = 0, mean = 0, worst = 0;
@@ -391,11 +392,17 @@ int main() {
                 if(units[i].max_shields)C2D_DrawRectSolid(x-w/2,y-units[i].height/2-9,0,w*units[i].shields/units[i].max_shields,3,C2D_Color32(80,140,255,255));
             }
             const float cx = controls.cursor_x, cy = controls.cursor_y;
-            C2D_DrawLine(cx - 6, cy, green, cx + 6, cy, green, 2, 0);
-            C2D_DrawLine(cx, cy - 6, green, cx, cy + 6, green, 2, 0);
             C2D_DrawRectSolid(0,0,0,400,29,C2D_Color32(8,16,24,210));
             C2D_DrawText(&resources, C2D_WithColor, 8, 1, 0, 0.40f, 0.40f, white);
             C2D_DrawText(&message, C2D_WithColor | C2D_WordWrap, 8, 206, 0, 0.38f, 0.38f, white, 384.0f);
+            auto cursor=engine.cursor_kind(controls.world_x(),controls.world_y(),attacking);
+            if(menu!=Menu::none)cursor=port3ds::CursorKind::arrow;
+            else if(placing){const auto site=engine.placement_unit(placing_code&65535,controls.world_x(),controls.world_y());cursor=site.valid?port3ds::CursorKind::target:port3ds::CursorKind::target_enemy;}
+            else {const auto edge=port3ds::edge_cursor(cx,cy,circle.dx,circle.dy);if(edge!=port3ds::CursorKind::arrow)cursor=edge;}
+            if(cursor!=shown_cursor){shown_cursor=cursor;cursor_since=now;}
+            if(!graphics.cursor(engine.cursor_image(cursor,now-cursor_since),cx,cy,engine)){
+                C2D_DrawLine(cx-6,cy,green,cx+6,cy,green,2,0);C2D_DrawLine(cx,cy-6,green,cx,cy+6,green,2,0);
+            }
             C2D_TargetClear(bottom, bg); C2D_SceneBegin(bottom);
             C2D_DrawText(&diagnostics, C2D_WithColor, 8, 4, 0, 0.42f, 0.42f, white);
             if(menu_count()) {

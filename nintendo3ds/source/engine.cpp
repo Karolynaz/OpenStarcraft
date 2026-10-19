@@ -30,6 +30,7 @@ struct Engine::Impl {
     detail::BattleAI ai;
     detail::TerranBattle battle;
     std::unique_ptr<detail::CreepGraphics> creep;
+    std::array<grp_t,cursor_count> cursors;
     std::array<uint16_t,256> palette{};
     std::array<uint8_t,128> team{};
     std::array<std::array<uint16_t,256>,3> team_palette;
@@ -104,6 +105,7 @@ bool Engine::load(const char* data_root, const char* map_path, Scenario scenario
     impl_->sound.reset();
     impl_->creep.reset();
     impl_->player.reset();
+    for(auto& cursor:impl_->cursors)cursor=grp_t{};
     try {
         a_vector<uint8_t> chk;
         const a_string map(map_path);
@@ -198,6 +200,17 @@ bool Engine::load(const char* data_root, const char* map_path, Scenario scenario
                 impl_->lights[i][c]=at<table.size()?impl_->palette[table[at]]:0;
             }
         }
+        // Original cursor canvases are 128x128 with the pointer hotspot at
+        // (64,64). Keep the native frame offsets; do not center cropped frames.
+        auto load_cursors=[&](auto&& read){for(unsigned i=0;i<cursor_count;++i){
+            a_vector<uint8_t> bytes;read(bytes,a_string("cursor/")+cursor_file(i)+".grp");
+            auto grp=read_grp(data_loading::data_reader_le(bytes.data(),bytes.data()+bytes.size()));
+            if(grp.width!=128 || grp.height!=128 || grp.frames.empty() || grp.frames.size()>16)throw std::runtime_error("Cursor GRP bounds");
+            for(const auto& frame:grp.frames)if(frame.size.x>64 || frame.size.y>64 || frame.offset.x+frame.size.x>128 || frame.offset.y+frame.size.y>128)throw std::runtime_error("Cursor frame bounds");
+            impl_->cursors[i]=std::move(grp);
+        }};
+        if(exists(root+"arr/units.dat"))load_cursors(load_asset);
+        else {auto files=data_loading::data_files_directory(root);load_cursors(files);}
         if(scenario_race(scenario)==0){impl_->creep.reset(new detail::CreepGraphics);impl_->creep->load(player.st(),terrain,impl_->palette,load_asset);}
         impl_->sound.reset(new Impl::SoundFunctions(player.st()));
         impl_->loaded = true;
@@ -718,8 +731,23 @@ std::uint32_t Engine::terrain_signature() const {
     for (auto tile : st.tiles_mega_tile_index) hash = terrain_hash_step(hash, tile);
     return hash;
 }
+CursorKind Engine::cursor_kind(int x,int y,bool targeting) const {
+    if(!ready())return CursorKind::arrow;
+    const auto* unit=hit_unit(impl_->player->funcs(),x,y,false);
+    if(!unit)return targeting?CursorKind::target:CursorKind::arrow;
+    if(unit->owner==0)return targeting?CursorKind::target:CursorKind::own;
+    if(unit->owner==1)return targeting?CursorKind::target_enemy:CursorKind::enemy;
+    return targeting?CursorKind::target_neutral:CursorKind::neutral;
+}
+SpriteView Engine::cursor_image(CursorKind kind,std::uint64_t elapsed_us) const {
+    const auto index=unsigned(kind);if(!ready() || index>=cursor_count)return {};
+    const auto& grp=impl_->cursors[index];if(grp.frames.empty())return {};
+    const unsigned frame=(elapsed_us/100000)%grp.frames.size();const auto& f=grp.frames[frame];
+    return {int(f.offset.x)-64,int(f.offset.y)-64,cursor_image_base+index,frame,11,false,false,0,255};
+}
 SpriteInfo Engine::sprite_info(unsigned image,unsigned frame) const {
     if(!ready())return {};
+    if(image>=cursor_image_base && image<cursor_image_base+cursor_count){const auto& grp=impl_->cursors[image-cursor_image_base];if(frame>=grp.frames.size())return {};const auto& f=grp.frames[frame];return {unsigned(f.size.x),unsigned(f.size.y),true};}
     if(impl_->creep && image==detail::creep_tile_image)return frame<16?SpriteInfo{32,32,true}:SpriteInfo{};
     if(impl_->creep && image==detail::creep_edge_image){if(frame>=impl_->creep->edges.frames.size())return {};const auto& r=impl_->creep->edges.frames[frame];return {unsigned(r.size.x),unsigned(r.size.y),true};}
     if(image>=impl_->player->st().global->image_grp.size())return {};
@@ -729,12 +757,14 @@ SpriteInfo Engine::sprite_info(unsigned image,unsigned frame) const {
 bool Engine::sprite_pixels(unsigned image,unsigned frame,unsigned owner,uint16_t* out,std::size_t capacity) const {
     const auto info=sprite_info(image,frame);if(!info.valid || info.width>512 || info.height>512 || size_t(info.width)*info.height>capacity)return false;
     if(image==detail::creep_tile_image){std::copy(impl_->creep->tiles[frame].begin(),impl_->creep->tiles[frame].end(),out);return true;}
-    const auto& st=impl_->player->st();const auto& source=image==detail::creep_edge_image?impl_->creep->edges.frames[frame]:st.global->image_grp[image]->frames[frame];
+    const bool cursor=image>=cursor_image_base && image<cursor_image_base+cursor_count;
+    const auto& st=impl_->player->st();const auto& source=cursor?impl_->cursors[image-cursor_image_base].frames[frame]:image==detail::creep_edge_image?impl_->creep->edges.frames[frame]:st.global->image_grp[image]->frames[frame];
     std::fill_n(out,size_t(info.width)*info.height,0);
     const bool edge=image==detail::creep_edge_image;
-    const auto& type=st.global->image_types.vec[edge?0:image];
-    const uint16_t* colors=edge?impl_->palette.data():impl_->team_palette[owner<2?owner:2].data();
-    if(!edge && type.modifier==9 && type.color_shift!=5 && type.color_shift>=1 && type.color_shift<=7)colors=impl_->lights[type.color_shift-1].data();
+    const bool ordinary=!edge && !cursor;
+    const auto& type=st.global->image_types.vec[ordinary?image:0];
+    const uint16_t* colors=(edge || cursor)?impl_->palette.data():impl_->team_palette[owner<2?owner:2].data();
+    if(ordinary && type.modifier==9 && type.color_shift!=5 && type.color_shift>=1 && type.color_shift<=7)colors=impl_->lights[type.color_shift-1].data();
     for(unsigned y=0;y<info.height;++y) {
         const auto* p=source.data_container.data()+source.line_data_offset[y];unsigned x=0;
         while(x<info.width) {
@@ -745,7 +775,7 @@ bool Engine::sprite_pixels(unsigned image,unsigned frame,unsigned owner,uint16_t
     }
     // Shadow GRP indices are a coverage mask, not palette colors. Baking
     // black into the cached mask also keeps it independent of GPU tint state.
-    if(!edge && type.modifier==10)for(size_t i=0;i<size_t(info.width)*info.height;++i)if(out[i]&1)out[i]=1;
+    if(ordinary && type.modifier==10)for(size_t i=0;i<size_t(info.width)*info.height;++i)if(out[i]&1)out[i]=1;
     return true;
 }
 std::size_t Engine::image_types(unsigned* output,std::size_t capacity) const {

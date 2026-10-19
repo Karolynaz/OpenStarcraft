@@ -139,3 +139,9 @@ build/protoss-economy-test: tests/protoss_economy.cpp tests/battle.h tests/fake3
 .PHONY: test-protoss-economy
 test-protoss-economy: build/protoss-economy-test
 	ASAN_OPTIONS=detect_leaks=0 ./build/protoss-economy-test "$(ASSET_ROOT)" local-data/3ds/openbw/maps/probe.scx local-data/3ds/openbw/graphics.bin local-data/3ds/openbw/audio/protoss/effects.bin
+
+build/cursor-test: tests/cursors.cpp tests/fake3ds/citro2d.h source/engine.cpp source/graphics.cpp $(HEADERS) | build
+	$(HOST_CXX) $(COMMON) -O1 -g -fsanitize=address -fno-omit-frame-pointer -pthread -Itests/fake3ds tests/cursors.cpp source/engine.cpp source/graphics.cpp -o $@
+.PHONY: test-cursors
+test-cursors: build/cursor-test
+	ASAN_OPTIONS=detect_leaks=0 ./build/cursor-test "$(ASSET_ROOT)" local-data/3ds/openbw/maps/arena.chk local-data/3ds/openbw/graphics-arena.bin

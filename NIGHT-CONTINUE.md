@@ -215,3 +215,35 @@ frame720,blue,scores4400/8227,losses62/41; 29 final-boot active samples
 Reloaded Proto lab, visually verified Nexus glow/shadow, normal UI; exited
 START > Exit. Emulator stopped and original preferences restored. Summary
 nintendo3ds/reports/effects-emulator.json. SD unchanged during this stage.
+
+
+## Original cursor milestone — 2026-10-19
+
+Replaced crosshair with native cursor/*.grp art loaded from owned MPQs (no new
+package assets): arrow, own/neutral/enemy hover rings, colored command targets,
+8 edge-scroll arrows. Time/drag art supported by loader, not new input modes.
+17 kinds/74 frames. Native128x128 canvas offsets/hotspot64 retained. Cursor
+animation100ms UI choice independent of24TPS. Menuarrow; A/B/CirclePad/minimap
+mapping unchanged. Target ownership color does not guarantee spell validity;
+build placement uses native validity. Two64x64 RGBA5551 textures add16KiB linear,
+fixed8KiB scratch; no SD reads/allocation during frame rendering. 36/8MiB retained.
+ASan independent original GRP/palette/hotspot/wrap/swizzle test passes303104
+texturepixels, contextual/edge controls and no simulation sideeffects. 24reloads,
+all3cache tests/75composition viewports, common controls/pacing/map tests pass.
+ARM11 original3DS validation passes.
+Final SHA39607cd8f58702873c6d4e5c87a4c7f9497e34450863682bc8e953ac3c9df5cb,
+exactELF/candidate/logs in local-data/cursors-2026-10-19/.
+Private original-cursors-2026-10-19.zip checked25files/344057384bytes,
+SHA0b01387e0070b0ab7a932246c2cafcfa16a79793653e17aa26433ca7d0f82494.
+Includes prior Proto economy and effects fixes; previousZIPs preserved.
+Physical SD unchanged, still1660ed performance build unless user reinserts and
+requests upload. Details CURSOR_VALIDATION.md. Remaining original UI frames,
+command icons, portraits/title/menu are separate future milestones.
+
+Final cursor executable emulator originalmodel/CPU100/HLE smoke: Zerg scene red
+hover/menuarrow, Proto lab own Nexusgreenhover A/YpaidProbe, CirclePad/Aselects
+newProbe, Ybuildmenu, redinvalid/greenvalidPylon target, B restoresarrow. Normal
+Exit, emulator stopped and original preferences restored. Lab 138active samples
+59.836FPS/23.996TPS, maxheap33704288,linear7805952;
+no listed graphics/audio/I/O/CSV errors. Not a full battle or hardware benchmark.
+See cursors-emulator.json. Physical SD unchanged.
