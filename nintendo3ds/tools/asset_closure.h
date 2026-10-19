@@ -4,15 +4,21 @@
 #include "race_catalogue.h"
 #include <set>
 #include <vector>
-inline void terran_asset_closure(bwgame::state& st,std::set<unsigned>& images,std::set<unsigned>& sounds,bool protoss=false) {
+inline void terran_asset_closure(bwgame::state& st,std::set<unsigned>& images,std::set<unsigned>& sounds,unsigned race=1) {
  using namespace bwgame;using namespace iscript_opcodes;
- if(!protoss)for(unsigned id:{84u,127u,239u})sounds.insert(id); // Native nuclear launch / warning / spotter sounds.
+ if(race==1)for(unsigned id:{84u,127u,239u})sounds.insert(id); // Native nuclear launch / warning / spotter sounds.
  auto& g=*st.global;std::vector<unsigned> queue(images.begin(),images.end());
  auto image=[&](unsigned id){if(id<g.image_types.vec.size() && images.insert(id).second)queue.push_back(id);};
  auto sprite=[&](unsigned id){if(id<g.sprite_types.vec.size())image(unsigned(static_cast<ImageTypes>(g.sprite_types.vec[id].image)));};
  auto weapon=[&](const weapon_type_t* w){if(w && w->flingy)sprite(unsigned(static_cast<SpriteTypes>(w->flingy->sprite)));};
  auto unit=[&](UnitTypes id){const auto& u=st.game->unit_types.vec.at(unsigned(id));if(u.flingy)sprite(unsigned(static_cast<SpriteTypes>(u.flingy->sprite)));weapon(u.ground_weapon);weapon(u.air_weapon);};
- if(protoss){
+ if(race==0){
+  for(const auto& p:port3ds::zerg::buildings)unit(p.type);for(const auto& p:port3ds::zerg::units)unit(p.type);
+  for(auto type:{UnitTypes::Zerg_Larva,UnitTypes::Zerg_Egg,UnitTypes::Zerg_Cocoon,UnitTypes::Zerg_Lurker_Egg,UnitTypes::Zerg_Broodling,UnitTypes::Zerg_Infested_Command_Center,UnitTypes::Spell_Dark_Swarm})unit(type);
+  for(unsigned i=unsigned(WeaponTypes::Parasite);i<=unsigned(WeaponTypes::Consume);++i)weapon(&st.game->weapon_types.vec.at(i));
+  for(unsigned i=unsigned(ImageTypes::IMAGEID_Ensnare_Cloud);i<=unsigned(ImageTypes::IMAGEID_Plague_Overlay_Large);++i)image(i);
+  for(unsigned i=unsigned(ImageTypes::IMAGEID_Acid_Spores_1_Overlay_Small);i<=unsigned(ImageTypes::IMAGEID_Acid_Spores_6_9_Overlay_Large);++i)image(i);
+ }else if(race==2){
   for(const auto& p:port3ds::protoss::buildings)unit(p.type);
   for(const auto& p:port3ds::protoss::units)unit(p.type);
   unit(UnitTypes::Protoss_Archon);unit(UnitTypes::Protoss_Dark_Archon);unit(UnitTypes::Spell_Disruption_Web);

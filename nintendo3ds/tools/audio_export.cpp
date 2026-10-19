@@ -4,6 +4,8 @@
 #include "../tests/battle.h"
 #include "../tests/terran.h"
 #include "../tests/protoss.h"
+#include "../tests/zerg.h"
+#include "../tests/zerg_build.h"
 #include "../tests/protoss_build.h"
 #include "../tests/terran_build.h"
 #include "../tests/gameplay.h"
@@ -35,8 +37,8 @@ struct DiscReader : data_loading::file_reader<> {
 
 int main(int argc,char** argv) {
     if(argc!=4 && argc!=5) return 2;
-    const bool protoss=argc==5 && std::string(argv[4])=="protoss";
-    const std::string race=protoss?"protoss":"terran";
+    const bool protoss=argc==5 && std::string(argv[4])=="protoss", zerg=argc==5 && std::string(argv[4])=="zerg";
+    const std::string race=zerg?"zerg":protoss?"protoss":"terran";
     try {
         std::set<unsigned> ids;
         unsigned events=0;
@@ -46,7 +48,7 @@ int main(int argc,char** argv) {
             if(e.dropped_sounds()) throw std::runtime_error("Sound event queue overflow");
         };
         const std::string map_name(argv[2]);const auto slash=map_name.find_last_of('/');const auto arena=map_name.substr(0,slash==std::string::npos?0:slash+1)+"arena.chk";
-        if(protoss){protoss_construction_tests(argv[1],arena.c_str(),observe);protoss_tests(argv[1],arena.c_str(),observe);protoss_battle_test(argv[1],arena.c_str(),observe);}else{
+        if(zerg){zerg_construction_tests(argv[1],arena.c_str(),observe);zerg_tests(argv[1],arena.c_str(),observe);zerg_battle_test(argv[1],arena.c_str(),observe);}else if(protoss){protoss_construction_tests(argv[1],arena.c_str(),observe);protoss_tests(argv[1],arena.c_str(),observe);protoss_battle_test(argv[1],arena.c_str(),observe);}else{
         terran_construction_tests(argv[1],arena.c_str(),observe);
         terran_tests(argv[1],arena.c_str(),observe);terran_battle_test(argv[1],arena.c_str(),observe);
         battle_test(argv[1],argv[2],observe);
@@ -60,7 +62,7 @@ int main(int argc,char** argv) {
         string_table_data tbl;assets(tbl.data,"arr/sfxdata.tbl");
         game_player player(assets);
         auto units=data_loading::load_units_dat(player.st().global->units_dat);
-        if(!protoss)for(auto type:{UnitTypes::Terran_SCV,UnitTypes::Terran_Marine,UnitTypes::Terran_Command_Center,UnitTypes::Terran_Barracks,UnitTypes::Terran_Supply_Depot,UnitTypes::Terran_Refinery}) {
+        if(!protoss && !zerg)for(auto type:{UnitTypes::Terran_SCV,UnitTypes::Terran_Marine,UnitTypes::Terran_Command_Center,UnitTypes::Terran_Barracks,UnitTypes::Terran_Supply_Depot,UnitTypes::Terran_Refinery}) {
             const auto* u=&units.vec.at(static_cast<unsigned>(type));
             if(u->ready_sound) ids.insert(u->ready_sound);
             for(int i=u->first_what_sound;i && i<=u->last_what_sound;++i) ids.insert(i);
@@ -69,10 +71,10 @@ int main(int argc,char** argv) {
         game_load_functions loader(player.st());
         a_vector<uint8_t> chk;data_loading::mpq_file<> map(argv[2]);map(chk,"staredit/scenario.chk");
         loader.load_map_data(chk.data(),chk.size(),[&]{loader.setup_info.create_no_units=true;});
-        std::set<unsigned> images;terran_asset_closure(player.st(),images,ids,protoss);
+        std::set<unsigned> images;terran_asset_closure(player.st(),images,ids,zerg?0:protoss?2:1);
         // All units speak; keep the full native select/ack ranges for this roster.
         auto voices=[&](UnitTypes type){const auto* u=loader.get_unit_type(type);if(u->ready_sound)ids.insert(u->ready_sound);for(int k=u->first_what_sound;k && k<=u->last_what_sound;++k)ids.insert(k);for(int k=u->first_yes_sound;k && k<=u->last_yes_sound;++k)ids.insert(k);};
-        if(protoss){for(const auto& product:port3ds::protoss::units)voices(product.type);for(const auto& building:port3ds::protoss::buildings)voices(building.type);voices(UnitTypes::Protoss_Archon);voices(UnitTypes::Protoss_Dark_Archon);}else for(const auto& product:port3ds::terran::units)voices(product.type);
+        if(zerg){for(const auto& product:port3ds::zerg::units)voices(product.type);for(const auto& building:port3ds::zerg::buildings)voices(building.type);voices(UnitTypes::Zerg_Broodling);voices(UnitTypes::Zerg_Larva);voices(UnitTypes::Zerg_Infested_Command_Center);}else if(protoss){for(const auto& product:port3ds::protoss::units)voices(product.type);for(const auto& building:port3ds::protoss::buildings)voices(building.type);voices(UnitTypes::Protoss_Archon);voices(UnitTypes::Protoss_Dark_Archon);}else for(const auto& product:port3ds::terran::units)voices(product.type);
         mkdir(argv[3],0777);
         const std::string root=std::string(argv[3])+"/";
         std::ofstream manifest(root+"manifest.tsv");

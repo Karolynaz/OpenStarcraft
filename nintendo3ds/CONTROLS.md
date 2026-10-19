@@ -1,14 +1,13 @@
 # Physical controls and observer mode
 
-The current local build defaults to **All Protoss battle**. It prepares 78
-troops plus native fighter ammunition per side at 200 supply. Carrier/Reaver
-ammunition, Archons, storms, Stasis and other powers use the native engine.
-The earlier **All Terran battle** remains in START → Scenarios, a prepared symmetric 1v1 on a flat
-64×64 arena using original terrain, simulation, weapons, spells and animations.
-Each side has 114 troops across all thirteen standard trainable unit types,
-plus one prepared nuclear missile: 200 supply per side. Tanks siege, Vultures
-lay mines, transports load/unload infantry and Ghosts launch a nuclear strike.
-This is a deterministic performance controller, not Blizzard campaign AI.
+The current local build defaults to **All Zerg battle**: 144 troops across
+all twelve worker/army types, plus 25 Overlords and a Hatchery per side,
+200 supply. Lurkers burrow; Queens and Defilers use native powers. The prepared
+**All Protoss battle** and **All Terran battle** remain in START → Scenarios.
+Protoss has 78 troops plus fighter ammunition per side; Terran has 114 troops
+plus a prepared nuclear missile. Every battle uses the same flat 64×64 arena,
+original simulation, weapons, spells and art. These are deterministic
+performance fixtures, separate from Blizzard campaign AI.
 
 The battle ends after at least 30 simulation seconds when either side has lost
 65% of its initial army resource value, immediately if its army is eliminated,
@@ -21,7 +20,7 @@ research and abilities, with completed prerequisite buildings and 10,000 of
 each resource. Its technology starts unresearched. Normal costs, supply, build
 and research durations still apply. **Player vs AI** retains the ordinary 50/0
 opening against the small SCV/Marine test bot; that bot does not build the full
-Terran tree. Gas AI and Marines AI remain available for earlier comparisons.
+Terran tree. Gas AI, Marines AI, Two Marines and Manual base are in Scenarios → Earlier scenarios.
 
 The camera follows combat. Circle Pad or minimap touch suspends following for
 eight seconds; START can disable it. Automatic CSV logging uses
@@ -96,3 +95,22 @@ The audio build plays original Terran music and positional game effects.
 SELECT and the end-of-match pause also pause audio; restarting clears old
 unit effects. The lower screen shows Audio ON/OFF, effect count, and music
 buffer/I/O errors. Automatic logs now use `logs/ai-audio-benchmark.csv`.
+
+## Zerg laboratory
+
+START → Scenarios → Zerg laboratory has completed prerequisites and 20,000 of
+each resource. Research starts unresearched. Native prices, supply, energy,
+creep and durations apply. Select Hatchery/Lair/Hive with A, choose **Select
+Larva** with Y, then use Y for the first eight morphs or L+Y for Ultralisk.
+Drone Y/L+Y shows eight basic and three advanced structures; advanced also
+contains burrow. A Drone is consumed by successful construction. Lair/Hive,
+Greater Spire and colony morphs appear on their parent building's Y menu.
+
+Hydralisk and Mutalisk Y offer their researched/prerequisite morphs. An Egg or
+incomplete structure offers cancellation. Burrow/unburrow uses native orders;
+Queen and Defiler powers use target menus. Overlords require Ventral Sacs to
+transport passengers. Select a ground Zerg unit, then A on a completed paired
+Nydus to enter; selecting Nydus itself offers **Build Nydus exit** on creep.
+
+The same Circle Pad cursor, A/B, X/L+X, bookmarks and minimap touch rules apply
+to every race. The bottom command menus also accept touch, as authorized.

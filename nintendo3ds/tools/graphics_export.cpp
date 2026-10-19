@@ -7,6 +7,8 @@
 #include "../tests/terran.h"
 #include "../tests/terran_build.h"
 #include "../tests/protoss.h"
+#include "../tests/zerg.h"
+#include "../tests/zerg_build.h"
 #include "../tests/protoss_build.h"
 #include <cstdio>
 #include <set>
@@ -24,7 +26,7 @@ static void collect(state& st, std::set<unsigned>& ids) {
 }
 int main(int argc, char** argv) {
     if (argc != 4 && argc != 5) { std::fprintf(stderr, "graphics-export DATA MAP OUTPUT\n"); return 2; }
-    const bool protoss=argc==5 && std::string(argv[4])=="protoss";
+    const bool protoss=argc==5 && std::string(argv[4])=="protoss", zerg=argc==5 && std::string(argv[4])=="zerg";
     try {
         auto assets = data_loading::data_files_directory(argv[1]);
         std::unique_ptr<game_player> current;
@@ -37,7 +39,7 @@ int main(int argc, char** argv) {
         };
         const std::string map_name(argv[2]);const auto slash=map_name.find_last_of('/');
         const auto arena=map_name.substr(0,slash==std::string::npos?0:slash+1)+"arena.chk";
-        if(protoss){protoss_construction_tests(argv[1],arena.c_str(),profile);protoss_tests(argv[1],arena.c_str(),profile);protoss_battle_test(argv[1],arena.c_str(),profile);}else{
+        if(zerg){zerg_construction_tests(argv[1],arena.c_str(),profile);zerg_tests(argv[1],arena.c_str(),profile);zerg_battle_test(argv[1],arena.c_str(),profile);}else if(protoss){protoss_construction_tests(argv[1],arena.c_str(),profile);protoss_tests(argv[1],arena.c_str(),profile);protoss_battle_test(argv[1],arena.c_str(),profile);}else{
         terran_construction_tests(argv[1],arena.c_str(),profile);
         terran_tests(argv[1],arena.c_str(),profile);terran_battle_test(argv[1],arena.c_str(),profile);
         gameplay_tests(argv[1],argv[2],profile);
@@ -71,7 +73,7 @@ int main(int argc, char** argv) {
             for (int n = 0; n != 480; ++n) { collect(player.st(), ids); player.next_frame(); }
         }
         auto& st = current->st(); auto& global = *st.global; auto& game = *st.game;
-        std::set<unsigned> sound_ids;terran_asset_closure(st,ids,sound_ids,protoss);
+        std::set<unsigned> sound_ids;terran_asset_closure(st,ids,sound_ids,zerg?0:protoss?2:1);
         const char* names[] = {"badlands","platform","install","ashworld","jungle","desert","ice","twilight"};
         a_vector<uint8_t> palette, vr4, vx4, pcx;
         const auto tileset = game.tileset_index;
@@ -125,6 +127,16 @@ int main(int argc, char** argv) {
             }
         }
         std::fclose(out); out=nullptr;
+        if(zerg){
+            out=std::fopen((std::string(argv[3])+".creep").c_str(),"wb");if(!out)throw std::runtime_error("Creep reference write");
+            bytes("OBWCRP1\0",8);
+            for(unsigned f=0;f<16;++f){const unsigned id=game.cv5.at(1).mega_tile_index[f];
+                for(unsigned y=0;y<32;++y)for(unsigned x=0;x<32;++x){const unsigned off=id*32+((y/8)*4+x/8)*2;const unsigned mini=vx4.at(off)|vx4.at(off+1)<<8;std::fputc(vr4.at(mini/2*64+y%8*8+((mini&1)?7-x%8:x%8)),out);}
+            }
+            a_vector<uint8_t> creep;assets(creep,format("Tileset/%s.grp",names[tileset]));const auto edges=read_grp(data_loading::data_reader_le(creep.data(),creep.data()+creep.size()));u16(edges.frames.size());
+            for(const auto& f:edges.frames){u16(f.size.x);u16(f.size.y);for(unsigned y=0;y<f.size.y;++y){const auto* p=f.data_container.data()+f.line_data_offset[y];for(unsigned x=0;x<f.size.x;){unsigned token=*p++,n=token&127;if(token&128){while(n--){u16(65535);++x;}}else if(token&64){n=token&63;const unsigned c=*p++;while(n--){u16(c);++x;}}else while(n--){u16(*p++);++x;}}}}
+            std::fclose(out);out=nullptr;
+        }
         std::printf("Exported %zu tiles, %zu image types, %u frames (%zux%zu map)\n",tiles.size(),ids.size(),total,game.map_tile_width,game.map_tile_height);
     } catch(const std::exception& e) { if(out) std::fclose(out); std::fprintf(stderr,"%s\n",e.what());return 1; }
 }

@@ -5,10 +5,10 @@
 #include <array>
 
 namespace port3ds {
-enum class Scenario { empty, two_units, melee, ai_battle, versus_ai, gas_battle, terran_battle, terran_lab, protoss_battle, protoss_lab };
+enum class Scenario { empty, two_units, melee, ai_battle, versus_ai, gas_battle, terran_battle, terran_lab, protoss_battle, protoss_lab, zerg_battle, zerg_lab };
 enum class Command { context, attack, stop, train, depot, barracks, cancel, primary, refinery };
 enum class SelectionKind { none, workers, command_center, barracks, other };
-enum class OptionKind : unsigned { build=1, addon, train, research, upgrade, order, stim, siege, cloak, liftoff, land, unload, cancel, merge };
+enum class OptionKind : unsigned { build=1, addon, train, research, upgrade, order, stim, siege, cloak, liftoff, land, unload, cancel, merge, morph, burrow, larvae, nydus };
 enum class OptionPage { primary, secondary, basic, advanced };
 struct MenuOption { char label[64]{}; unsigned code=0; bool target=false, enabled=false; };
 inline unsigned option_code(OptionKind kind,unsigned id=0) {return (unsigned(kind)<<16)|id;}
@@ -46,7 +46,7 @@ struct UnitView {
     bool completed = false, worker = false, mineral = false, geyser = false, refinery = false;
     bool flying=false; unsigned cargo=0;
     int shields=0,max_shields=0; unsigned fighters=0;
-    unsigned order=0;int energy=0;
+    unsigned order=0;int energy=0;bool burrowed=false;
 };
 struct SpriteInfo {unsigned width=0,height=0;bool valid=false;};
 struct SpriteView {

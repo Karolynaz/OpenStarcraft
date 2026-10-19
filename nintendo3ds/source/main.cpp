@@ -30,8 +30,8 @@ u64 now_us() {
     return ticks / SYSCLOCK_ARM11 * 1000000 + ticks % SYSCLOCK_ARM11 * 1000000 / SYSCLOCK_ARM11;
 }
 const char* scenario_name(unsigned s) {
-    static const char* names[] = {"Empty map", "Two marines", "Manual base", "AI vs AI", "Player vs AI", "Gas AI vs AI", "All Terran battle", "Terran laboratory", "All Protoss battle", "Protoss laboratory"};
-    return names[s % 10];
+    static const char* names[] = {"Empty map", "Two marines", "Manual base", "AI vs AI", "Player vs AI", "Gas AI vs AI", "All Terran battle", "Terran laboratory", "All Protoss battle", "Protoss laboratory", "All Zerg battle", "Zerg laboratory"};
+    return names[s % 12];
 }
 }
 
@@ -58,9 +58,9 @@ int main() {
         port3ds::Audio sound;
         port3ds::Scheduler scheduler;
         port3ds::Controls controls;
-        unsigned scenario = 8, loaded_scenario = 8;
+        unsigned scenario = 10, loaded_scenario = 10;
         port3ds::InputRouter input;
-        enum class Menu { none, system, scenarios, catalogue };
+        enum class Menu { none, system, scenarios, legacy, catalogue };
         port3ds::OptionPage option_page=port3ds::OptionPage::primary;
         port3ds::MenuOption option_rows[8]{};unsigned option_count=0;
         Menu menu=Menu::none; unsigned choice=0;
@@ -76,7 +76,7 @@ int main() {
         port3ds::CsvLog log;
         bool audio_paused_last=true;
         u64 last_log_flush_us=0;
-        const char* action = "Starting Protoss battle...";
+        const char* action = "Starting Zerg battle...";
         C2D_Text diagnostics{}, commands{}, message{}, resources{};
         C2D_Text menu_rows[8]{};
         // 40 controlled units per side plus the map's neutral resources.
@@ -108,10 +108,10 @@ int main() {
                 // Release resident PCM and sprite scratch before the core's
                 // temporary MPQ/GRP initialization peak on original hardware.
                 sound.unload();graphics.clear();
-                const unsigned next_race=scenario>=8?2:1;
+                const unsigned next_race=scenario>=10?0:scenario>=8?2:1;
                 loaded_scenario = scenario;
                 paused = !engine.load(root, scenario>=6?arena:map, static_cast<port3ds::Scenario>(scenario));
-                if(engine.ready())sound.load(next_race==2?"sdmc:/3ds/openbw/audio/protoss":"sdmc:/3ds/openbw/audio",R_SUCCEEDED(audio),next_race==2?"protoss":"terran");
+                if(engine.ready())sound.load(next_race==0?"sdmc:/3ds/openbw/audio/zerg":next_race==2?"sdmc:/3ds/openbw/audio/protoss":"sdmc:/3ds/openbw/audio",R_SUCCEEDED(audio),next_race==0?"zerg":next_race==2?"protoss":"terran");
                 if (engine.ready()) graphics.load(scenario>=6?"sdmc:/3ds/openbw/graphics-arena.bin":"sdmc:/3ds/openbw/graphics.bin", engine.terrain_signature());
                 else graphics.clear();
                 // Atlas descriptors keep their addresses across reloads, while
@@ -147,7 +147,7 @@ int main() {
             auto command=[&](port3ds::Command c) {
                 engine.command(c,controls.world_x(),controls.world_y()); action=engine.command_status();
             };
-            auto menu_count=[&]() -> unsigned {return menu==Menu::system?5:menu==Menu::scenarios?8:menu==Menu::catalogue?option_count:0;};
+            auto menu_count=[&]() -> unsigned {return menu==Menu::system?5:menu==Menu::scenarios?8:menu==Menu::legacy?4:menu==Menu::catalogue?option_count:0;};
             auto open_options=[&](port3ds::OptionPage page) {
                 option_page=page;option_count=engine.options(page,option_rows,8);choice=0;
                 menu=option_count?Menu::catalogue:Menu::none;
@@ -169,8 +169,9 @@ int main() {
                     if(choice==3){pending_load=true;action="Loading scenario and graphics...";}
                     if(choice==4)exit_requested=true;
                 } else if(menu==Menu::scenarios) {
-                    static const unsigned modes[]={8,9,6,7,4,5,3,1};scenario=modes[choice];pending_load=true;action="Loading scenario and graphics...";
-                } else if(menu==Menu::catalogue) {use_option(option_rows[choice]);return;}
+                    if(choice==7){menu=Menu::legacy;choice=0;return;}
+                    static const unsigned modes[]={10,11,8,9,6,7,4};scenario=modes[choice];pending_load=true;action="Loading scenario and graphics...";
+                } else if(menu==Menu::legacy){static const unsigned modes[]={5,3,1,2};scenario=modes[choice];pending_load=true;action="Loading earlier scenario...";} else if(menu==Menu::catalogue) {use_option(option_rows[choice]);return;}
                 menu=Menu::none;
             };
             port3ds::InputFrame frame;
@@ -289,12 +290,13 @@ int main() {
                 if(menu==Menu::none) std::snprintf(help,sizeof help,"A action / B cancel\nX army / L+X workers\nY primary / L+Y menu\nR+D-pad: save group\nD-pad: recall group\nTwice: center camera\nSELECT pause\nSTART menu");
                 else {
                     const char* system[]={"Scenarios",auto_camera?"Auto camera: ON":"Auto camera: OFF",log?"CSV: ON":"CSV: OFF","Reload current","Exit"};
-                    const char* modes[]={"All Protoss battle","Protoss laboratory","All Terran battle","Terran laboratory","Player vs AI","Gas AI vs AI","Marines AI vs AI","Two Marines"};
+                    const char* modes[]={"All Zerg battle","Zerg laboratory","All Protoss battle","Protoss laboratory","All Terran battle","Terran laboratory","Player vs AI","Earlier scenarios..."};
+                    const char* legacy[]={"Gas AI vs AI","Marines AI vs AI","Two Marines","Manual base"};
                     if(menu==Menu::catalogue)option_count=engine.options(option_page,option_rows,8);
                     unsigned used=0;
-                    for(unsigned i=0;i<menu_count();++i)used+=std::snprintf(help+used,sizeof help-used,"%s %s\n",i==choice?">":" ",menu==Menu::system?system[i]:menu==Menu::scenarios?modes[i]:option_rows[i].label);
+                    for(unsigned i=0;i<menu_count();++i)used+=std::snprintf(help+used,sizeof help-used,"%s %s\n",i==choice?">":" ",menu==Menu::system?system[i]:menu==Menu::scenarios?modes[i]:menu==Menu::legacy?legacy[i]:option_rows[i].label);
                 }
-                if(state.benchmark)std::snprintf(hud,sizeof hud,"%s  %us / 180s  Score %u / %u\nRed W%u A%u  Blue W%u A%u  Losses %u/%u",loaded_scenario>=8?"ALL PROTOSS":"ALL TERRAN",state.battle_seconds,state.score[0],state.score[1],state.players[0].workers,state.players[0].army,state.players[1].workers,state.players[1].army,state.players[0].lost,state.players[1].lost);
+                if(state.benchmark)std::snprintf(hud,sizeof hud,"%s  %us / 180s  Score %u / %u\nRed W%u A%u  Blue W%u A%u  Losses %u/%u",loaded_scenario>=10?"ALL ZERG":loaded_scenario>=8?"ALL PROTOSS":"ALL TERRAN",state.battle_seconds,state.score[0],state.score[1],state.players[0].workers,state.players[0].army,state.players[1].workers,state.players[1].army,state.players[0].lost,state.players[1].lost);
                 else if(state.observer) std::snprintf(hud,sizeof hud,"AI vs AI | Red W%u A%u B%u / Blue W%u A%u B%u\nMinerals %d/%d Gas %d/%d Losses %u/%u",
                     state.players[0].workers,state.players[0].army,state.players[0].buildings,state.players[1].workers,state.players[1].army,state.players[1].buildings,
                     state.players[0].minerals,state.players[1].minerals,state.players[0].gas,state.players[1].gas,state.players[0].lost,state.players[1].lost);

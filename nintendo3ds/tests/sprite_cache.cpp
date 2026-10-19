@@ -3,6 +3,7 @@
 #include <fstream>
 #include <iterator>
 #include <set>
+#include <string>
 #include <3ds.h>
 #include <atomic>
 #include <cassert>
@@ -11,9 +12,9 @@
 #include <cstdio>
 namespace fake {std::atomic<unsigned> queued{0},allocations{0},pauses{0};std::vector<Draw> draws;}
 int main(int argc,char** argv){
- assert(argc==5 || argc==6);using namespace port3ds;const bool protoss=argc==6;
+ assert(argc==5 || argc==6);using namespace port3ds;const bool protoss=argc==6 && std::string(argv[5])=="protoss",zerg=argc==6 && std::string(argv[5])=="zerg";
  {
-  Engine e;assert(e.load(argv[1],argv[2],protoss?Scenario::protoss_battle:Scenario::terran_battle));Graphics g;assert(g.load(argv[3],e.terrain_signature()));
+  Engine e;assert(e.load(argv[1],argv[2],zerg?Scenario::zerg_battle:protoss?Scenario::protoss_battle:Scenario::terran_battle));Graphics g;assert(g.load(argv[3],e.terrain_signature()));
   // Compare the runtime decoder against independently exported original GRP
   // palette indices, including every frame of representative Terran bodies,
   // turrets and shadows, both player remaps and neutral colors.
@@ -25,6 +26,14 @@ int main(int argc,char** argv){
   using bwgame::ImageTypes;
   std::set<unsigned> check={unsigned(ImageTypes::IMAGEID_Marine),unsigned(ImageTypes::IMAGEID_Firebat),unsigned(ImageTypes::IMAGEID_Ghost),unsigned(ImageTypes::IMAGEID_SCV),unsigned(ImageTypes::IMAGEID_Battlecruiser),unsigned(ImageTypes::IMAGEID_Wraith),unsigned(ImageTypes::IMAGEID_Goliath_Base),unsigned(ImageTypes::IMAGEID_Goliath_Turret),unsigned(ImageTypes::IMAGEID_Siege_Tank_Tank_Base),unsigned(ImageTypes::IMAGEID_Siege_Tank_Tank_Turret),unsigned(ImageTypes::IMAGEID_Marine_Shadow)};
   if(protoss)check={unsigned(ImageTypes::IMAGEID_Probe),unsigned(ImageTypes::IMAGEID_Zealot),unsigned(ImageTypes::IMAGEID_Dragoon),unsigned(ImageTypes::IMAGEID_High_Templar),unsigned(ImageTypes::IMAGEID_Dark_Templar_Unit),unsigned(ImageTypes::IMAGEID_Carrier),unsigned(ImageTypes::IMAGEID_Interceptor),unsigned(ImageTypes::IMAGEID_Scout),unsigned(ImageTypes::IMAGEID_Shuttle),unsigned(ImageTypes::IMAGEID_Observer),unsigned(ImageTypes::IMAGEID_Reaver)};
+  if(zerg)check={unsigned(ImageTypes::IMAGEID_Drone),unsigned(ImageTypes::IMAGEID_Zergling),unsigned(ImageTypes::IMAGEID_Hydralisk),unsigned(ImageTypes::IMAGEID_Mutalisk),unsigned(ImageTypes::IMAGEID_Overlord),unsigned(ImageTypes::IMAGEID_Ultralisk),unsigned(ImageTypes::IMAGEID_Queen),unsigned(ImageTypes::IMAGEID_Defiler),unsigned(ImageTypes::IMAGEID_Guardian),unsigned(ImageTypes::IMAGEID_Devourer),unsigned(ImageTypes::IMAGEID_Lurker)};
+  if(zerg){
+   std::ifstream ref(std::string(argv[4])+".creep",std::ios::binary);std::vector<unsigned char> c((std::istreambuf_iterator<char>(ref)),{});assert(c.size()>16392 && std::string((const char*)c.data(),7)=="OBWCRP1");size_t p=8;std::vector<uint16_t> px(512*512);unsigned compared=0;
+   for(unsigned f=0;f<16;++f){assert(e.sprite_pixels(65500,f,11,px.data(),px.size()));for(unsigned i=0;i<1024;++i){assert(px[i]==palette[c.at(p++)]);++compared;}}
+   auto read16=[&](){unsigned n=c.at(p)|c.at(p+1)<<8;p+=2;return n;};const auto frames=read16();
+   for(unsigned f=0;f<frames;++f){const auto w=read16(),h=read16();auto info=e.sprite_info(65501,f);assert(info.width==w && info.height==h && e.sprite_pixels(65501,f,11,px.data(),px.size()));for(unsigned i=0;i<w*h;++i){const auto color=read16();assert(px[i]==(color==65535?0:palette[color]));++compared;}}
+   assert(p==c.size());std::printf("Original creep megatiles and GRP edges reference PASS: %u pixels\n",compared);
+  }
   unsigned reference_pixels=0;std::vector<uint16_t> decoded(512*512);auto groups=u32();
   for(unsigned g=0;g<groups;++g){auto id=u16(),frames=u16();for(unsigned f=0;f<frames;++f){auto w=u16(),h=u16();assert(at+w*h*2<=raw.size());
    if(check.count(id)){for(unsigned owner: {0u,1u,11u}){assert(e.sprite_pixels(id,f,owner,decoded.data(),decoded.size()));for(unsigned i=0;i<w*h;++i){unsigned c=raw[at+i*2]|raw[at+i*2+1]<<8;uint16_t expected=0;if(c!=65535){if(c>=8 && c<16)c=team[owner*8+c-8];expected=palette[c];}assert(decoded[i]==expected);++reference_pixels;}}}
@@ -35,7 +44,7 @@ int main(int argc,char** argv){
    assert(e.tick());if(frame%4)continue;
    // Exercise the front, both armies and viewport motion, keeping real source
    // animations, deaths, mine shots, turret rotations and matrix overlays.
-   const int cx=frame%3==0?420:frame%3==1?800:1100,cy=600;
+   const bool creep_view=zerg && frame%5==0;const int cx=creep_view?(frame%2?1648:0):frame%3==0?420:frame%3==1?800:1100,cy=creep_view?1700:600;
    auto n=e.visible_images(sprites,2048,cx,cy);fake::draws.clear();assert(g.sprites(sprites,n,cx,cy,e)==0);
    size_t out=0;
    for(unsigned i=0;i<n;++i){const auto& v=sprites[i];auto info=e.sprite_info(v.image,v.frame);assert(info.valid);

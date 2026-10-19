@@ -1,11 +1,12 @@
 # OpenBW on the original Nintendo 3DS
 
-Status: full standard Terran and Protoss production, construction, research/upgrades and
-controller ability menus are implemented. The default Protoss prepared full-army 1v1
-has a short score/time limit; Terran lab permits manual testing. Original
+Status: standard Terran, Protoss and Zerg production, construction, research/upgrades
+and controller ability menus are integrated through native OpenBW actions.
+The default Zerg prepared full-army 1v1 has a short score/time limit; all three
+races have a manual laboratory. Original
 music and effects play through NDSP. The earlier gas build was measured on the
 user's original console at 58.47 FPS / 24.03 TPS; the larger Terran build still
-needs its own hardware run. See `nintendo3ds/reports/PROTOSS_VALIDATION.md` and the Terran report.
+needs its own hardware run. See `nintendo3ds/reports/ZERG_VALIDATION.md`, the Protoss and Terran reports.
 Still a limited experimental profile. Updated: 2026-10-19. Baseline: `heiner/openbw` commit
 `469d2037e2fd03085dac4729912f4188bc2a778b`.
 
@@ -418,3 +419,25 @@ make -C nintendo3ds test-protoss-cache HOST_CXX=clang++
 The actual SD was already removed after the earlier Terran delivery. The new
 Proto executable/audio have been prepared locally; hardware testing and copying
 the new package to SD are still pending.
+
+## Zerg milestone (2026-10-19)
+
+Native Drone construction with creep, sixteen structure recipes including
+five building morphs, thirteen manufactured/morphed products, six research
+technologies, sixteen upgrade types, burrow, Overlord transport, Nydus pairs
+and Queen/Defiler spells are integrated. Explicit fixtures are used for manual
+lab and 200-supply symmetric stress testing. Campaign AI and ordinary Zerg or
+Protoss opening economy bots are not implemented. Three race-specific sound
+banks keep normal RAM bounded; all nine original music tracks stream.
+
+Creep uses original CV5/VX4/VR4 megatiles and native tileset GRP edge frames,
+updated from live creep state through the existing bounded GPU sprite cache.
+No larger static sprite atlas or change to the 36/8 MiB heap reservations.
+Full test results and remaining visual/hardware limitations are in
+`nintendo3ds/reports/ZERG_VALIDATION.md`.
+
+```sh
+make -C nintendo3ds prepare-zerg-audio prepare-zerg-graphics HOST_CXX=clang++
+make -C nintendo3ds test-zerg-cache HOST_CXX=clang++
+./nintendo3ds/build/host-sim "data files" nintendo3ds/local-data/3ds/openbw/maps/arena.chk zerg
+```

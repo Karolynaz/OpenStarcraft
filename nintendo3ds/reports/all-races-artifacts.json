@@ -1,0 +1,42 @@
+{
+  "build": "All races 2026-10-19, 200 supply providers",
+  "sd_updated": false,
+  "hardware_run_pending": true,
+  "files": {
+    "openbw-3ds.3dsx": {
+      "bytes": 957108,
+      "sha256": "7f452542268cc7696678a5270669cbc0fb33e5c9d10583eabca417c557596c78"
+    },
+    "audio/zerg/effects.bin": {
+      "bytes": 6437478,
+      "sha256": "837eca4dd6b64c239f8c7ff55cbe9567a4b0fec67c23d14e5e962fd939fc420d"
+    },
+    "audio/zerg/manifest.json": {
+      "bytes": 576,
+      "sha256": "2b3fdb1995190d86f90f2d0507924a52efd37feeac2a580681ae7112f3249227"
+    },
+    "README.txt": {
+      "bytes": 2754,
+      "sha256": "fd9a774ecf8835d306a093bd34e875c70e4f5e6434ae5001c0821c1a751c665b"
+    },
+    "audio/zerg/zerg1.pcm": {
+      "bytes": 24883200,
+      "sha256": "34b92ad26b6bb6ac5a8f98617ecda583af4855352369f46441fda2957f556def"
+    },
+    "audio/zerg/zerg2.pcm": {
+      "bytes": 26460160,
+      "sha256": "9bdb6832bff92b886aa6c76daad00db22bbf88c2bc0b6773ad70eaa911b5982b"
+    },
+    "audio/zerg/zerg3.pcm": {
+      "bytes": 27152380,
+      "sha256": "187a711062459d32f00ba8c8fa0b9f75c8da08484ccf2f472a14ea1b01cb91cb"
+    }
+  },
+  "package": {
+    "package": "local-data/releases/all-races-2026-10-19.zip",
+    "files": 25,
+    "bytes": 344030048,
+    "sha256": "79fd079d513a30a2b52cf9eb53eea49f8901c284ed2b5c9023c6779c48820ee2",
+    "sd_updated": false
+  }
+}

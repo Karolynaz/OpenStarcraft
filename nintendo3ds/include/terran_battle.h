@@ -2,17 +2,18 @@
 #include "actions.h"
 #include "race_catalogue.h"
 #include "protoss_fixture.h"
+#include "zerg_fixture.h"
 namespace port3ds {namespace detail {
 using namespace bwgame;
 // A prepared, symmetric performance fixture, not the ordinary economy mode.
 class TerranBattle {
- bool enabled_=false,protoss_=false;int winner_=-1;unsigned reason_=0;
+ bool enabled_=false;unsigned race_=1;int winner_=-1;unsigned reason_=0;
  unsigned initial_[2]{},score_[2]{},lost_[2]{},count_[2]{};
  unsigned initial_count_[2]{},orders_=0;bool nuclear_ordered_[2]{};uint64_t elapsed_=0;
  static unsigned value(const unit_t* u) {return std::max(1,u->unit_type->mineral_cost+u->unit_type->gas_cost);}
  static bool active(state_functions& f,const unit_t* u) {
   return !f.unit_dead(u) && !f.ut_building(u) && !f.ut_turret(u) && !f.unit_is_fighter(u) &&
-   !f.unit_is(u,UnitTypes::Terran_Nuclear_Missile) && !f.unit_is(u,UnitTypes::Terran_Vulture_Spider_Mine);
+   !f.unit_is(u,UnitTypes::Zerg_Larva) && !f.unit_is(u,UnitTypes::Zerg_Egg) && !f.unit_is(u,UnitTypes::Zerg_Cocoon) && !f.unit_is(u,UnitTypes::Zerg_Lurker_Egg) && !f.unit_is(u,UnitTypes::Zerg_Overlord) && !f.unit_is(u,UnitTypes::Terran_Nuclear_Missile) && !f.unit_is(u,UnitTypes::Terran_Vulture_Spider_Mine);
  }
  void evaluate(state_functions& f) {
   score_[0]=score_[1]=count_[0]=count_[1]=0;
@@ -25,7 +26,7 @@ class TerranBattle {
  }
 public:
  static constexpr unsigned limit_seconds=180;
- void reset(bool on,bool protoss=false) { *this=TerranBattle{};enabled_=on;protoss_=protoss; }
+ void reset(bool on,unsigned race=1) { *this=TerranBattle{};enabled_=on;race_=race; }
  bool enabled()const{return enabled_;}int winner()const{return winner_;}
  unsigned score(unsigned p)const{return score_[p];}unsigned lost(unsigned p)const{return lost_[p];}
  unsigned count(unsigned p)const{return count_[p];}unsigned reason()const{return reason_;}
@@ -33,7 +34,7 @@ public:
  void elapsed(state_functions& f,uint64_t us) {if(enabled_ && winner_<0) {elapsed_+=us;evaluate(f);}}
  void setup(game_load_functions& f,bool lab) {
   if(!lab && !enabled_)return;
-  if(protoss_){setup_protoss(f,lab);if(!lab)for(unsigned p=0;p<2;++p)for(auto* u:ptr(f.st.player_units[p]))if(active(f,u)){initial_[p]+=value(u);++initial_count_[p];}evaluate(f);return;}
+  if(race_!=1){if(race_==2)setup_protoss(f,lab);else setup_zerg(f,lab);if(!lab)for(unsigned p=0;p<2;++p)for(auto* u:ptr(f.st.player_units[p]))if(active(f,u)){initial_[p]+=value(u);++initial_count_[p];}evaluate(f);return;}
   for(unsigned p=0;p<(lab?1u:2u);++p) {
    // Prepared lab funds are explicit. Normal Player vs AI still starts at 50/0.
    if(lab) {f.st.current_minerals[p]=10000;f.st.current_gas[p]=10000;}
@@ -90,7 +91,7 @@ public:
   auto& f=player.funcs();auto& st=player.st();
   if(st.current_frame%12)return;
   evaluate(f);if(winner_>=0)return;
-  if(protoss_){step_protoss(player);return;}
+  if(race_!=1){if(race_==2)step_protoss(player);else step_zerg(player);return;}
   action_state as;action_functions a(st,as);
   for(unsigned p=0;p<2;++p) {
    // Re-use fixed arrays: no all-pairs full army search every simulation frame.

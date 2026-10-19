@@ -50,26 +50,43 @@ another bounded approach, retaining full-length music and original sounds.
 6. Checkpoint tested stages with local commits and update this file. Continue
    Zerg if time/usage permit; document exact unfinished parts candidly.
 
-## Progress at 07:10 continuation
+## Checked milestones as of 07:45
 
-Protoss catalogue, native production/research/upgrades, all powers, merge,
-fighter ammunition, transport, prepared battle and lab are implemented.
-Host tests and Terran regression pass. ASan sprite reference tests pass for
-both races. Separate 202-effect Protoss sound bank (8,368,683 PCM bytes) and
-three full original music tracks validated against FFmpeg. ARM11 build passes.
-Original-model emulator battle measured 52.09 FPS mean / about 24 TPS; full
-results and limitations are in nintendo3ds/reports/PROTOSS_VALIDATION.md.
+Protoss committed as407e02c. Zerg integration now complete for all standard
+unit/building recipes, native research/upgrades, Queen/Defiler powers, burrow,
+Overlord transport, cancellation/refunds and paired Nydus construction/transit.
+All three race host suites pass. Zerg battle has144 troops +25 Overlords and
+Hatchery per side, native200 supply providers; peak342 objects, frame720,
+blue wins scores2050/4000, losses130/121. No campaign or ordinary Proto/Zerg
+opening economy AI is claimed. ARM11 build checks pass.
 
-Native reload initially failed std::bad_alloc. Audio::unload now releases old
-PCM bank capacity and Graphics::clear releases CPU scratch before temporary
-core initialization. Fixed build successfully loaded Protoss lab from battle;
-A selected Nexus and Y queued Probe (50 minerals charged, queue 1). The emulator round-trip Protoss → Terran → Protoss lab passed. Audio unload/race music ASan test
-and both sprite cache tests pass after the fix. Emulator model config restored; fixed binary staged and hashed in
-reports/protoss-artifacts.json. Checkpoint Protoss, then continue Zerg.
+ASan reference/cache tests pass: creep48576 pixels, Zerg body18426789,
+movingcache16053103/2361 misses, no overflow; earlier races unchanged. Single
+Engine18 cross-race battle/lab reloads pass. Scheduler/input/map recovery,
+MPQ ADPCM, audio lifetime/race unload and asyncCSV tests pass.
+Zerg bank192 full effects6433618 PCM8 bytes +3 full original tracks, PCM exactly
+matches FFmpeg. Other race banks separate. Original36/8 MiB heaps unchanged.
 
-Then implement Zerg via original native Larva/unit/building morph actions,
-creep placement, research/upgrades, powers and transport. No Zerg completion
-is claimed. No new build copied to SD (card absent). Keep 36/8 MiB heaps.
-Emulator stopped and original model keys restored from
-local-data/protoss-emulator-original/model.json after testing. CPU100, DSP HLE.
-The existing DSP file is empty; do not claim console/DSP firmware validation.
+Final Zerg emulator battle:48.184 FPS mean,17.38 min,~23.98 TPS; heap32312768,
+linear7789568 bytes; no backlog/missing/cache/audio-stream/CSV errors.
+Voice budget:207 effects played,2984 no-voice requests,13 off-view culled.
+First tick sample123.49 ms, latermax35.49 ms. Dense graphics FPS remains slow.
+Original-model/CPU100/DSP HLE only; no actual console evidence.
+
+Native manual Zerg lab A/Y produced Drone. Zerg battle→Proto lab→Zerg lab→Proto
+lab passed. One earlier navigation attempt ended emulation/RPC, cause unknown;
+explicit-row repeats passed. Emulator stopped and original settings restored
+from local-data/zerg-emulator-original/model.json. DSP placeholder unchanged.
+
+Private ZIP ready:local-data/releases/all-races-2026-10-19.zip,25 files,~344 MB.
+All CRC/owned-input hashes and built/staged/emulator/ZIP binary hashes match.
+Physical SD absent, not updated. Preserve previous Terran/Proto checkpoints.
+Detailed reports:ZERG_VALIDATION.md, all-races-artifacts.json, zerg-emulator-*.
+
+Checkpoint this stage locally. Next useful work: investigate dense rendering
+FPS (texture-page switches/cache layout), preserving this tested binary and
+package. Only keep a performance change if reference/ASan/native tests pass
+and a comparable emulator battle improves. Do not overwrite the tested package
+with an unverified experiment. No further races remain; campaign AI and pixel-
+identical renderer are later work. Stop by10:27 or when useful task complete;
+no empty ping loops/paid-credit changes. Caffeinate expires10:27.

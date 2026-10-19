@@ -1,7 +1,10 @@
 # Protoss milestone — 2026-10-19
 
+This report records Protoss checkpoint `407e02c`, before the later Zerg
+milestone. See ZERG_VALIDATION.md for the current all-race package.
+
 Protoss are implemented as an additional standard multiplayer race profile,
-using the original OpenBW simulation and private original art/audio. Zerg are
+using the original OpenBW simulation and private original art/audio. At this checkpoint, Zerg were
 not yet integrated into these menus/scenarios. No copyrighted assets are
 committed. The previously delivered Terran SD build is preserved separately.
 
@@ -37,7 +40,7 @@ does not bypass cloaking/detection or combat sight rules.
 
 ## Prepared scenarios
 
-The current local build defaults to **All Protoss battle** (scenario 8).
+The Protoss checkpoint build defaults to **All Protoss battle** (scenario 8).
 START → Scenarios lists Protoss battle/lab first, then all previous Terran and
 small economy scenarios. Eight rows fit the existing lower-screen menu.
 

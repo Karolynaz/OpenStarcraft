@@ -33,7 +33,7 @@ out/openbw-3ds.elf: $(OBJECTS) arm11.specs Makefile | out
 out/openbw-3ds.3dsx: out/openbw-3ds.elf
 	"$(DEVKITPRO)/tools/bin/3dsxtool" $< $@
 host: build/host-sim
-build/graphics-export: tools/graphics_export.cpp tools/asset_closure.h source/engine.cpp tests/gameplay.h tests/battle.h tests/gas.h tests/terran.h tests/terran_build.h tests/protoss.h tests/protoss_build.h $(HEADERS) | build
+build/graphics-export: tools/graphics_export.cpp tools/asset_closure.h source/engine.cpp tests/gameplay.h tests/battle.h tests/gas.h tests/terran.h tests/terran_build.h tests/protoss.h tests/protoss_build.h tests/zerg.h tests/zerg_build.h $(HEADERS) | build
 	$(HOST_CXX) $(COMMON) tools/graphics_export.cpp source/engine.cpp -o $@
 ASSET_ROOT ?= ../data files
 MAP ?= local-data/3ds/openbw/maps/probe.scx
@@ -43,7 +43,7 @@ prepare-graphics: build/graphics-export
 	python3 tools/prepare_graphics.py local-data/graphics-work/raw.bin local-data/3ds/openbw/graphics.bin
 test-graphics: prepare-graphics
 	python3 tests/graphics.py local-data/graphics-work/raw.bin local-data/3ds/openbw/graphics.bin
-build/host-sim: source/engine.cpp source/host_main.cpp tests/gameplay.h tests/battle.h tests/gas.h tests/terran.h tests/terran_build.h tests/protoss.h tests/protoss_build.h $(HEADERS) | build
+build/host-sim: source/engine.cpp source/host_main.cpp tests/gameplay.h tests/battle.h tests/gas.h tests/terran.h tests/terran_build.h tests/protoss.h tests/protoss_build.h tests/zerg.h tests/zerg_build.h $(HEADERS) | build
 	$(HOST_CXX) $(COMMON) source/engine.cpp source/host_main.cpp -o $@
 build/scheduler-test: tests/scheduler.cpp include/scheduler.h | build
 	$(HOST_CXX) -std=c++14 -Iinclude tests/scheduler.cpp -o $@
@@ -61,7 +61,7 @@ clean:
 	rm -rf build out
 -include build/main.d build/engine.d build/graphics.d build/audio.d build/csv_log.d
 
-build/audio-export: tools/audio_export.cpp tools/asset_closure.h source/engine.cpp tests/gameplay.h tests/battle.h tests/gas.h tests/terran.h tests/terran_build.h tests/protoss.h tests/protoss_build.h $(HEADERS) | build
+build/audio-export: tools/audio_export.cpp tools/asset_closure.h source/engine.cpp tests/gameplay.h tests/battle.h tests/gas.h tests/terran.h tests/terran_build.h tests/protoss.h tests/protoss_build.h tests/zerg.h tests/zerg_build.h $(HEADERS) | build
 	$(HOST_CXX) $(COMMON) tools/audio_export.cpp source/engine.cpp -o $@
 prepare-audio: build/audio-export
 	mkdir -p local-data/audio-work
@@ -107,3 +107,19 @@ prepare-protoss-graphics: build/graphics-export
 	./build/graphics-export "$(ASSET_ROOT)" local-data/3ds/openbw/maps/arena.chk local-data/graphics-work/protoss-raw.bin protoss
 test-protoss-cache: build/sprite-cache-test
 	ASAN_OPTIONS=detect_leaks=0 ./build/sprite-cache-test "$(ASSET_ROOT)" local-data/3ds/openbw/maps/arena.chk local-data/3ds/openbw/graphics-arena.bin local-data/graphics-work/protoss-raw.bin protoss
+
+prepare-zerg-audio: build/audio-export
+	mkdir -p local-data/audio-work-zerg
+	./build/audio-export "$(ASSET_ROOT)" "$(MAP)" local-data/audio-work-zerg zerg
+	python3 tools/prepare_audio.py local-data/audio-work-zerg local-data/3ds/openbw/audio/zerg --race zerg
+	python3 tests/audio_assets.py local-data/audio-work-zerg local-data/3ds/openbw/audio/zerg zerg
+prepare-zerg-graphics: build/graphics-export
+	mkdir -p local-data/graphics-work
+	./build/graphics-export "$(ASSET_ROOT)" local-data/3ds/openbw/maps/arena.chk local-data/graphics-work/zerg-raw.bin zerg
+test-zerg-cache: build/sprite-cache-test
+	ASAN_OPTIONS=detect_leaks=0 ./build/sprite-cache-test "$(ASSET_ROOT)" local-data/3ds/openbw/maps/arena.chk local-data/3ds/openbw/graphics-arena.bin local-data/graphics-work/zerg-raw.bin zerg
+
+build/reload-test: tests/reload.cpp source/engine.cpp $(HEADERS) | build
+	$(HOST_CXX) $(COMMON) -O1 -g -fsanitize=address -fno-omit-frame-pointer tests/reload.cpp source/engine.cpp -o $@
+test-reload: build/reload-test
+	ASAN_OPTIONS=detect_leaks=0 ./build/reload-test "$(ASSET_ROOT)" local-data/3ds/openbw/maps/arena.chk

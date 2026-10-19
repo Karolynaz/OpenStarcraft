@@ -3,6 +3,7 @@
 #include "graphics_format.h"
 #include "battle_ai.h"
 #include "terran_battle.h"
+#include "creep_graphics.h"
 #include <cstdio>
 #include <cstring>
 #include <stdexcept>
@@ -28,6 +29,7 @@ struct Engine::Impl {
     std::array<static_vector<unit_id_32,192>,4> groups;
     detail::BattleAI ai;
     detail::TerranBattle battle;
+    std::unique_ptr<detail::CreepGraphics> creep;
     std::array<uint16_t,256> palette{};
     std::array<uint8_t,128> team{};
     std::array<a_vector<uint8_t>,7> lights;
@@ -41,7 +43,7 @@ struct Engine::Impl {
 };
 
 namespace {
-const char* unit_name(const unit_t* u) {if(const char* n=protoss::name(u->unit_type->id))return n;return terran::name(u->unit_type->id);}
+const char* unit_name(const unit_t* u) {if(const char* n=zerg::name(u->unit_type->id))return n;if(const char* n=protoss::name(u->unit_type->id))return n;return terran::name(u->unit_type->id);}
 // Use the engine collision box with a small thumbstick tolerance. Prefer
 // the nearest center when two boxes overlap; never select dead/hidden units.
 unit_t* hit_unit(state_functions& funcs, int x, int y, bool own_only) {
@@ -92,12 +94,13 @@ Engine::Engine() : impl_(new Impl) {}
 Engine::~Engine() = default;
 bool Engine::load(const char* data_root, const char* map_path, Scenario scenario) {
     impl_->loaded = false;
-    impl_->battle.reset(scenario==Scenario::terran_battle || scenario==Scenario::protoss_battle,scenario==Scenario::protoss_battle || scenario==Scenario::protoss_lab);
+    impl_->battle.reset(scenario==Scenario::terran_battle || scenario==Scenario::protoss_battle || scenario==Scenario::zerg_battle,scenario>=Scenario::zerg_battle?0:scenario>=Scenario::protoss_battle?2:1);
     impl_->selected.clear();
     for (auto& g:impl_->groups) g.clear();
     impl_->ai.reset(scenario==Scenario::ai_battle || scenario==Scenario::gas_battle,
         scenario==Scenario::ai_battle || scenario==Scenario::versus_ai || scenario==Scenario::gas_battle,scenario==Scenario::gas_battle);
     impl_->sound.reset();
+    impl_->creep.reset();
     impl_->player.reset();
     try {
         a_vector<uint8_t> chk;
@@ -135,7 +138,7 @@ bool Engine::load(const char* data_root, const char* map_path, Scenario scenario
             for (unsigned i = 0; i != 12; ++i) {
                 auto& p = player.st().players[i];
                 p.controller = i < 2 ? player_t::controller_occupied : player_t::controller_inactive;
-                p.race = (scenario==Scenario::protoss_battle || scenario==Scenario::protoss_lab)?race_t::protoss:race_t::terran;
+                p.race = scenario>=Scenario::zerg_battle?race_t::zerg:(scenario==Scenario::protoss_battle || scenario==Scenario::protoss_lab)?race_t::protoss:race_t::terran;
                 loader.setup_info.create_melee_units_for_player[i] = i < 2 && melee;
             }
         });
@@ -153,7 +156,7 @@ bool Engine::load(const char* data_root, const char* map_path, Scenario scenario
             if(!bases[0] || !bases[1] || !loader.is_reachable(bases[0],bases[1]))
                 throw std::runtime_error("AI ground battle needs connected start locations");
         }
-        if(scenario>=Scenario::terran_battle)impl_->battle.setup(loader,scenario==Scenario::terran_lab || scenario==Scenario::protoss_lab);
+        if(scenario>=Scenario::terran_battle)impl_->battle.setup(loader,scenario==Scenario::terran_lab || scenario==Scenario::protoss_lab || scenario==Scenario::zerg_lab);
         // This no-fog prototype starts with terrain explored for both players.
         // Cloaking, detection and native combat sight ranges remain active.
         for(auto& tile:player.st().tiles)tile.explored&=~3;
@@ -179,6 +182,7 @@ bool Engine::load(const char* data_root, const char* map_path, Scenario scenario
         auto team=pcx("game/tunit.pcx");if(team.size()<128)throw std::runtime_error("Team palette bounds");std::copy_n(team.begin(),128,impl_->team.begin());
         const char* light_names[]={"ofire","gfire","bfire","bexpl","trans50","red","green"};
         for(unsigned i=0;i<7;++i)impl_->lights[i]=pcx(terrain+"/"+light_names[i]+".pcx");
+        if(scenario>=Scenario::zerg_battle){impl_->creep.reset(new detail::CreepGraphics);impl_->creep->load(player.st(),terrain,impl_->palette,load_asset);}
         impl_->sound.reset(new Impl::SoundFunctions(player.st()));
         impl_->loaded = true;
         std::snprintf(impl_->message, sizeof impl_->message, "Loaded %ux%u tiles", width, height);
@@ -220,7 +224,7 @@ Snapshot Engine::snapshot() const {
     s.minerals = st.current_minerals[0]; s.gas = st.current_gas[0];
     const auto race = static_cast<unsigned>(st.players[0].race);
     s.supply = st.supply_used[0][race].integer_part();
-    s.supply_max = st.supply_available[0][race].integer_part();
+    s.supply_max = std::min(200,st.supply_available[0][race].integer_part());
     const auto& funcs = impl_->player->funcs();
     if (const auto* u = impl_->first_selected()) {
         s.selected_name = unit_name(u);
@@ -239,7 +243,8 @@ Snapshot Engine::snapshot() const {
     for(unsigned p=0;p!=2;++p) {
         auto& v=s.players[p];
         v.minerals=st.current_minerals[p]; v.gas=st.current_gas[p];
-        v.supply=st.supply_used[p][race].integer_part(); v.supply_max=st.supply_available[p][race].integer_part();
+        const auto player_race=static_cast<unsigned>(st.players[p].race);
+        v.supply=st.supply_used[p][player_race].integer_part(); v.supply_max=std::min(200,st.supply_available[p][player_race].integer_part());
         v.ai=impl_->ai.enabled(p) || impl_->battle.enabled(); v.trained=impl_->ai.trained(p); v.built=impl_->ai.built(p); v.waves=impl_->ai.waves(p); v.lost=impl_->battle.enabled()?impl_->battle.lost(p):impl_->ai.lost(p);
         for(const auto& u:st.player_units[p]) if(!funcs.unit_dead(&u) && !funcs.ut_turret(&u)) {
             ++v.live;
@@ -285,7 +290,8 @@ bool Engine::activate(int x,int y) {
     const bool healing=current && target && f.unit_is(current,UnitTypes::Terran_Medic) && f.ut_organic(target) && target->hp<target->unit_type->hitpoints;
     const bool gas=current && target && f.ut_worker(current) && f.unit_is_refinery(target);
     const bool recharge=current && target && f.unit_can_use_shield_battery(current,target);
-    if(target && !loading && !repairing && !healing && !gas && !recharge) {
+    const bool nydus=current && target && !f.ut_building(current) && f.unit_can_move(current) && f.unit_can_enter_nydus(current,target);
+    if(target && !loading && !repairing && !healing && !gas && !recharge && !nydus) {
         const bool ok=select(x,y);impl_->command_message=ok?"Unit selected":"Selection cleared";return ok;
     }
     if(!current) { const bool ok=select(x,y); impl_->command_message=ok?"Unit selected":"Select a unit first"; return ok; }
@@ -296,7 +302,7 @@ unsigned Engine::select_army(int cx,int cy) {
     if(!ready()) return 0;
     const auto& f=impl_->player->funcs();
     for(const auto* u:ptr(impl_->player->st().visible_units)) {
-        if(u->owner!=0 || f.unit_dead(u) || f.ut_turret(u) || !f.u_completed(u) || f.ut_worker(u) || f.ut_building(u) || f.us_hidden(u)) continue;
+        if(u->owner!=0 || f.unit_dead(u) || f.ut_turret(u) || !f.u_completed(u) || f.ut_worker(u) || f.ut_building(u) || f.us_hidden(u) || f.unit_is(u,UnitTypes::Zerg_Larva) || f.unit_is(u,UnitTypes::Zerg_Egg) || f.unit_is(u,UnitTypes::Zerg_Cocoon) || f.unit_is(u,UnitTypes::Zerg_Lurker_Egg)) continue;
         const auto p=u->sprite->position;
         if(p.x<cx || p.x>=cx+400 || p.y<cy || p.y>=cy+240) continue;
         if(impl_->selected.size()==192) break;
@@ -380,7 +386,7 @@ PlacementView Engine::placement_unit(unsigned id,int x,int y) const {
         if(!found)return view;
     }
     view.valid=!impl_->ai.enabled(0) && !impl_->battle.enabled() && u && u->owner==0 && !f.unit_dead(u) &&
-        f.unit_can_build(u,type) && f.has_available_resources_for(0,type) && x>=view.width/2 && y>=view.height/2 &&
+        ((f.unit_is_nydus(u) && f.unit_is(type,UnitTypes::Zerg_Nydus_Canal) && !u->building.nydus.exit && f.u_completed(u)) || (f.unit_can_build(u,type) && f.has_available_resources_for(0,type))) && x>=view.width/2 && y>=view.height/2 &&
         f.can_place_building(u,0,type,{view.x+view.width/2,view.y+view.height/2},true,true);
     return view;
 }
@@ -458,7 +464,8 @@ bool Engine::command(Command command, int x, int y) {
         message = "SCV moving to construction site"; break;
     }
     case Command::cancel:
-        if (!funcs.u_completed(u) && funcs.ut_building(u)) accepted = commands.action_cancel_building_unit(0);
+        if(funcs.unit_race(u)==race_t::zerg && (!funcs.u_completed(u) || funcs.unit_is_morphing_building(u) || u->order_type->id==Orders::ZergUnitMorph)) accepted=commands.action_cancel_morph(0);
+        else if (!funcs.u_completed(u) && funcs.ut_building(u)) accepted = commands.action_cancel_building_unit(0);
         else accepted = commands.action_cancel_build_queue(0, 254);
         message = "Construction / last queued unit cancelled"; break;
     }
@@ -475,24 +482,26 @@ unsigned Engine::options(OptionPage page,MenuOption* output,unsigned capacity) c
         if(minerals || gas)std::snprintf(o.label,sizeof o.label,"%s %s %d/%d",enabled?"":"x",name,minerals,gas);
         else std::snprintf(o.label,sizeof o.label,"%s%s",enabled?"":"x ",name);
     };
+    if(f.unit_race(u)==race_t::zerg && !f.u_completed(u)){add("Cancel morph / construction",OptionKind::cancel,0,false,true);return n;}
     if(page==OptionPage::basic || page==OptionPage::advanced) {
         unsigned index=0;catalogue::buildings([&](const terran::Product& b){
             if(b.parent!=u->unit_type->id)return;
             const auto* t=f.get_unit_type(b.type);if(f.ut_addon(t))return;
             if((page==OptionPage::basic)==(index++<8))add(b.name,OptionKind::build,unsigned(b.type),true,f.unit_can_build(u,t) && f.has_available_resources_for(0,t),t->mineral_cost,t->gas_cost);
-        });return n;
+        });if(page==OptionPage::advanced && f.unit_is(u,UnitTypes::Zerg_Drone))add(f.u_burrowed(u)?"Unburrow":"Burrow",OptionKind::burrow,0,false,f.unit_can_use_tech(u,f.get_tech_type(TechTypes::Burrowing)));return n;
     }
+    if(f.unit_is_hatchery(u))add("Select Larva",OptionKind::larvae,0,false,true);
     if(f.ut_building(u) || f.unit_is_carrier(u) || f.unit_is_reaver(u)) {
         catalogue::units([&](const terran::Product& b){if(b.parent==u->unit_type->id && page==OptionPage::primary) {
             const auto* t=f.get_unit_type(b.type);add(b.name,OptionKind::train,unsigned(b.type),false,f.unit_can_build(u,t) && f.has_available_resources_for(0,t) && f.has_available_supply_for(0,t),t->mineral_cost,t->gas_cost);
         }
         });catalogue::buildings([&](const terran::Product& b){if(b.parent==u->unit_type->id && page==OptionPage::primary) {
-            const auto* t=f.get_unit_type(b.type);add(b.name,OptionKind::addon,unsigned(b.type),false,f.unit_can_build(u,t) && f.has_available_resources_for(0,t),t->mineral_cost,t->gas_cost);
+            const auto* t=f.get_unit_type(b.type);add(b.name,f.unit_race(u)==race_t::zerg?OptionKind::morph:OptionKind::addon,unsigned(b.type),false,f.unit_can_build(u,t) && f.has_available_resources_for(0,t),t->mineral_cost,t->gas_cost);
         }
         });catalogue::techs([&](const terran::Research& t){if(t.parent==u->unit_type->id) {
             const auto* type=f.get_tech_type(t.type);add(t.name,OptionKind::research,unsigned(t.type),false,f.unit_can_research(u,type,0) && f.has_available_resources_for(0,type,false),type->mineral_cost,type->gas_cost);
         }
-        });catalogue::upgrades([&](const terran::Upgrade& t){if(t.parent==u->unit_type->id) {
+        });catalogue::upgrades([&](const terran::Upgrade& t){if(zerg::parent(u->unit_type->id,t.parent)) {
             const auto* type=f.get_upgrade_type(t.type);char label[40];std::snprintf(label,sizeof label,"%s L%d",t.name,f.player_upgrade_level(0,t.type)+1);
             add(label,OptionKind::upgrade,unsigned(t.type),false,f.unit_can_upgrade(u,type,0) && f.has_available_resources_for(0,type,false),f.upgrade_mineral_cost(0,type),f.upgrade_gas_cost(0,type));
         }
@@ -503,12 +512,25 @@ unsigned Engine::options(OptionPage page,MenuOption* output,unsigned capacity) c
             add("Cancel work/queue",OptionKind::cancel,0,false,true);
             if(!f.ut_building(u)){add("Attack-move",OptionKind::order,unsigned(Orders::AttackMove),true,true);add("Stop",OptionKind::order,unsigned(Orders::Stop),false,true);}
         }
+        if(f.unit_is(u,UnitTypes::Zerg_Nydus_Canal))add("Build Nydus exit",OptionKind::nydus,unsigned(UnitTypes::Zerg_Nydus_Canal),true,!u->building.nydus.exit && f.u_completed(u));
         if(f.unit_is(u,UnitTypes::Protoss_Shield_Battery))add("Recharge shields",OptionKind::order,unsigned(Orders::RechargeShieldsBattery),true,f.u_completed(u) && !f.unit_is_disabled(u) && u->energy>0_fp8);
         if(u->unit_type->id==UnitTypes::Terran_Comsat_Station)add("Scanner Sweep",OptionKind::order,unsigned(Orders::CastScannerSweep),true,true);
         return n;
     }
+    unsigned product_index=0;
+    catalogue::units([&](const terran::Product& b){if(b.parent!=u->unit_type->id)return;
+        const unsigned index=product_index++;if((page==OptionPage::primary)!=(index<8))return;
+        const auto* t=f.get_unit_type(b.type);add(b.name,OptionKind::morph,unsigned(b.type),false,f.unit_can_build(u,t) && f.has_available_resources_for(0,t) && f.has_available_supply_for(0,t),t->mineral_cost,t->gas_cost);
+    });
+    if(f.ut_can_burrow(u))add(f.u_burrowed(u)?"Unburrow":"Burrow",OptionKind::burrow,0,false,f.unit_can_use_tech(u,f.get_tech_type(TechTypes::Burrowing)));
     auto ability=[&](const char* name,Orders order,TechTypes tech) {add(name,OptionKind::order,unsigned(order),true,f.unit_can_use_tech(u,f.get_tech_type(tech)));};
     switch(u->unit_type->id) {
+    case UnitTypes::Zerg_Queen:
+        ability("Parasite",Orders::CastParasite,TechTypes::Parasite);ability("Spawn Broodlings",Orders::CastSpawnBroodlings,TechTypes::Spawn_Broodlings);ability("Ensnare",Orders::CastEnsnare,TechTypes::Ensnare);ability("Infest Command Center",Orders::CastInfestation,TechTypes::Infestation);break;
+    case UnitTypes::Zerg_Defiler:
+        ability("Dark Swarm",Orders::CastDarkSwarm,TechTypes::Dark_Swarm);ability("Plague",Orders::CastPlague,TechTypes::Plague);ability("Consume",Orders::CastConsume,TechTypes::Consume);break;
+    case UnitTypes::Zerg_Overlord:
+        add("Load unit",OptionKind::order,unsigned(Orders::PickupTransport),true,f.unit_provides_space(u));add("Unload all",OptionKind::unload,0,false,!f.loaded_units(u).empty());break;
     case UnitTypes::Protoss_High_Templar:
         ability("Psionic Storm",Orders::CastPsionicStorm,TechTypes::Psionic_Storm);ability("Hallucination",Orders::CastHallucination,TechTypes::Hallucination);
         add("Merge nearest Templar",OptionKind::merge,0,false,true);break;
@@ -545,7 +567,21 @@ bool Engine::perform(unsigned code,int x,int y) {
     auto* u=impl_->first_selected();if(!u || u->owner!=0)return fail("Select an own unit/building");
     const auto kind=static_cast<OptionKind>(code>>16);const unsigned id=code&65535;
     auto& p=*impl_->player;auto& f=p.funcs();action_state state;action_functions a(p.st(),state);a.action_select(0,u);bool ok=false;
-    if(kind==OptionKind::build || kind==OptionKind::addon || kind==OptionKind::train) {
+    if(kind==OptionKind::larvae) {
+        if(!f.unit_is_hatchery(u))return fail("Select Hatchery / Lair / Hive");
+        for(auto* larva:ptr(p.st().player_units[0]))if(f.unit_is(larva,UnitTypes::Zerg_Larva) && larva->connected_unit==u && !f.unit_dead(larva)) {impl_->selected.clear();impl_->selected.push_back(f.get_unit_id_32(larva));impl_->command_message="Larva selected: Y / L+Y morph menus";return true;}
+        return fail("No available Larva");
+    } else if(kind==OptionKind::morph) {
+        const auto* type=f.get_unit_type(static_cast<UnitTypes>(id));bool allowed=false;
+        catalogue::units([&](const terran::Product& r){if(unsigned(r.type)==id && r.parent==u->unit_type->id)allowed=true;});
+        catalogue::buildings([&](const terran::Product& r){if(unsigned(r.type)==id && r.parent==u->unit_type->id)allowed=true;});
+        if(!allowed || f.unit_race(u)!=race_t::zerg)return fail("Invalid Zerg morph recipe");
+        if(!f.unit_can_build(u,type) || !f.has_available_resources_for(0,type) || !f.has_available_supply_for(0,type))return fail("Morph needs prerequisites, resources or supply");
+        ok=f.ut_building(u)?a.action_morph_building(0,type):a.action_morph(0,type);
+    } else if(kind==OptionKind::nydus){
+        if(!f.unit_is_nydus(u))return fail("Select Nydus Canal");const auto place=placement_unit(unsigned(UnitTypes::Zerg_Nydus_Canal),x,y);
+        if(!place.valid)return fail("Nydus exit needs free creep");ok=a.action_build(0,a.get_order_type(Orders::BuildNydusExit),u->unit_type,{size_t(place.x/32),size_t(place.y/32)});
+    } else if(kind==OptionKind::build || kind==OptionKind::addon || kind==OptionKind::train) {
         const terran::Product* recipe=nullptr;
         catalogue::buildings([&](const terran::Product& r){if(unsigned(r.type)==id && r.parent==u->unit_type->id)recipe=&r;});
         if(kind==OptionKind::train) {recipe=nullptr;catalogue::units([&](const terran::Product& r){if(unsigned(r.type)==id && r.parent==u->unit_type->id)recipe=&r;});}
@@ -570,14 +606,14 @@ bool Engine::perform(unsigned code,int x,int y) {
             else ok=a.action_build(0,order,type,{size_t(tile.x),size_t(tile.y)});
         } else {
             const auto place=placement_unit(id,x,y);if(!place.valid)return fail("Invalid placement / occupied terrain");
-            ok=a.action_build(0,a.get_order_type(f.unit_race(type)==race_t::protoss?Orders::PlaceProtossBuilding:Orders::PlaceBuilding),type,{size_t(place.x/32),size_t(place.y/32)});
+            ok=a.action_build(0,a.get_order_type(f.unit_race(type)==race_t::protoss?Orders::PlaceProtossBuilding:f.unit_race(type)==race_t::zerg?Orders::DroneStartBuild:Orders::PlaceBuilding),type,{size_t(place.x/32),size_t(place.y/32)});
         }
     } else if(kind==OptionKind::research) {
         bool allowed=false;catalogue::techs([&](const terran::Research& t){if(unsigned(t.type)==id && t.parent==u->unit_type->id)allowed=true;});
         if(!allowed)return fail("This building cannot research that technology");
         ok=a.action_research(0,a.get_tech_type(static_cast<TechTypes>(id)));
     } else if(kind==OptionKind::upgrade) {
-        bool allowed=false;catalogue::upgrades([&](const terran::Upgrade& t){if(unsigned(t.type)==id && t.parent==u->unit_type->id)allowed=true;});
+        bool allowed=false;catalogue::upgrades([&](const terran::Upgrade& t){if(unsigned(t.type)==id && zerg::parent(u->unit_type->id,t.parent))allowed=true;});
         if(!allowed)return fail("This building cannot perform that upgrade");
         ok=a.action_upgrade(0,a.get_upgrade_type(static_cast<UpgradeTypes>(id)));
     } else if(kind==OptionKind::merge) {
@@ -607,7 +643,8 @@ bool Engine::perform(unsigned code,int x,int y) {
         for(auto uid:impl_->selected)if(auto* member=f.get_unit(uid)) {
             if(member->owner!=0 || f.unit_dead(member) || f.us_hidden(member))continue;
             a.action_select(0,member);
-            if(kind==OptionKind::stim)ok=a.action_stim_pack(0)||ok;
+            if(kind==OptionKind::burrow)ok=(f.u_burrowed(member)?a.action_unburrow(0):a.action_burrow(0,false))||ok;
+            else if(kind==OptionKind::stim)ok=a.action_stim_pack(0)||ok;
             else if(kind==OptionKind::siege)ok=(f.unit_is_sieged_tank(member)?a.action_unsiege(0,false):a.action_siege(0,false))||ok;
             else if(kind==OptionKind::cloak) {
                 const auto tech=f.unit_is_ghost(member)?TechTypes::Personnel_Cloaking:TechTypes::Cloaking_Field;
@@ -617,7 +654,7 @@ bool Engine::perform(unsigned code,int x,int y) {
             } else if(kind==OptionKind::unload) {if(!f.loaded_units(member).empty()) {a.action_unload_all(0,false);ok=true;}}
             else if(kind==OptionKind::order && id<unsigned(Orders::None)) {
                 const auto order=static_cast<Orders>(id);
-                const bool ground=order==Orders::CastPsionicStorm || order==Orders::CastStasisField || order==Orders::CastRecall || order==Orders::CastMaelstrom || order==Orders::CastDisruptionWeb || order==Orders::PlaceMine || order==Orders::CastEMPShockwave || order==Orders::CastScannerSweep || order==Orders::NukePaint || order==Orders::AttackMove || order==Orders::Move || order==Orders::Patrol;
+                const bool ground=order==Orders::CastDarkSwarm || order==Orders::CastPlague || order==Orders::CastEnsnare || order==Orders::CastPsionicStorm || order==Orders::CastStasisField || order==Orders::CastRecall || order==Orders::CastMaelstrom || order==Orders::CastDisruptionWeb || order==Orders::PlaceMine || order==Orders::CastEMPShockwave || order==Orders::CastScannerSweep || order==Orders::NukePaint || order==Orders::AttackMove || order==Orders::Move || order==Orders::Patrol;
                 auto* target=ground?nullptr:hit_unit(f,x,y,false);
                 ok=a.action_order(0,a.get_order_type(static_cast<Orders>(id)),{x,y},target,nullptr,false)||ok;
             }
@@ -652,7 +689,7 @@ std::size_t Engine::visible_units(UnitView* output, std::size_t capacity) const 
         output[n++] = {u->sprite->position.x, u->sprite->position.y, static_cast<unsigned>(u->owner), selected,
                        static_cast<unsigned>(t->id), u->hp.integer_part(), t->hitpoints.integer_part(),
                        t->dimensions.from.x + t->dimensions.to.x + 1, t->dimensions.from.y + t->dimensions.to.y + 1,
-                       funcs.u_completed(u), funcs.ut_worker(u), funcs.unit_is_mineral_field(u),funcs.unit_is(u,UnitTypes::Resource_Vespene_Geyser),funcs.unit_is_refinery(u),funcs.u_flying(u),cargo,u->shield_points.integer_part(),int(t->shield_points),unsigned(funcs.unit_is_carrier(u)?funcs.unit_interceptor_count(u):funcs.unit_is_reaver(u)?funcs.unit_scarab_count(u):0),unsigned(u->order_type->id),u->energy.integer_part()};
+                       funcs.u_completed(u), funcs.ut_worker(u), funcs.unit_is_mineral_field(u),funcs.unit_is(u,UnitTypes::Resource_Vespene_Geyser),funcs.unit_is_refinery(u),funcs.u_flying(u),cargo,u->shield_points.integer_part(),int(t->shield_points),unsigned(funcs.unit_is_carrier(u)?funcs.unit_interceptor_count(u):funcs.unit_is_reaver(u)?funcs.unit_scarab_count(u):0),unsigned(u->order_type->id),u->energy.integer_part(),funcs.u_burrowed(u)};
     }
     return n;
 }
@@ -666,21 +703,25 @@ std::uint32_t Engine::terrain_signature() const {
     return hash;
 }
 SpriteInfo Engine::sprite_info(unsigned image,unsigned frame) const {
-    if(!ready() || image>=impl_->player->st().global->image_grp.size())return {};
+    if(!ready())return {};
+    if(impl_->creep && image==detail::creep_tile_image)return frame<16?SpriteInfo{32,32,true}:SpriteInfo{};
+    if(impl_->creep && image==detail::creep_edge_image){if(frame>=impl_->creep->edges.frames.size())return {};const auto& r=impl_->creep->edges.frames[frame];return {unsigned(r.size.x),unsigned(r.size.y),true};}
+    if(image>=impl_->player->st().global->image_grp.size())return {};
     const auto& grp=impl_->player->st().global->image_grp[image];if(!grp || frame>=grp->frames.size())return {};
     const auto& f=grp->frames[frame];return {unsigned(f.size.x),unsigned(f.size.y),true};
 }
 bool Engine::sprite_pixels(unsigned image,unsigned frame,unsigned owner,uint16_t* out,std::size_t capacity) const {
     const auto info=sprite_info(image,frame);if(!info.valid || info.width>512 || info.height>512 || size_t(info.width)*info.height>capacity)return false;
-    const auto& st=impl_->player->st();const auto& source=st.global->image_grp[image]->frames[frame];
+    if(image==detail::creep_tile_image){std::copy(impl_->creep->tiles[frame].begin(),impl_->creep->tiles[frame].end(),out);return true;}
+    const auto& st=impl_->player->st();const auto& source=image==detail::creep_edge_image?impl_->creep->edges.frames[frame]:st.global->image_grp[image]->frames[frame];
     std::fill_n(out,size_t(info.width)*info.height,0);const unsigned team=owner<2?owner:11;
-    const auto& type=st.global->image_types.vec[image];
+    const auto& type=st.global->image_types.vec[image==detail::creep_edge_image?0:image];
     auto color=[&](unsigned c) {
-        if(type.modifier==9 && type.color_shift>=1 && type.color_shift<=7) {
+        if(image!=detail::creep_edge_image && type.modifier==9 && type.color_shift>=1 && type.color_shift<=7) {
             const auto& light=impl_->lights[type.color_shift-1];
             const unsigned at=c?256*(c-1):unsigned(light.size());
             if(at>=light.size())return uint16_t(0);c=light[at];
-        } else if(c>=8 && c<16)c=impl_->team[team*8+c-8];
+        } else if(image!=detail::creep_edge_image && c>=8 && c<16)c=impl_->team[team*8+c-8];
         return impl_->palette[c];
     };
     for(unsigned y=0;y<info.height;++y) {
@@ -712,6 +753,18 @@ std::size_t Engine::visible_images(SpriteView* output, std::size_t capacity, int
     const auto& st = impl_->player->st();
     const auto& funcs = impl_->player->funcs();
     std::size_t n = 0;
+    if(impl_->creep){
+        const int w=st.game->map_tile_width,h=st.game->map_tile_height;
+        const xy dirs[]={{1,1},{0,1},{-1,1},{1,0},{-1,0},{1,-1},{0,-1},{-1,-1}};
+        auto has=[&](int x,int y){return x>=0 && y>=0 && x<w && y<h && (st.tiles[x+y*w].flags&tile_t::flag_has_creep);};
+        for(int y=std::max(0,cy/32);y<std::min(h,(cy+271)/32);++y)for(int x=std::max(0,cx/32);x<std::min(w,(cx+431)/32);++x){
+            if(n==capacity)continue;
+            if(has(x,y))output[n++]={x*32,y*32,detail::creep_tile_image,unsigned((x*13+y*7)&15),11,false,false,0,255};
+            else{unsigned mask=0;for(unsigned d=0;d<8;++d)if(has(x+dirs[d].x,y+dirs[d].y))mask|=1<<d;
+                const unsigned frame=impl_->creep->edge_frames[mask];if(frame && frame<=impl_->creep->edges.frames.size()){const auto& r=impl_->creep->edges.frames[frame-1];output[n++]={x*32+int(r.offset.x),y*32+int(r.offset.y),detail::creep_edge_image,frame-1,11,false,false,0,255};}
+            }
+        }
+    }
     for (const auto& line : st.sprites_on_tile_line) for (const auto& sprite : line) {
         if (sprite.flags & sprite_t::flag_hidden) continue;
         unsigned layer = 0;

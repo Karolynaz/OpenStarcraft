@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Offline conversion: private classic WAV -> bounded DSP PCM assets; no runtime decode."""
 import argparse, json, pathlib, struct, subprocess, hashlib
-p=argparse.ArgumentParser();p.add_argument('source',type=pathlib.Path);p.add_argument('output',type=pathlib.Path);p.add_argument('--race',default='terran',choices=['terran','protoss']);a=p.parse_args()
+p=argparse.ArgumentParser();p.add_argument('source',type=pathlib.Path);p.add_argument('output',type=pathlib.Path);p.add_argument('--race',default='terran',choices=['terran','protoss','zerg']);a=p.parse_args()
 a.output.mkdir(parents=True,exist_ok=True)
 entries=[];payload=bytearray()
 for line in (a.source/'manifest.tsv').read_text().splitlines():

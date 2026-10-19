@@ -8,6 +8,8 @@
 #include "../tests/gas.h"
 #include "../tests/terran.h"
 #include "../tests/protoss.h"
+#include "../tests/zerg.h"
+#include "../tests/zerg_build.h"
 #include "../tests/protoss_build.h"
 #include "../tests/terran_build.h"
 
@@ -23,6 +25,7 @@ int main(int argc, char** argv) {
         try { gameplay_tests(argv[1],argv[2]); return 0; }
         catch (const std::exception& e) { std::fprintf(stderr,"Gameplay test failed: %s\n",e.what()); return 1; }
     }
+    if(argc>3 && std::string(argv[3])=="zerg"){try{zerg_construction_tests(argv[1],argv[2]);zerg_tests(argv[1],argv[2]);zerg_battle_test(argv[1],argv[2]);return 0;}catch(const std::exception& e){std::fprintf(stderr,"Zerg failed: %s\n",e.what());return 1;}}
     if(argc>3 && std::string(argv[3])=="protoss") {
         try{protoss_construction_tests(argv[1],argv[2]);protoss_tests(argv[1],argv[2]);protoss_battle_test(argv[1],argv[2]);return 0;}catch(const std::exception& e){std::fprintf(stderr,"Protoss failed: %s\n",e.what());return 1;}
     }
@@ -45,6 +48,8 @@ int main(int argc, char** argv) {
         if (name == "two") scenario = port3ds::Scenario::two_units;
         else if (name == "move") { scenario = port3ds::Scenario::two_units; test_movement = true; }
         else if (name == "stress") scenario = port3ds::Scenario::terran_battle;
+        else if (name == "zerg-stress") scenario = port3ds::Scenario::zerg_battle;
+        else if (name == "zerg-lab") scenario = port3ds::Scenario::zerg_lab;
         else if (name == "protoss-stress") scenario = port3ds::Scenario::protoss_battle;
         else if (name == "protoss-lab") scenario = port3ds::Scenario::protoss_lab;
         else if (name == "lab") scenario = port3ds::Scenario::terran_lab;
