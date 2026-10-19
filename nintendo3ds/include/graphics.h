@@ -21,7 +21,7 @@ class Graphics {
  Rect minimap_{};bool loaded_=false;
  char error_[160]="Graphics not loaded";
  C2D_Image image(const Rect&,Tex3DS_SubTexture&);
- void draw(const Rect&,float,float,float sx=1,float sy=1,bool flip=false,bool shadow=false,unsigned opacity=255);
+ void draw(const Rect&,float,float,float sx=1,float sy=1,bool flip=false,bool shadow=false,unsigned opacity=255,float depth=0);
  bool allocate(unsigned w,unsigned h,Rect& result);
  void release(const Rect&);
  bool cache_frame(const SpriteView&,const Engine&,bool dirty[8]);

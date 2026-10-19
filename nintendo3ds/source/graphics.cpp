@@ -73,13 +73,13 @@ C2D_Image Graphics::image(const Rect& r, Tex3DS_SubTexture& sub) {
          (r.x+r.width)/512.0f,1-(r.y+r.height)/512.0f};
     return {&pages_[r.page],&sub};
 }
-void Graphics::draw(const Rect& r, float x, float y, float sx, float sy, bool flip, bool shadow,unsigned opacity) {
+void Graphics::draw(const Rect& r, float x, float y, float sx, float sy, bool flip, bool shadow,unsigned opacity,float depth) {
     if(!r.width || !r.height) return;
     Tex3DS_SubTexture sub; const auto img=image(r,sub);
     C2D_ImageTint tint;
     if(!shadow && opacity<255)C2D_PlainImageTint(&tint,C2D_Color32(255,255,255,opacity),0);
     if(shadow) C2D_PlainImageTint(&tint,C2D_Color32(0,0,0,100),1);
-    C2D_DrawImageAt(img,flip?x+r.width*sx:x,y,0,(shadow || opacity<255)?&tint:nullptr,flip?-sx:sx,sy);
+    C2D_DrawImageAt(img,flip?x+r.width*sx:x,y,depth,(shadow || opacity<255)?&tint:nullptr,flip?-sx:sx,sy);
 }
 void Graphics::terrain(int cx,int cy) {
     if(!ready()) return;
@@ -142,9 +142,38 @@ unsigned Graphics::sprites(const SpriteView* views,std::size_t count,int cx,int 
     bool changed=false;for(unsigned p=terrain_pages_;p<page_count_;++p)changed=changed||dirty[p];
     if(changed){C2D_Flush();C3D_TexBind(0,&pages_[terrain_pages_]);}
     unsigned missing=0;
-    for(size_t i=0;i<count;++i){const auto& v=views[i];auto it=cache_.find(sprite_key(v.image,v.frame,v.owner));if(it==cache_.end()){++missing;++cache_overflows_;continue;}
-        draw(it->second.rect,v.x-cx,v.y-cy,1,1,v.flipped,v.shadow,v.opacity);
+    const Cached* ready[2048]{};
+    if(count>2048) { // Public API fallback; the application caps views at 2048.
+        for(size_t i=0;i<count;++i){const auto& v=views[i];auto it=cache_.find(sprite_key(v.image,v.frame,v.owner));
+            if(it==cache_.end()){++missing;++cache_overflows_;continue;}
+            draw(it->second.rect,v.x-cx,v.y-cy,1,1,v.flipped,v.shadow,v.opacity);
+        }
+        return missing;
     }
+    for(size_t i=0;i<count;++i) {
+        const auto& v=views[i];auto it=cache_.find(sprite_key(v.image,v.frame,v.owner));
+        if(it==cache_.end()){++missing;++cache_overflows_;continue;}
+        ready[i]=&it->second;
+    }
+    // Binary-alpha bodies can be grouped by texture. Distinct depth values
+    // preserve their original painter order, including transparent GRP holes.
+    // Translucent effects follow in painter order against the opaque depth;
+    // they must not be grouped, because alpha blending is order-dependent.
+    C2D_Flush();C3D_AlphaTest(true,GPU_GREATER,0);
+    C3D_DepthTest(true,GPU_GEQUAL,GPU_WRITE_ALL);
+    const float depth_step=1.f/(count+1);
+    for(unsigned page=terrain_pages_;page<page_count_;++page)for(size_t i=0;i<count;++i) {
+        const auto& v=views[i];const auto* entry=ready[i];
+        if(!entry || entry->rect.page!=page || v.shadow || v.opacity<255)continue;
+        draw(entry->rect,v.x-cx,v.y-cy,1,1,v.flipped,false,255,(i+1)*depth_step);
+    }
+    C2D_Flush();C3D_DepthTest(true,GPU_GEQUAL,GPU_WRITE_COLOR);
+    for(size_t i=0;i<count;++i) {
+        const auto& v=views[i];if(!ready[i] || (!v.shadow && v.opacity==255))continue;
+        draw(ready[i]->rect,v.x-cx,v.y-cy,1,1,v.flipped,v.shadow,v.opacity,(i+1)*depth_step);
+    }
+    // The following selection bars, cursor, text and minimap are UI overlays.
+    C2D_Flush();C3D_DepthTest(false,GPU_ALWAYS,GPU_WRITE_COLOR);
     return missing;
 }
 void Graphics::minimap(float x,float y,float width,float height) {

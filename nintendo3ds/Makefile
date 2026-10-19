@@ -51,7 +51,8 @@ build/controls-test: tests/controls.cpp include/controls.h | build
 	$(HOST_CXX) -std=c++14 -Iinclude tests/controls.cpp -o $@
 build/input-test: tests/input.cpp include/input.h | build
 	$(HOST_CXX) -std=c++14 -Iinclude tests/input.cpp -o $@
-test: build/host-sim build/scheduler-test build/controls-test build/input-test
+test: build/host-sim build/scheduler-test build/controls-test build/input-test build/frame-pacer-test
+	./build/frame-pacer-test
 	./build/scheduler-test
 	./build/controls-test
 	./build/input-test
@@ -80,7 +81,7 @@ build/csv-test: tests/csv_log.cpp source/csv_log.cpp include/csv_log.h tests/fak
 	$(HOST_CXX) -std=c++14 -O1 -g -fsanitize=address -fno-omit-frame-pointer -pthread -Itests/fake3ds -Iinclude tests/csv_log.cpp source/csv_log.cpp -o $@
 test-csv: build/csv-test
 	ASAN_OPTIONS=detect_leaks=0 ./build/csv-test
-build/sprite-cache-test: tests/sprite_cache.cpp tests/fake3ds/citro2d.h source/graphics.cpp source/engine.cpp $(HEADERS) | build
+build/sprite-cache-test: tests/sprite_cache.cpp tests/composite.h tests/fake3ds/citro2d.h source/graphics.cpp source/engine.cpp $(HEADERS) | build
 	$(HOST_CXX) $(COMMON) -O1 -g -fsanitize=address -fno-omit-frame-pointer -Itests/fake3ds tests/sprite_cache.cpp source/graphics.cpp source/engine.cpp -o $@
 test-sprite-cache: build/sprite-cache-test
 	ASAN_OPTIONS=detect_leaks=0 ./build/sprite-cache-test "$(ASSET_ROOT)" local-data/3ds/openbw/maps/arena.chk local-data/3ds/openbw/graphics-arena.bin local-data/graphics-work/raw.bin
@@ -129,3 +130,6 @@ build/audio-memory-test: tests/audio_memory.cpp tests/fake3ds/3ds.h source/audio
 .PHONY: test-audio-memory
 test-audio-memory: build/audio-memory-test
 	ASAN_OPTIONS=detect_leaks=0 ./build/audio-memory-test
+
+build/frame-pacer-test: tests/frame_pacer.cpp include/frame_pacer.h | build
+	$(HOST_CXX) -std=c++14 -Iinclude tests/frame_pacer.cpp -o $@

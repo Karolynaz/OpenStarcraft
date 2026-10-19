@@ -122,3 +122,29 @@ Luma dumps and CSV unchanged. Prior ZIP retained, new private reload-fix ZIP
 prepared and CRC/input/exe checked. Await user's console retest for crash proof.
 Emulator stopped and original model settings restored.
 SD synced and disk4 safely unmounted after final delivery.
+
+
+## Performance update after loading fix — 2026-10-19
+
+Implemented dual-VBlank-aware pacing (60 FPS cap retained), opaque texture
+batching with depth/alpha masks and ordered translucent effects, and precomputed
+team/light colors for GRP decoding. Standard 36/8 MiB heaps/CPU retained.
+New CSV phase timers and optional summarizer fields support next hardware test.
+All three ASan cache/pixel references and 75 complete viewport software
+composition comparisons pass; pixel fingerprints unchanged after palette/RLE
+optimization. Frame pacing tests, common host regressions, 18 cross-race engine
+loads, audio allocation-failure test and ARM11 build pass.
+Matched original-model/CPU100/HLE emulator full battles, baseline→optimized:
+Terran44.36→53.79 FPS, Protoss51.27→59.72, Zerg47.64→57.75; all ~24TPS,
+identical native outcomes, no missing sprites/cache/music/I/O/CSV errors.
+Earlier independent Zerg baseline47.76 agrees. Native A/Y Nexus→Probe and
+health/shield UI overlays tested in Proto lab after all three battles.
+These are emulator results: actual console gains remain unmeasured.
+Reports: nintendo3ds/reports/PERFORMANCE_VALIDATION.md and performance-2026-10-19.json.
+Private raw measurements, analysis script and exact baseline/final binaries/ELF
+in local-data/performance-2026-10-19/. Emulator stopped, original settings
+restored, emulator copy restored to final performance binary.
+Final SHA1660ed166b3ed5c9334269c994e3dfea1fe33a5fc9c0aed43624d7f2f2e4e34f.
+Private all-races-performance-2026-10-19.zip prepared/CRC/owned/hash checked;
+older reload-fix ZIP preserved. No mounted SD, so no performance SD update.
+Next useful step is a physical SD test and inspection of new CSV phase timings.

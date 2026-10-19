@@ -32,7 +32,8 @@ struct Engine::Impl {
     std::unique_ptr<detail::CreepGraphics> creep;
     std::array<uint16_t,256> palette{};
     std::array<uint8_t,128> team{};
-    std::array<a_vector<uint8_t>,7> lights;
+    std::array<std::array<uint16_t,256>,3> team_palette;
+    std::array<std::array<uint16_t,256>,7> lights;
     unit_t* first_selected() const {
         if (!loaded) return nullptr;
         for (auto id:selected) if (auto* u=player->funcs().get_unit(id))
@@ -181,7 +182,21 @@ bool Engine::load(const char* data_root, const char* map_path, Scenario scenario
         for(unsigned i=0;i<256;++i)impl_->palette[i]=((wpe[i*4]>>3)<<11)|((wpe[i*4+1]>>3)<<6)|((wpe[i*4+2]>>3)<<1)|1;
         auto team=pcx("game/tunit.pcx");if(team.size()<128)throw std::runtime_error("Team palette bounds");std::copy_n(team.begin(),128,impl_->team.begin());
         const char* light_names[]={"ofire","gfire","bfire","bexpl","trans50","red","green"};
-        for(unsigned i=0;i<7;++i)impl_->lights[i]=pcx(terrain+"/"+light_names[i]+".pcx");
+        for(unsigned owner=0;owner<3;++owner) {
+            impl_->team_palette[owner]=impl_->palette;
+            const unsigned team=owner<2?owner:11;
+            for(unsigned c=8;c<16;++c)impl_->team_palette[owner][c]=impl_->palette[impl_->team[team*8+c-8]];
+        }
+        // The renderer samples one fixed column of these remap tables. Resolve
+        // the palette once and release each large PCX before reading the next.
+        for(unsigned i=0;i<7;++i) {
+            const auto table=pcx(terrain+"/"+light_names[i]+".pcx");
+            impl_->lights[i][0]=0;
+            for(unsigned c=1;c<256;++c) {
+                const unsigned at=256*(c-1);
+                impl_->lights[i][c]=at<table.size()?impl_->palette[table[at]]:0;
+            }
+        }
         if(scenario>=Scenario::zerg_battle){impl_->creep.reset(new detail::CreepGraphics);impl_->creep->load(player.st(),terrain,impl_->palette,load_asset);}
         impl_->sound.reset(new Impl::SoundFunctions(player.st()));
         impl_->loaded = true;
@@ -714,22 +729,17 @@ bool Engine::sprite_pixels(unsigned image,unsigned frame,unsigned owner,uint16_t
     const auto info=sprite_info(image,frame);if(!info.valid || info.width>512 || info.height>512 || size_t(info.width)*info.height>capacity)return false;
     if(image==detail::creep_tile_image){std::copy(impl_->creep->tiles[frame].begin(),impl_->creep->tiles[frame].end(),out);return true;}
     const auto& st=impl_->player->st();const auto& source=image==detail::creep_edge_image?impl_->creep->edges.frames[frame]:st.global->image_grp[image]->frames[frame];
-    std::fill_n(out,size_t(info.width)*info.height,0);const unsigned team=owner<2?owner:11;
-    const auto& type=st.global->image_types.vec[image==detail::creep_edge_image?0:image];
-    auto color=[&](unsigned c) {
-        if(image!=detail::creep_edge_image && type.modifier==9 && type.color_shift>=1 && type.color_shift<=7) {
-            const auto& light=impl_->lights[type.color_shift-1];
-            const unsigned at=c?256*(c-1):unsigned(light.size());
-            if(at>=light.size())return uint16_t(0);c=light[at];
-        } else if(image!=detail::creep_edge_image && c>=8 && c<16)c=impl_->team[team*8+c-8];
-        return impl_->palette[c];
-    };
+    std::fill_n(out,size_t(info.width)*info.height,0);
+    const bool edge=image==detail::creep_edge_image;
+    const auto& type=st.global->image_types.vec[edge?0:image];
+    const uint16_t* colors=edge?impl_->palette.data():impl_->team_palette[owner<2?owner:2].data();
+    if(!edge && type.modifier==9 && type.color_shift>=1 && type.color_shift<=7)colors=impl_->lights[type.color_shift-1].data();
     for(unsigned y=0;y<info.height;++y) {
         const auto* p=source.data_container.data()+source.line_data_offset[y];unsigned x=0;
         while(x<info.width) {
             unsigned token=*p++,n=token&127;if(token&128){x+=n;continue;}
-            if(token&64){n=token&63;const auto c=color(*p++);while(n-- && x<info.width)out[y*info.width+x++]=c;}
-            else while(n-- && x<info.width)out[y*info.width+x++]=color(*p++);
+            if(token&64){n=std::min(token&63,info.width-x);const auto c=colors[*p++];std::fill_n(out+y*info.width+x,n,c);x+=n;}
+            else {const unsigned end=x+std::min(n,info.width-x);while(x<end)out[y*info.width+x++]=colors[*p++];}
         }
     }
     return true;

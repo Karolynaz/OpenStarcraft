@@ -4,6 +4,7 @@
 #include "engine.h"
 #include "graphics.h"
 #include "scheduler.h"
+#include "frame_pacer.h"
 #include "input.h"
 #include "audio.h"
 #include "csv_log.h"
@@ -68,6 +69,7 @@ int main() {
         port3ds::Graphics graphics;
         port3ds::Audio sound;
         port3ds::Scheduler scheduler;
+        port3ds::FramePacer frame_pacer;
         port3ds::Controls controls;
         unsigned scenario = 10, loaded_scenario = 10;
         port3ds::InputRouter input;
@@ -84,6 +86,7 @@ int main() {
         u64 previous = now_us(), interval = previous, next_text = 0;
         unsigned renders = 0, ticks = 0;
         double tick_sum = 0, tick_max = 0, fps = 0, tps = 0, mean = 0, worst = 0;
+        double render_sum=0,wait_sum=0,collect_sum=0,sprite_sum=0,end_sum=0,gpu_sum=0;
         port3ds::CsvLog log;
         bool audio_paused_last=true;
         u64 last_log_flush_us=0;
@@ -98,7 +101,7 @@ int main() {
         auto toggle_log=[&]() {
             if(log) { log.close(); action="CSV logging closed"; return; }
             mkdir("sdmc:/3ds/openbw/logs",0777);
-            log.open("sdmc:/3ds/openbw/logs/ai-audio-benchmark.csv","scenario,frame,units,fps,tps,mean_tick_us,max_tick_us,heap_bytes,linear_used,backlog,atlas_bytes,missing_images,red_workers,red_army,red_buildings,red_minerals,red_lost,blue_workers,blue_army,blue_buildings,blue_minerals,blue_lost,winner,audio_ready,sfx_played,sfx_culled,sfx_missing,sfx_voice_drops,event_drops,music_buffers,music_underruns,audio_io_errors,music_track,dsp_drops,red_gas,blue_gas,csv_flush_us,battle_seconds,red_score,blue_score,end_reason,cache_misses,cache_overflows,upload_pixels,csv_dropped,csv_errors\n");
+            log.open("sdmc:/3ds/openbw/logs/ai-audio-benchmark.csv","scenario,frame,units,fps,tps,mean_tick_us,max_tick_us,heap_bytes,linear_used,backlog,atlas_bytes,missing_images,red_workers,red_army,red_buildings,red_minerals,red_lost,blue_workers,blue_army,blue_buildings,blue_minerals,blue_lost,winner,audio_ready,sfx_played,sfx_culled,sfx_missing,sfx_voice_drops,event_drops,music_buffers,music_underruns,audio_io_errors,music_track,dsp_drops,red_gas,blue_gas,csv_flush_us,battle_seconds,red_score,blue_score,end_reason,cache_misses,cache_overflows,upload_pixels,csv_dropped,csv_errors,render_cpu_us,frame_wait_us,sprite_collect_us,sprite_draw_us,frame_end_us,gpu_us\n");
             action=log?"CSV logging enabled":"Cannot open ai-audio-benchmark.csv";
         };
         while (aptMainLoop()) {
@@ -275,17 +278,18 @@ int main() {
                 fps = renders / seconds; tps = ticks / seconds;
                 mean = ticks ? tick_sum / ticks : 0; worst = tick_max;
                 if (log) {
-                    char row[1400];std::snprintf(row,sizeof row, "%u,%lu,%u,%.2f,%.2f,%.1f,%.1f,%d,%lu,%llu,%u,%u,%u,%u,%u,%d,%u,%u,%u,%u,%d,%u,%d,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%d,%d,%llu,%u,%u,%u,%u,%u,%u,%u,%u,%u\n",
+                    char row[1400];std::snprintf(row,sizeof row, "%u,%lu,%u,%.2f,%.2f,%.1f,%.1f,%d,%lu,%llu,%u,%u,%u,%u,%u,%d,%u,%u,%u,%u,%d,%u,%d,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%d,%d,%llu,%u,%u,%u,%u,%u,%u,%u,%u,%u,%.1f,%.1f,%.1f,%.1f,%.1f,%.1f\n",
                         loaded_scenario, static_cast<unsigned long>(state.frame), state.units,
                         fps, tps, mean, worst, heap.uordblks, static_cast<unsigned long>(linear_used),
                         static_cast<unsigned long long>(scheduler.backlog()), graphics.texture_bytes(), missing_images,
                         state.players[0].workers,state.players[0].army,state.players[0].buildings,state.players[0].minerals,state.players[0].lost,
                         state.players[1].workers,state.players[1].army,state.players[1].buildings,state.players[1].minerals,state.players[1].lost,state.winner,
                         unsigned(sound_stats.ready),sound_stats.played,sound_stats.culled,sound_stats.missing,sound_stats.voice_drops,engine.dropped_sounds(),
-                        sound_stats.music_buffers,sound_stats.music_underruns,sound_stats.io_errors,sound_stats.music_track,sound_stats.dsp_drops,state.players[0].gas,state.players[1].gas,static_cast<unsigned long long>(last_log_flush_us),state.battle_seconds,state.score[0],state.score[1],state.end_reason,graphics.cache_misses(),graphics.cache_overflows(),graphics.upload_pixels(),log.stats().dropped,log.stats().errors);
+                        sound_stats.music_buffers,sound_stats.music_underruns,sound_stats.io_errors,sound_stats.music_track,sound_stats.dsp_drops,state.players[0].gas,state.players[1].gas,static_cast<unsigned long long>(last_log_flush_us),state.battle_seconds,state.score[0],state.score[1],state.end_reason,graphics.cache_misses(),graphics.cache_overflows(),graphics.upload_pixels(),log.stats().dropped,log.stats().errors,render_sum/std::max(1u,renders),wait_sum/std::max(1u,renders),collect_sum/std::max(1u,renders),sprite_sum/std::max(1u,renders),end_sum/std::max(1u,renders),gpu_sum/std::max(1u,renders));
                     log.write(row);
                 }
                 renders = ticks = 0; tick_sum = tick_max = 0; interval = sample_time;
+                render_sum=wait_sum=collect_sum=sprite_sum=end_sum=gpu_sum=0;
             }
             if(flush_pending && log)log.flush();
             last_log_flush_us=log.stats().flush_us;
@@ -336,10 +340,15 @@ int main() {
                 C2D_TextParse(&resources, text_buf, hud); C2D_TextOptimize(&resources);
                 next_text = sample_time + 250000;
             }
+            const u64 render_begin=now_us();
             const auto count = engine.visible_units(units, unit_view_capacity);
             const u32 bg = C2D_Color32(8, 16, 24, 255), grid = C2D_Color32(25, 49, 57, 255);
             const u32 green = C2D_Color32(100, 240, 180, 255), white = C2D_Color32(215, 230, 235, 255);
-            C3D_FrameBegin(C3D_FRAME_SYNCDRAW);
+            const u64 wait_begin=now_us();
+            C3D_FrameBegin(frame_pacer.needs_sync(C3D_FrameCounter(0),C3D_FrameCounter(1))?C3D_FRAME_SYNCDRAW:0);
+            frame_pacer.began(C3D_FrameCounter(0),C3D_FrameCounter(1));
+            const u64 waited=now_us()-wait_begin;
+            gpu_sum+=C3D_GetDrawingTime()*1000;
             C2D_TargetClear(top, bg); C2D_SceneBegin(top);
             if (graphics.ready()) graphics.terrain(controls.camera_x,controls.camera_y);
             else {
@@ -361,8 +370,12 @@ int main() {
                 }
                 if (!graphics.ready()) C2D_DrawRectSolid(x - 4, y - 4, 0, 8, 8, u.owner == 0 ? green : C2D_Color32(240, 110, 100, 255));
             }
+            const u64 collect_begin=now_us();
             const auto image_count=engine.visible_images(images,2048,controls.camera_x,controls.camera_y);
+            const u64 sprites_begin=now_us();
+            collect_sum+=sprites_begin-collect_begin;
             missing_images=graphics.sprites(images,image_count,controls.camera_x,controls.camera_y,engine);
+            sprite_sum+=now_us()-sprites_begin;
             if (placing) {
                 const auto site=engine.placement_unit(placing_code&65535,controls.world_x(),controls.world_y());
                 const u32 color=site.valid ? C2D_Color32(70,230,100,100) : C2D_Color32(240,60,60,100);
@@ -402,7 +415,10 @@ int main() {
             C2D_DrawLine(mx, my, green, mx, my + 240 * sy, green, 1, 0);
             C2D_DrawLine(mx + 400 * sx, my, green, mx + 400 * sx, my + 240 * sy, green, 1, 0);
             C2D_DrawLine(mx, my + 240 * sy, green, mx + 400 * sx, my + 240 * sy, green, 1, 0);
+            const u64 end_begin=now_us();
             C3D_FrameEnd(0);
+            const u64 render_end=now_us();
+            end_sum+=render_end-end_begin;wait_sum+=waited;render_sum+=render_end-render_begin-waited;
             ++renders;
             if(warming) {
                 // The first present can include GPU uploads and SD cache work.
@@ -410,6 +426,7 @@ int main() {
                 C3D_FrameSync();
                 warming=false;scheduler.reset();previous=interval=now_us();
                 renders=ticks=0;tick_sum=tick_max=0;
+                render_sum=wait_sum=collect_sum=sprite_sum=end_sum=gpu_sum=0;
             }
         }
         log.close();

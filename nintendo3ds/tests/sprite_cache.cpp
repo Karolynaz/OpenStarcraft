@@ -1,5 +1,6 @@
 #include "graphics.h"
 #include "race_catalogue.h"
+#include "composite.h"
 #include <fstream>
 #include <iterator>
 #include <set>
@@ -39,27 +40,33 @@ int main(int argc,char** argv){
    if(check.count(id)){for(unsigned owner: {0u,1u,11u}){assert(e.sprite_pixels(id,f,owner,decoded.data(),decoded.size()));for(unsigned i=0;i<w*h;++i){unsigned c=raw[at+i*2]|raw[at+i*2+1]<<8;uint16_t expected=0;if(c!=65535){if(c>=8 && c<16)c=team[owner*8+c-8];expected=palette[c];}assert(decoded[i]==expected);++reference_pixels;}}}
    at+=w*h*2;
   }}assert(at==raw.size());assert(reference_pixels>1000000);std::printf("Original GRP runtime color/team/alpha reference PASS: %u pixels\n",reference_pixels);
-  SpriteView sprites[2048];std::vector<uint16_t> expected(512*512);unsigned checked=0;
+  SpriteView sprites[2048];std::vector<uint16_t> expected(512*512);unsigned checked=0,composites=0,ordered_batches=0,grouped_batches=0;std::uint64_t pixel_hash=1469598103934665603ull;
   for(unsigned frame=0;frame<800;++frame){
    assert(e.tick());if(frame%4)continue;
    // Exercise the front, both armies and viewport motion, keeping real source
    // animations, deaths, mine shots, turret rotations and matrix overlays.
    const bool creep_view=zerg && frame%5==0;const int cx=creep_view?(frame%2?1648:0):frame%3==0?420:frame%3==1?800:1100,cy=creep_view?1700:600;
    auto n=e.visible_images(sprites,2048,cx,cy);fake::draws.clear();assert(g.sprites(sprites,n,cx,cy,e)==0);
+   std::vector<const fake::Draw*> ordered(n,nullptr);
+   for(const auto& d:fake::draws){const int index=std::lround(d.depth*(n+1))-1;assert(index>=0 && unsigned(index)<n && !ordered[index]);ordered[index]=&d;}
    size_t out=0;
    for(unsigned i=0;i<n;++i){const auto& v=sprites[i];auto info=e.sprite_info(v.image,v.frame);assert(info.valid);
-    if(!info.width || !info.height)continue;assert(out<fake::draws.size());const auto& d=fake::draws[out++];
+    if(!info.width || !info.height)continue;assert(out<fake::draws.size() && ordered[i]);const auto& d=*ordered[i];++out;
     assert(d.sub.width==info.width && d.sub.height==info.height);assert(e.sprite_pixels(v.image,v.frame,v.owner,expected.data(),expected.size()));
     const unsigned ox=std::lround(d.sub.left*512),oy=std::lround((1-d.sub.top)*512);const auto* tex=(const uint16_t*)d.tex->data;
     // Verify every pixel at the point of drawing; retained/cache-reused frames
     // must agree just as exactly as cache misses, including transparent holes.
     for(unsigned y=0;y<info.height;++y)for(unsigned x=0;x<info.width;++x){
      unsigned px=ox+x,py=oy+y;unsigned low=(px&1)|((py&1)<<1)|((px&2)<<1)|((py&2)<<2)|((px&4)<<2)|((py&4)<<3);
-     assert(tex[((py/8)*64+px/8)*64+low]==expected[y*info.width+x]);++checked;
+     assert(tex[((py/8)*64+px/8)*64+low]==expected[y*info.width+x]);pixel_hash=(pixel_hash^expected[y*info.width+x])*1099511628211ull;++checked;
     }
    }
    assert(out==fake::draws.size());
+   if(frame%32==0){verify_composite(e,sprites,n,cx,cy);++composites;}
+   const C3D_Tex* previous=nullptr;for(const auto* d:ordered)if(d){if(previous!=d->tex)++ordered_batches;previous=d->tex;}
+   previous=nullptr;for(const auto& d:fake::draws){if(previous!=d.tex)++grouped_batches;previous=d.tex;}
   }
+  assert(grouped_batches<ordered_batches);std::printf("Composite reference PASS: %u full viewports; sprite texture runs %u -> %u; pixel fingerprint %016llx\n",composites,ordered_batches,grouped_batches,static_cast<unsigned long long>(pixel_hash));
   assert(!g.cache_overflows());std::printf("Bounded sprite cache / pinned frame lifetime / exact swizzled RGBA / moving full-race battle PASS: %u checked pixels, %u misses\n",checked,g.cache_misses());
  }
  assert(fake::allocations==0);

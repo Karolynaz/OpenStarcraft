@@ -1,0 +1,218 @@
+{
+  "environment": {
+    "physical_console": false,
+    "model": "original Nintendo 3DS",
+    "cpu_percent": 100,
+    "dsp": "HLE",
+    "heaps_mib": [
+      36,
+      8
+    ]
+  },
+  "method": "Mean of one-second active samples with 0 < frame < 720; exclude paused/final partial interval; same scenario order 10,6,8 and all complete battles.",
+  "baseline_binary_sha256": "2287c9f8f53fc03ed4b8458c55e86b0c648cd6a61c026813132b34ff402b7ca1",
+  "candidate_binary_sha256": "1660ed166b3ed5c9334269c994e3dfea1fe33a5fc9c0aed43624d7f2f2e4e34f",
+  "races": {
+    "Terran": {
+      "baseline": {
+        "fps": 44.361,
+        "tps": 23.982,
+        "render_cpu_us": 7118.462,
+        "frame_wait_us": 9457.41,
+        "sprite_collect_us": 401.9,
+        "sprite_draw_us": 5032.759,
+        "frame_end_us": 307.307,
+        "gpu_us": 500.738,
+        "mean_tick_us": 10799.517,
+        "samples": 29,
+        "min_fps": 11.43,
+        "peak_heap": 33640080,
+        "peak_linear": 7789568,
+        "missing": 0,
+        "final": {
+          "scenario": 6,
+          "frame": 720,
+          "winner": 1,
+          "red_score": 475,
+          "blue_score": 575,
+          "end_reason": 2
+        },
+        "errors": {
+          "music_underruns": 0,
+          "audio_io_errors": 0,
+          "dsp_drops": 0,
+          "csv_dropped": 0,
+          "csv_errors": 0,
+          "cache_overflows": 0
+        }
+      },
+      "optimized": {
+        "fps": 53.793,
+        "tps": 23.978,
+        "render_cpu_us": 5371.317,
+        "frame_wait_us": 6833.662,
+        "sprite_collect_us": 404.417,
+        "sprite_draw_us": 3287.562,
+        "frame_end_us": 307.307,
+        "gpu_us": 501.11,
+        "mean_tick_us": 10887.166,
+        "samples": 29,
+        "min_fps": 19.97,
+        "peak_heap": 33525728,
+        "peak_linear": 7789568,
+        "missing": 0,
+        "final": {
+          "scenario": 6,
+          "frame": 720,
+          "winner": 1,
+          "red_score": 475,
+          "blue_score": 575,
+          "end_reason": 2
+        },
+        "errors": {
+          "music_underruns": 0,
+          "audio_io_errors": 0,
+          "dsp_drops": 0,
+          "csv_dropped": 0,
+          "csv_errors": 0,
+          "cache_overflows": 0
+        }
+      },
+      "fps_gain_percent": 21.26
+    },
+    "Protoss": {
+      "baseline": {
+        "fps": 51.274,
+        "tps": 23.982,
+        "render_cpu_us": 8003.076,
+        "frame_wait_us": 8915.552,
+        "sprite_collect_us": 374.259,
+        "sprite_draw_us": 5969.031,
+        "frame_end_us": 307.238,
+        "gpu_us": 501.062,
+        "mean_tick_us": 3687.959,
+        "samples": 29,
+        "min_fps": 34.74,
+        "peak_heap": 34183720,
+        "peak_linear": 7789568,
+        "missing": 0,
+        "final": {
+          "scenario": 8,
+          "frame": 720,
+          "winner": 1,
+          "red_score": 4400,
+          "blue_score": 8227,
+          "end_reason": 2
+        },
+        "errors": {
+          "music_underruns": 0,
+          "audio_io_errors": 0,
+          "dsp_drops": 0,
+          "csv_dropped": 0,
+          "csv_errors": 0,
+          "cache_overflows": 0
+        }
+      },
+      "optimized": {
+        "fps": 59.72,
+        "tps": 23.983,
+        "render_cpu_us": 6163.421,
+        "frame_wait_us": 7798.183,
+        "sprite_collect_us": 374.945,
+        "sprite_draw_us": 4135.583,
+        "frame_end_us": 307.131,
+        "gpu_us": 500.4,
+        "mean_tick_us": 3677.8,
+        "samples": 29,
+        "min_fps": 58.44,
+        "peak_heap": 34070368,
+        "peak_linear": 7789568,
+        "missing": 0,
+        "final": {
+          "scenario": 8,
+          "frame": 720,
+          "winner": 1,
+          "red_score": 4400,
+          "blue_score": 8227,
+          "end_reason": 2
+        },
+        "errors": {
+          "music_underruns": 0,
+          "audio_io_errors": 0,
+          "dsp_drops": 0,
+          "csv_dropped": 0,
+          "csv_errors": 0,
+          "cache_overflows": 0
+        }
+      },
+      "fps_gain_percent": 16.47
+    },
+    "Zerg": {
+      "baseline": {
+        "fps": 47.64,
+        "tps": 23.998,
+        "render_cpu_us": 9197.972,
+        "frame_wait_us": 8895.893,
+        "sprite_collect_us": 473.517,
+        "sprite_draw_us": 7044.762,
+        "frame_end_us": 307.283,
+        "gpu_us": 500.562,
+        "mean_tick_us": 6289.138,
+        "samples": 29,
+        "min_fps": 17.71,
+        "peak_heap": 32313024,
+        "peak_linear": 7789568,
+        "missing": 0,
+        "final": {
+          "scenario": 10,
+          "frame": 720,
+          "winner": 1,
+          "red_score": 2050,
+          "blue_score": 4000,
+          "end_reason": 2
+        },
+        "errors": {
+          "music_underruns": 0,
+          "audio_io_errors": 0,
+          "dsp_drops": 0,
+          "csv_dropped": 0,
+          "csv_errors": 0,
+          "cache_overflows": 0
+        }
+      },
+      "optimized": {
+        "fps": 57.747,
+        "tps": 23.989,
+        "render_cpu_us": 6306.5,
+        "frame_wait_us": 7130.786,
+        "sprite_collect_us": 475.586,
+        "sprite_draw_us": 4157.997,
+        "frame_end_us": 307.641,
+        "gpu_us": 500.848,
+        "mean_tick_us": 6289.562,
+        "samples": 29,
+        "min_fps": 41.2,
+        "peak_heap": 32203264,
+        "peak_linear": 7789568,
+        "missing": 0,
+        "final": {
+          "scenario": 10,
+          "frame": 720,
+          "winner": 1,
+          "red_score": 2050,
+          "blue_score": 4000,
+          "end_reason": 2
+        },
+        "errors": {
+          "music_underruns": 0,
+          "audio_io_errors": 0,
+          "dsp_drops": 0,
+          "csv_dropped": 0,
+          "csv_errors": 0,
+          "cache_overflows": 0
+        }
+      },
+      "fps_gain_percent": 21.22
+    }
+  }
+}

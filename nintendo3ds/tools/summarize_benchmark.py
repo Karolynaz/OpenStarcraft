@@ -37,6 +37,8 @@ if 'end_reason' in r[0]:
     s['battle']={k:int(r[-1][k]) for k in ['battle_seconds','red_score','blue_score','end_reason']}
     s['cache']={k:int(peak(k)) for k in ['cache_misses','cache_overflows','upload_pixels']}
     s['csv']={k:int(peak(k)) for k in ['csv_dropped','csv_errors']}
+if 'render_cpu_us' in r[0]:
+    s['rendering_mean_us']={k:mean(active,k) for k in ['render_cpu_us','frame_wait_us','sprite_collect_us','sprite_draw_us','frame_end_us','gpu_us']}
 text=json.dumps(s,indent=2)+'\n'
 if a.output:a.output.write_text(text)
 print(text,end='')
