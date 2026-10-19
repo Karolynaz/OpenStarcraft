@@ -90,6 +90,15 @@ Private package: `local-data/releases/all-races-performance-2026-10-19.zip`,
 25 files, 344048452 bytes, SHA-256
 `faae7753e6c38f2b5ce6868c3e794cefdf9bd839c3add8322bf7b992f087da8d`.
 Owned-input hashes, ZIP CRCs and executable equality passed. The previous loading
-fix package remains available. No SD volume is mounted; this performance build
-has not been copied to the physical card.
+fix package remains available. The performance build was subsequently copied to the physical SD as described below.
 
+
+
+### Subsequent SD delivery
+
+On the user's next insertion, disk4s1 was mounted after UUID verification.
+All25 package files passed read-back hashes; only executable and README changed.
+All15 existing DSP/log/Luma files were backed up privately and verified unchanged.
+The card was synced and disk4 successfully unmounted. The user is testing the
+exact1660ed166b3ed5c9334269c994e3dfea1fe33a5fc9c0aed43624d7f2f2e4e34f build.
+Receipt: `local-data/performance-2026-10-19/sd-delivery/receipt.json`.

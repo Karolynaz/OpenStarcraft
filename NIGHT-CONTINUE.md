@@ -148,3 +148,41 @@ Final SHA1660ed166b3ed5c9334269c994e3dfea1fe33a5fc9c0aed43624d7f2f2e4e34f.
 Private all-races-performance-2026-10-19.zip prepared/CRC/owned/hash checked;
 older reload-fix ZIP preserved. No mounted SD, so no performance SD update.
 Next useful step is a physical SD test and inspection of new CSV phase timings.
+
+Performance package now delivered on next user insertion: disk4s1 UUID verified,
+25 read-back hashes pass,2 files changed,15 DSP/log/dump files preserved.
+SD synced/unmounted successfully. User testing fixed1660ed... performance build.
+Further development must not overwrite that test identity or claim new work
+is already on SD. Next local stage: basic Protoss economy skirmishes (AI/AI and
+player/AI), normal starting base/resources and native costs/psi/production.
+
+
+## Protoss normal-economy milestone — 2026-10-19
+
+Added scenarios12/13: Protoss AI vs AI and player vs AI, under START > Scenarios
+> More scenarios. Both start with native Nexus +4 Probes +50 minerals. Shared
+bounded opening controller mines, builds Pylons, up to2 Gateways, Assimilator,
+Cybernetics Core, trains workers/Zealots/Dragoons and sends waves. Native costs,
+psi, supply and build times;40-object bot budget, manual limits unchanged.
+Building-elimination victory; prepared all-race stress/lab fixtures unchanged.
+Basic strategy only: high-tech/research/expansion planning and Zerg economy AI
+remain next work. Full manual catalogues still work. Not Blizzard campaign AI.
+
+Host full match, both-side gas/Dragoon coverage, paid manual Probe and ownership
+assertions pass. ASan full match:122 viewport draws,9348 banked native sounds;
+24 cross-map/race reloads and Terran/gas/Protoss/Zerg regressions pass. ARM11
+build valid original3DS36/8MiB. Native emulator whole match frame11520,blue,
+losses34/10:478 active samples59.833FPS/23.998TPS, maxheap33,804,928 and
+linear7,789,568bytes; music track1→2, no graphics/audio/I/O/CSV errors.
+Manual emulator A/Y Nexus purchase spends50M and completes fifth Probe while
+blue independently builds economy and attacks. Exited normally, emulator stopped,
+original preferences restored. Details PROTOSS_ECONOMY_VALIDATION.md and JSON.
+Final executable fee7bb7dd4a421a0d77300b1fc43302027c92230f0521fcd1c84e0480f5b8311.
+Exact ELF/candidate and raw logs in local-data/protoss-economy-2026-10-19/.
+Local private protoss-economy-2026-10-19.zip checked25files/344050417bytes,
+SHAdf6dbf596f635ee460267f405e24d76f361c89257203f9f3b7070432ff888040.
+Canonical local staging now contains this feature; OLD performance ZIP unchanged.
+SD is unmounted and still performance1660ed build, NOT fee7 feature. Do not
+update while user tests; preserve SD test identity and use performance matching
+ELF for any returned Luma dump. Next physical logs can quantify real FPS gains;
+next game milestone is bounded Zerg economy AI/native morph opening.

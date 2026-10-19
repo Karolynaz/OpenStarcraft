@@ -1,0 +1,50 @@
+{
+  "scenario": 12,
+  "environment": {
+    "physical_console": false,
+    "model": "original 3DS",
+    "cpu_percent": 100,
+    "dsp": "HLE"
+  },
+  "active_samples": 478,
+  "first_frame": 24,
+  "final_frame": 11520,
+  "winner": 1,
+  "mean_fps": 59.83253138075314,
+  "mean_tps": 23.99786610878661,
+  "min_fps": 59.73,
+  "peak_heap": 33804928,
+  "peak_linear": 7789568,
+  "losses": [
+    34,
+    10
+  ],
+  "music_tracks": [
+    1,
+    2
+  ],
+  "errors": {
+    "missing_images": 0,
+    "cache_overflows": 0,
+    "sfx_missing": 0,
+    "music_underruns": 0,
+    "audio_io_errors": 0,
+    "dsp_drops": 0,
+    "csv_errors": 0,
+    "csv_dropped": 0
+  },
+  "binary_sha256": "fee7bb7dd4a421a0d77300b1fc43302027c92230f0521fcd1c84e0480f5b8311",
+  "manual_check": {
+    "scenario": 13,
+    "initial_workers": 4,
+    "initial_minerals": 50,
+    "native_A_select_Y_train": true,
+    "paid_probe_completed": true,
+    "workers_after_production": 5,
+    "minerals_after_purchase": 0,
+    "completion_observed_frame": 5198,
+    "opponent_workers_peak": 8,
+    "exit": "START > Exit",
+    "note": "Human workers remain idle; opponent economy and later attack continue."
+  }
+}

@@ -123,7 +123,7 @@ test-zerg-cache: build/sprite-cache-test
 build/reload-test: tests/reload.cpp source/engine.cpp $(HEADERS) | build
 	$(HOST_CXX) $(COMMON) -O1 -g -fsanitize=address -fno-omit-frame-pointer tests/reload.cpp source/engine.cpp -o $@
 test-reload: build/reload-test
-	ASAN_OPTIONS=detect_leaks=0 ./build/reload-test "$(ASSET_ROOT)" local-data/3ds/openbw/maps/arena.chk
+	ASAN_OPTIONS=detect_leaks=0 ./build/reload-test "$(ASSET_ROOT)" local-data/3ds/openbw/maps/arena.chk local-data/3ds/openbw/maps/probe.scx
 
 build/audio-memory-test: tests/audio_memory.cpp tests/fake3ds/3ds.h source/audio.cpp include/audio.h | build
 	$(HOST_CXX) -std=c++14 -O1 -g -fsanitize=address -fno-omit-frame-pointer -pthread -Itests/fake3ds -Iinclude tests/audio_memory.cpp source/audio.cpp -o $@
@@ -133,3 +133,9 @@ test-audio-memory: build/audio-memory-test
 
 build/frame-pacer-test: tests/frame_pacer.cpp include/frame_pacer.h | build
 	$(HOST_CXX) -std=c++14 -Iinclude tests/frame_pacer.cpp -o $@
+
+build/protoss-economy-test: tests/protoss_economy.cpp tests/battle.h tests/fake3ds/citro2d.h source/engine.cpp source/graphics.cpp $(HEADERS) | build
+	$(HOST_CXX) $(COMMON) -O1 -g -fsanitize=address -fno-omit-frame-pointer -pthread -Itests/fake3ds tests/protoss_economy.cpp source/engine.cpp source/graphics.cpp -o $@
+.PHONY: test-protoss-economy
+test-protoss-economy: build/protoss-economy-test
+	ASAN_OPTIONS=detect_leaks=0 ./build/protoss-economy-test "$(ASSET_ROOT)" local-data/3ds/openbw/maps/probe.scx local-data/3ds/openbw/graphics.bin local-data/3ds/openbw/audio/protoss/effects.bin

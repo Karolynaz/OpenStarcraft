@@ -5,7 +5,12 @@
 #include <array>
 
 namespace port3ds {
-enum class Scenario { empty, two_units, melee, ai_battle, versus_ai, gas_battle, terran_battle, terran_lab, protoss_battle, protoss_lab, zerg_battle, zerg_lab };
+enum class Scenario { empty, two_units, melee, ai_battle, versus_ai, gas_battle, terran_battle, terran_lab, protoss_battle, protoss_lab, zerg_battle, zerg_lab, protoss_ai_battle, protoss_versus_ai };
+inline bool arena_scenario(Scenario s) {return s>=Scenario::terran_battle && s<=Scenario::zerg_lab;}
+inline unsigned scenario_race(Scenario s) {
+    return s==Scenario::zerg_battle || s==Scenario::zerg_lab?0:
+        s==Scenario::protoss_battle || s==Scenario::protoss_lab || s==Scenario::protoss_ai_battle || s==Scenario::protoss_versus_ai?2:1;
+}
 enum class Command { context, attack, stop, train, depot, barracks, cancel, primary, refinery };
 enum class SelectionKind { none, workers, command_center, barracks, other };
 enum class OptionKind : unsigned { build=1, addon, train, research, upgrade, order, stim, siege, cloak, liftoff, land, unload, cancel, merge, morph, burrow, larvae, nydus };

@@ -95,11 +95,12 @@ Engine::Engine() : impl_(new Impl) {}
 Engine::~Engine() = default;
 bool Engine::load(const char* data_root, const char* map_path, Scenario scenario) {
     impl_->loaded = false;
-    impl_->battle.reset(scenario==Scenario::terran_battle || scenario==Scenario::protoss_battle || scenario==Scenario::zerg_battle,scenario>=Scenario::zerg_battle?0:scenario>=Scenario::protoss_battle?2:1);
+    impl_->battle.reset(scenario==Scenario::terran_battle || scenario==Scenario::protoss_battle || scenario==Scenario::zerg_battle,scenario_race(scenario));
     impl_->selected.clear();
     for (auto& g:impl_->groups) g.clear();
-    impl_->ai.reset(scenario==Scenario::ai_battle || scenario==Scenario::gas_battle,
-        scenario==Scenario::ai_battle || scenario==Scenario::versus_ai || scenario==Scenario::gas_battle,scenario==Scenario::gas_battle);
+    impl_->ai.reset(scenario==Scenario::ai_battle || scenario==Scenario::gas_battle || scenario==Scenario::protoss_ai_battle,
+        scenario==Scenario::ai_battle || scenario==Scenario::versus_ai || scenario==Scenario::gas_battle || scenario==Scenario::protoss_ai_battle || scenario==Scenario::protoss_versus_ai,
+        scenario==Scenario::gas_battle || scenario==Scenario::protoss_ai_battle || scenario==Scenario::protoss_versus_ai,scenario_race(scenario)==2);
     impl_->sound.reset();
     impl_->creep.reset();
     impl_->player.reset();
@@ -131,7 +132,7 @@ bool Engine::load(const char* data_root, const char* map_path, Scenario scenario
         }
         game_load_functions loader(player.st());
         loader.load_map_data(chk.data(), chk.size(), [&]() {
-            const bool melee=scenario==Scenario::melee || scenario==Scenario::ai_battle || scenario==Scenario::versus_ai || scenario==Scenario::gas_battle;
+            const bool melee=scenario==Scenario::melee || scenario==Scenario::ai_battle || scenario==Scenario::versus_ai || scenario==Scenario::gas_battle || scenario==Scenario::protoss_ai_battle || scenario==Scenario::protoss_versus_ai;
             loader.setup_info.create_no_units = !melee;
             loader.setup_info.victory_condition = 0;
             loader.setup_info.resource_type = 1;
@@ -139,7 +140,7 @@ bool Engine::load(const char* data_root, const char* map_path, Scenario scenario
             for (unsigned i = 0; i != 12; ++i) {
                 auto& p = player.st().players[i];
                 p.controller = i < 2 ? player_t::controller_occupied : player_t::controller_inactive;
-                p.race = scenario>=Scenario::zerg_battle?race_t::zerg:(scenario==Scenario::protoss_battle || scenario==Scenario::protoss_lab)?race_t::protoss:race_t::terran;
+                p.race = static_cast<race_t>(scenario_race(scenario));
                 loader.setup_info.create_melee_units_for_player[i] = i < 2 && melee;
             }
         });
@@ -150,14 +151,14 @@ bool Engine::load(const char* data_root, const char* map_path, Scenario scenario
                 !loader.create_initial_unit(type, {512, 128}, 1))
                 throw std::runtime_error("Could not place the two probe units");
         }
-        if(scenario==Scenario::ai_battle || scenario==Scenario::versus_ai || scenario==Scenario::gas_battle) {
+        if(scenario==Scenario::ai_battle || scenario==Scenario::versus_ai || scenario==Scenario::gas_battle || scenario==Scenario::protoss_ai_battle || scenario==Scenario::protoss_versus_ai) {
             unit_t* bases[2]={nullptr,nullptr};
             for(unsigned p=0;p!=2;++p) for(auto* u:ptr(player.st().player_units[p]))
-                if(loader.unit_is(u,UnitTypes::Terran_Command_Center)) bases[p]=u;
+                if(loader.unit_is(u,scenario_race(scenario)==2?UnitTypes::Protoss_Nexus:UnitTypes::Terran_Command_Center)) bases[p]=u;
             if(!bases[0] || !bases[1] || !loader.is_reachable(bases[0],bases[1]))
                 throw std::runtime_error("AI ground battle needs connected start locations");
         }
-        if(scenario>=Scenario::terran_battle)impl_->battle.setup(loader,scenario==Scenario::terran_lab || scenario==Scenario::protoss_lab || scenario==Scenario::zerg_lab);
+        if(arena_scenario(scenario))impl_->battle.setup(loader,scenario==Scenario::terran_lab || scenario==Scenario::protoss_lab || scenario==Scenario::zerg_lab);
         // This no-fog prototype starts with terrain explored for both players.
         // Cloaking, detection and native combat sight ranges remain active.
         for(auto& tile:player.st().tiles)tile.explored&=~3;
@@ -197,7 +198,7 @@ bool Engine::load(const char* data_root, const char* map_path, Scenario scenario
                 impl_->lights[i][c]=at<table.size()?impl_->palette[table[at]]:0;
             }
         }
-        if(scenario>=Scenario::zerg_battle){impl_->creep.reset(new detail::CreepGraphics);impl_->creep->load(player.st(),terrain,impl_->palette,load_asset);}
+        if(scenario_race(scenario)==0){impl_->creep.reset(new detail::CreepGraphics);impl_->creep->load(player.st(),terrain,impl_->palette,load_asset);}
         impl_->sound.reset(new Impl::SoundFunctions(player.st()));
         impl_->loaded = true;
         std::snprintf(impl_->message, sizeof impl_->message, "Loaded %ux%u tiles", width, height);

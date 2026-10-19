@@ -16,7 +16,7 @@ class BattleAI {
     };
     std::array<Side,2> sides_{};
     int winner_ = -1;
-    bool gas_economy_ = false;
+    bool gas_economy_ = false,protoss_=false;
     static bool idle(const unit_t* u) {
         const auto o=u->order_type->id;
         return o==Orders::PlayerGuard || o==Orders::Guard || o==Orders::Stop || o==Orders::Nothing || o==u->unit_type->return_to_idle->id;
@@ -33,36 +33,45 @@ class BattleAI {
         }
     }
     void update(game_player& player, unsigned owner) {
+        const auto base_type=protoss_?UnitTypes::Protoss_Nexus:UnitTypes::Terran_Command_Center;
+        const auto worker_type=protoss_?UnitTypes::Protoss_Probe:UnitTypes::Terran_SCV;
+        const auto supply_type=protoss_?UnitTypes::Protoss_Pylon:UnitTypes::Terran_Supply_Depot;
+        const auto factory_type=protoss_?UnitTypes::Protoss_Gateway:UnitTypes::Terran_Barracks;
+        const auto soldier_type=protoss_?UnitTypes::Protoss_Zealot:UnitTypes::Terran_Marine;
+        const auto gas_type=protoss_?UnitTypes::Protoss_Assimilator:UnitTypes::Terran_Refinery;
+        const auto place_order=protoss_?Orders::PlaceProtossBuilding:Orders::PlaceBuilding;
         auto& side=sides_[owner];
         if(!side.enabled) return;
         auto& f=player.funcs(); auto& st=player.st();
         action_state state;
         action_functions a(st,state);
         static_vector<unit_t*,64> workers, marines, factories;
-        unit_t* base=nullptr; unit_t* unfinished=nullptr; unit_t* refinery=nullptr;
-        unsigned live=0, depots=0, barracks=0;
+        unit_t* base=nullptr; unit_t* unfinished=nullptr; unit_t* refinery=nullptr; unit_t* cyber=nullptr;
+        unsigned live=0, depots=0, barracks=0,dragoons=0;
         for(auto* u:ptr(st.player_units[owner])) {
             if(f.unit_dead(u)) continue;
             ++live;
-            if(f.unit_is(u,UnitTypes::Terran_Command_Center)) base=u;
-            if(f.unit_is(u,UnitTypes::Terran_Refinery)) refinery=u;
-            if(f.unit_is(u,UnitTypes::Terran_Supply_Depot)) ++depots;
-            if(f.unit_is(u,UnitTypes::Terran_Barracks)) { ++barracks; if(f.u_completed(u)) factories.push_back(u); }
+            if(f.unit_is(u,base_type)) base=u;
+            if(protoss_ && f.unit_is(u,UnitTypes::Protoss_Cybernetics_Core))cyber=u;
+            if(f.unit_is(u,gas_type)) refinery=u;
+            if(protoss_ && f.u_completed(u) && f.unit_is(u,UnitTypes::Protoss_Dragoon))++dragoons;
+            if(f.unit_is(u,supply_type)) ++depots;
+            if(f.unit_is(u,factory_type)) { ++barracks; if(f.u_completed(u)) factories.push_back(u); }
             if(f.ut_building(u) && !f.u_completed(u)) unfinished=u;
             if(f.ut_building(u) && !u->current_build_unit && !u->build_queue.empty() &&
-               (u->build_queue.front()->id==UnitTypes::Terran_SCV || u->build_queue.front()->id==UnitTypes::Terran_Marine)) ++live;
-            if(f.u_completed(u) && f.unit_is(u,UnitTypes::Terran_SCV)) workers.push_back(u);
-            if(f.u_completed(u) && f.unit_is(u,UnitTypes::Terran_Marine)) marines.push_back(u);
+               (u->build_queue.front()->id==worker_type || u->build_queue.front()->id==soldier_type || (protoss_ && u->build_queue.front()->id==UnitTypes::Protoss_Dragoon))) ++live;
+            if(f.u_completed(u) && f.unit_is(u,worker_type)) workers.push_back(u);
+            if(f.u_completed(u) && (f.unit_is(u,soldier_type) || (protoss_ && f.unit_is(u,UnitTypes::Protoss_Dragoon)))) marines.push_back(u);
         }
         auto* builder=f.get_unit(side.builder);
-        if(side.building && builder && !f.unit_dead(builder) && builder->order_type->id==Orders::PlaceBuilding) ++live;
+        if(side.building && builder && !f.unit_dead(builder) && builder->order_type->id==place_order) ++live;
         if(side.building && (!builder || f.unit_dead(builder) ||
-            (st.current_frame>side.build_frame+48 && builder->order_type->id!=Orders::PlaceBuilding && builder->order_type->id!=Orders::ConstructingBuilding))) {
+            (st.current_frame>side.build_frame+48 && builder->order_type->id!=place_order && builder->order_type->id!=Orders::ConstructingBuilding))) {
             side.building=false; side.builder={}; side.search=24;
         }
         // Resume an abandoned foundation after a builder dies.
-        if(unfinished && !side.building && (!unfinished->connected_unit || f.unit_dead(unfinished->connected_unit))) {
-            for(auto* w:workers) if(f.unit_can_build(w,f.get_unit_type(UnitTypes::Terran_Supply_Depot))) {
+        if(!protoss_ && unfinished && !side.building && (!unfinished->connected_unit || f.unit_dead(unfinished->connected_unit))) {
+            for(auto* w:workers) if(f.unit_can_build(w,f.get_unit_type(supply_type))) {
                 a.action_select(owner,w);
                 if(a.action_default_order(owner,unfinished->sprite->position,unfinished,nullptr,false)) {
                     side.builder=f.get_unit_id_32(w); side.building=true; side.build_frame=st.current_frame;
@@ -100,21 +109,22 @@ class BattleAI {
             if(mineral) { a.action_select(owner,w); a.action_default_order(owner,mineral->sprite->position,mineral,nullptr,false); }
         }
         if(base && f.u_completed(base)) {
-            const auto race=static_cast<unsigned>(race_t::terran);
+            const auto race=static_cast<unsigned>(protoss_?race_t::protoss:race_t::terran);
             const int free=(st.supply_available[owner][race]-st.supply_used[owner][race]).integer_part();
-            const bool need_depot=depots==0 || (free<=4 && depots<4);
+            const bool need_depot=depots==0 || (free<=4 && depots<(protoss_?8u:4u));
             const bool need_barracks=barracks<2;
             const bool need_refinery=gas_economy_ && !refinery && barracks>=2;
-            const auto plan=need_depot ? UnitTypes::Terran_Supply_Depot : need_barracks ? UnitTypes::Terran_Barracks : UnitTypes::Terran_Refinery;
+            const bool need_core=protoss_ && !cyber && refinery && f.u_completed(refinery);
+            const auto plan=need_depot ? supply_type : need_barracks ? factory_type : need_core?UnitTypes::Protoss_Cybernetics_Core:gas_type;
             const auto* type=f.get_unit_type(plan);
-            if(!side.building && !unfinished && live<unit_budget && (need_depot || need_barracks || need_refinery) && f.has_available_resources_for(owner,type)) {
+            if(!side.building && !unfinished && live<unit_budget && (need_depot || need_barracks || need_refinery || need_core) && f.has_available_resources_for(owner,type)) {
                 unit_t* worker=nullptr;
                 for(auto* w:workers) if(w!=gas_worker && f.unit_can_build(w,type)) { worker=w; break; }
                 if(worker) {
                     if(side.plan!=plan) { side.plan=plan; side.search=24; }
                     // Bound the expensive placement search to eight candidates
                     // per 12 simulation frames, rather than scanning a whole base.
-                    if(plan==UnitTypes::Terran_Refinery) {
+                    if(plan==gas_type) {
                         unit_t* geyser=nullptr;int best=0x7fffffff;
                         for(auto* g:ptr(st.visible_units)) if(f.unit_is(g,UnitTypes::Resource_Vespene_Geyser) && !f.unit_dead(g)) {
                             const auto d=g->sprite->position-base->sprite->position;const int distance=d.x*d.x+d.y*d.y;
@@ -123,7 +133,7 @@ class BattleAI {
                         if(geyser && best<512*512 && f.can_place_building(worker,owner,type,geyser->sprite->position,true,true)) {
                             const auto tile=(geyser->sprite->position-type->placement_size/2)/32;
                             a.action_select(owner,worker);
-                            if(a.action_build(owner,a.get_order_type(Orders::PlaceBuilding),type,{static_cast<size_t>(tile.x),static_cast<size_t>(tile.y)})) {
+                            if(a.action_build(owner,a.get_order_type(place_order),type,{static_cast<size_t>(tile.x),static_cast<size_t>(tile.y)})) {
                                 side.builder=f.get_unit_id_32(worker);side.building=true;side.build_frame=st.current_frame;++side.built;++live;
                             }
                         }
@@ -144,7 +154,7 @@ class BattleAI {
                         if(crowded) continue;
                         if(!f.can_place_building(worker,owner,type,pos,true,true)) continue;
                         a.action_select(owner,worker);
-                        if(a.action_build(owner,a.get_order_type(Orders::PlaceBuilding),type,{static_cast<size_t>(tile.x),static_cast<size_t>(tile.y)})) {
+                        if(a.action_build(owner,a.get_order_type(place_order),type,{static_cast<size_t>(tile.x),static_cast<size_t>(tile.y)})) {
                             side.builder=f.get_unit_id_32(worker); side.building=true; side.build_frame=st.current_frame; ++side.built; ++live;
                         }
                         break;
@@ -153,22 +163,23 @@ class BattleAI {
             }
             // One queue entry at a time and a controller production budget;
             // never delete existing units or change simulation pool limits.
-            if(workers.size()<(gas_economy_?7u:6u) && base->build_queue.empty() && live<unit_budget) {
+            if(workers.size()<(protoss_?8u:gas_economy_?7u:6u) && base->build_queue.empty() && live<unit_budget) {
                 a.action_select(owner,base);
-                if(a.action_train(owner,a.get_unit_type(UnitTypes::Terran_SCV))) { ++side.trained; ++live; }
+                if(a.action_train(owner,a.get_unit_type(worker_type))) { ++side.trained; ++live; }
             }
         }
         unsigned queued=0;
         for(auto* b:factories) queued+=b->build_queue.size();
         for(auto* b:factories) if(b->build_queue.empty() && marines.size()+queued<24 && live<unit_budget) {
             a.action_select(owner,b);
-            if(a.action_train(owner,a.get_unit_type(UnitTypes::Terran_Marine))) { ++side.trained; ++queued; ++live; }
+            const auto train=protoss_ && cyber && f.u_completed(cyber) && dragoons<(marines.size()+queued)/3+1 && st.current_gas[owner]>=50?UnitTypes::Protoss_Dragoon:soldier_type;
+            if(a.action_train(owner,a.get_unit_type(train))) { ++side.trained; ++queued; ++live; }
         }
         if(st.current_frame>=side.attack_frame && marines.size()>=4) {
             unit_t* target=nullptr;
             for(auto* e:ptr(st.player_units[1-owner])) if(!f.unit_dead(e)) {
                 if(!target || f.ut_building(e)) target=e;
-                if(f.unit_is(e,UnitTypes::Terran_Command_Center)) break;
+                if(f.unit_is(e,base_type)) break;
             }
             if(target) {
                 unsigned sent=0;
@@ -183,7 +194,7 @@ class BattleAI {
     }
 public:
     static constexpr unsigned unit_budget=40;
-    void reset(bool red,bool blue,bool gas=false) { gas_economy_=gas; sides_={}; sides_[0].enabled=red; sides_[1].enabled=blue; winner_=-1; }
+    void reset(bool red,bool blue,bool gas=false,bool protoss=false) { gas_economy_=gas;protoss_=protoss; sides_={}; sides_[0].enabled=red; sides_[1].enabled=blue; winner_=-1; }
     bool enabled(unsigned p) const { return p<2 && sides_[p].enabled; }
     bool observer() const { return enabled(0) && enabled(1); }
     int winner() const { return winner_; }

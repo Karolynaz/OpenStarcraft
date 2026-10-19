@@ -42,8 +42,8 @@ void load_stage(unsigned scenario,const char* stage,const char* detail="") {
     std::fclose(f);
 }
 const char* scenario_name(unsigned s) {
-    static const char* names[] = {"Empty map", "Two marines", "Manual base", "AI vs AI", "Player vs AI", "Gas AI vs AI", "All Terran battle", "Terran laboratory", "All Protoss battle", "Protoss laboratory", "All Zerg battle", "Zerg laboratory"};
-    return names[s % 12];
+    static const char* names[] = {"Empty map", "Two marines", "Manual base", "AI vs AI", "Player vs AI", "Gas AI vs AI", "All Terran battle", "Terran laboratory", "All Protoss battle", "Protoss laboratory", "All Zerg battle", "Zerg laboratory", "Protoss AI vs AI", "Protoss player vs AI"};
+    return names[s % 14];
 }
 }
 
@@ -124,13 +124,15 @@ int main() {
                 load_stage(scenario,"release-start");
                 sound.unload();graphics.clear();
                 load_stage(scenario,"core-start");
-                const unsigned next_race=scenario>=10?0:scenario>=8?2:1;
+                const auto mode=static_cast<port3ds::Scenario>(scenario);
+                const bool arena_mode=port3ds::arena_scenario(mode);
+                const unsigned next_race=port3ds::scenario_race(mode);
                 loaded_scenario = scenario;
-                paused = !engine.load(root, scenario>=6?arena:map, static_cast<port3ds::Scenario>(scenario));
+                paused = !engine.load(root, arena_mode?arena:map, static_cast<port3ds::Scenario>(scenario));
                 load_stage(scenario,engine.ready()?"core-ready":"core-failed",engine.ready()?"":engine.error());
                 // Reserve the contiguous sprite scratch before segmented PCM
                 // fills smaller holes left by the native core initialization.
-                if (engine.ready()) graphics.load(scenario>=6?"sdmc:/3ds/openbw/graphics-arena.bin":"sdmc:/3ds/openbw/graphics.bin", engine.terrain_signature());
+                if (engine.ready()) graphics.load(arena_mode?"sdmc:/3ds/openbw/graphics-arena.bin":"sdmc:/3ds/openbw/graphics.bin", engine.terrain_signature());
                 else graphics.clear();
                 load_stage(scenario,graphics.ready()?"graphics-ready":"graphics-off",graphics.ready()?"":graphics.error());
                 if(engine.ready())sound.load(next_race==0?"sdmc:/3ds/openbw/audio/zerg":next_race==2?"sdmc:/3ds/openbw/audio/protoss":"sdmc:/3ds/openbw/audio",R_SUCCEEDED(audio),next_race==0?"zerg":next_race==2?"protoss":"terran");
@@ -168,7 +170,7 @@ int main() {
             auto command=[&](port3ds::Command c) {
                 engine.command(c,controls.world_x(),controls.world_y()); action=engine.command_status();
             };
-            auto menu_count=[&]() -> unsigned {return menu==Menu::system?5:menu==Menu::scenarios?8:menu==Menu::legacy?4:menu==Menu::catalogue?option_count:0;};
+            auto menu_count=[&]() -> unsigned {return menu==Menu::system?5:menu==Menu::scenarios?8:menu==Menu::legacy?6:menu==Menu::catalogue?option_count:0;};
             auto open_options=[&](port3ds::OptionPage page) {
                 option_page=page;option_count=engine.options(page,option_rows,8);choice=0;
                 menu=option_count?Menu::catalogue:Menu::none;
@@ -192,7 +194,7 @@ int main() {
                 } else if(menu==Menu::scenarios) {
                     if(choice==7){menu=Menu::legacy;choice=0;return;}
                     static const unsigned modes[]={10,11,8,9,6,7,4};scenario=modes[choice];pending_load=true;action="Loading scenario and graphics...";
-                } else if(menu==Menu::legacy){static const unsigned modes[]={5,3,1,2};scenario=modes[choice];pending_load=true;action="Loading earlier scenario...";} else if(menu==Menu::catalogue) {use_option(option_rows[choice]);return;}
+                } else if(menu==Menu::legacy){static const unsigned modes[]={12,13,5,3,1,2};scenario=modes[choice];pending_load=true;action="Loading skirmish...";} else if(menu==Menu::catalogue) {use_option(option_rows[choice]);return;}
                 menu=Menu::none;
             };
             port3ds::InputFrame frame;
@@ -312,8 +314,8 @@ int main() {
                 if(menu==Menu::none) std::snprintf(help,sizeof help,"A action / B cancel\nX army / L+X workers\nY primary / L+Y menu\nR+D-pad: save group\nD-pad: recall group\nTwice: center camera\nSELECT pause\nSTART menu");
                 else {
                     const char* system[]={"Scenarios",auto_camera?"Auto camera: ON":"Auto camera: OFF",log?"CSV: ON":"CSV: OFF","Reload current","Exit"};
-                    const char* modes[]={"All Zerg battle","Zerg laboratory","All Protoss battle","Protoss laboratory","All Terran battle","Terran laboratory","Player vs AI","Earlier scenarios..."};
-                    const char* legacy[]={"Gas AI vs AI","Marines AI vs AI","Two Marines","Manual base"};
+                    const char* modes[]={"All Zerg battle","Zerg laboratory","All Protoss battle","Protoss laboratory","All Terran battle","Terran laboratory","Player vs AI","More scenarios..."};
+                    const char* legacy[]={"Protoss AI vs AI","Protoss player vs AI","Gas AI vs AI","Marines AI vs AI","Two Marines","Manual base"};
                     if(menu==Menu::catalogue)option_count=engine.options(option_page,option_rows,8);
                     unsigned used=0;
                     for(unsigned i=0;i<menu_count();++i)used+=std::snprintf(help+used,sizeof help-used,"%s %s\n",i==choice?">":" ",menu==Menu::system?system[i]:menu==Menu::scenarios?modes[i]:menu==Menu::legacy?legacy[i]:option_rows[i].label);

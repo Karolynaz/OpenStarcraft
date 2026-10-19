@@ -37,6 +37,10 @@ int main(int argc, char** argv) {
         try {gas_tests(argv[1],argv[2]);battle_test(argv[1],argv[2],{},port3ds::Scenario::gas_battle);return 0;}
         catch(const std::exception& e) {std::fprintf(stderr,"Gas test failed: %s\n",e.what());return 1;}
     }
+    if(argc>3 && std::string(argv[3])=="protoss-ai") {
+        try {battle_test(argv[1],argv[2],{},port3ds::Scenario::protoss_ai_battle);return 0;}
+        catch(const std::exception& e){std::fprintf(stderr,"Protoss AI failed: %s\n",e.what());return 1;}
+    }
     if(argc>3 && std::string(argv[3])=="ai") {
         try { battle_test(argv[1],argv[2]); return 0; }
         catch(const std::exception& e) { std::fprintf(stderr,"AI test failed: %s\n",e.what()); return 1; }

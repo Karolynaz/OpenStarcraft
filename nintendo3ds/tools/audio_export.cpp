@@ -48,7 +48,7 @@ int main(int argc,char** argv) {
             if(e.dropped_sounds()) throw std::runtime_error("Sound event queue overflow");
         };
         const std::string map_name(argv[2]);const auto slash=map_name.find_last_of('/');const auto arena=map_name.substr(0,slash==std::string::npos?0:slash+1)+"arena.chk";
-        if(zerg){zerg_construction_tests(argv[1],arena.c_str(),observe);zerg_tests(argv[1],arena.c_str(),observe);zerg_battle_test(argv[1],arena.c_str(),observe);}else if(protoss){protoss_construction_tests(argv[1],arena.c_str(),observe);protoss_tests(argv[1],arena.c_str(),observe);protoss_battle_test(argv[1],arena.c_str(),observe);}else{
+        if(zerg){zerg_construction_tests(argv[1],arena.c_str(),observe);zerg_tests(argv[1],arena.c_str(),observe);zerg_battle_test(argv[1],arena.c_str(),observe);}else if(protoss){protoss_construction_tests(argv[1],arena.c_str(),observe);protoss_tests(argv[1],arena.c_str(),observe);protoss_battle_test(argv[1],arena.c_str(),observe);battle_test(argv[1],argv[2],observe,port3ds::Scenario::protoss_ai_battle);}else{
         terran_construction_tests(argv[1],arena.c_str(),observe);
         terran_tests(argv[1],arena.c_str(),observe);terran_battle_test(argv[1],arena.c_str(),observe);
         battle_test(argv[1],argv[2],observe);
