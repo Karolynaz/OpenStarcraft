@@ -1,0 +1,12 @@
+{
+  "experiment": "1024x512 paired sprite texture pages within unchanged 4 MiB GPU budget",
+  "baseline_commit": "03c6de7",
+  "baseline_mean_fps": 48.184,
+  "experiment_mean_fps": 46.684,
+  "experiment_mean_tps": 23.796,
+  "experiment_peak_heap_bytes": 32312368,
+  "experiment_peak_linear_bytes": 7789568,
+  "same_final_native_outcome": true,
+  "cache_reference_tests": "all three races PASS, zero overflow",
+  "decision": "Reverted; no measured FPS improvement. Tested private SD package unchanged."
+}

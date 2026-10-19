@@ -50,7 +50,7 @@ another bounded approach, retaining full-length music and original sounds.
 6. Checkpoint tested stages with local commits and update this file. Continue
    Zerg if time/usage permit; document exact unfinished parts candidly.
 
-## Checked milestones as of 07:45
+## Checked milestones as of 07:40
 
 Protoss committed as407e02c. Zerg integration now complete for all standard
 unit/building recipes, native research/upgrades, Queen/Defiler powers, burrow,
@@ -83,10 +83,16 @@ All CRC/owned-input hashes and built/staged/emulator/ZIP binary hashes match.
 Physical SD absent, not updated. Preserve previous Terran/Proto checkpoints.
 Detailed reports:ZERG_VALIDATION.md, all-races-artifacts.json, zerg-emulator-*.
 
-Checkpoint this stage locally. Next useful work: investigate dense rendering
-FPS (texture-page switches/cache layout), preserving this tested binary and
-package. Only keep a performance change if reference/ASan/native tests pass
-and a comparable emulator battle improves. Do not overwrite the tested package
-with an unverified experiment. No further races remain; campaign AI and pixel-
-identical renderer are later work. Stop by10:27 or when useful task complete;
-no empty ping loops/paid-credit changes. Caffeinate expires10:27.
+All-race milestone committed as03c6de7. A subsequent 1024x512 paired texture
+cache experiment stayed within the same4 MiB GPU budget and passed all three
+race pixel/ASan/native checks, but measured46.684 FPS versus48.184 baseline.
+It was reverted; reports/render-cache-trial.json records the result. No
+unverified experiment replaced the private SD ZIP. Native build restored and verified equal to the checked7f452542... release
+and private ZIP. Emulator copy restored to that same checked binary; model
+settings restored and emulator stopped.
+
+All requested race integration/test stages are complete. Next practical step
+is the user's original-console test with this package; hardware/DSP firmware
+and physical controls remain unmeasured because the SD is absent. Campaign AI
+and a pixel-identical renderer are later work. No empty wake loops/paid-credit
+changes. Temporary caffeinate assertion expires10:27; emulator settings restored.

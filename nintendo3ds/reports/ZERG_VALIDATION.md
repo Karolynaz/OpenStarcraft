@@ -117,3 +117,7 @@ and built/staged/emulator/ZIP executable SHA256 equality pass. Exact hashes
 are in all-races-artifacts.json. No DSP firmware is included; keep the existing
 SD /3ds/dspfirm.cdc. Next performance work should target the dense rendering
 path, because simulation TPS and audio streaming remain stable.
+
+A later paired-texture-page experiment passed pixel/reference/ASan checks but
+measured46.68 FPS versus48.18 for this release. It was reverted; the private
+package retains the validated cache. See render-cache-trial.json.
