@@ -10,11 +10,12 @@ struct AudioStats {
 class Audio {
 public:
     Audio(); ~Audio();
-    bool load(const char* root, bool dsp_ready);
+    bool load(const char* root, bool dsp_ready,const char* music_prefix="terran");
     void update(const SoundEvent* events, unsigned count, int camera_x, int camera_y, bool paused);
     AudioStats stats() const;
     const char* error() const;
     void reset();
+    void unload();
 private:
     struct Impl; std::unique_ptr<Impl> impl_;
 };

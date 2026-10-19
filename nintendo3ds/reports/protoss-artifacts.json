@@ -1,0 +1,31 @@
+{
+  "build": "Protoss with bounded reload 2026-10-19",
+  "sd_updated": false,
+  "hardware_run_pending": true,
+  "files": {
+    "openbw-3ds.3dsx": {
+      "bytes": 937980,
+      "sha256": "75125918ab8905927241b80f94082f46eb3269a11747519a18db9d5bcc6f52c1"
+    },
+    "audio/protoss/effects.bin": {
+      "bytes": 8372743,
+      "sha256": "44a34969fa7b60ccd9f0f38e5c8bb18aa102aa3498feb224afcd85e8ea6cba4c"
+    },
+    "audio/protoss/manifest.json": {
+      "bytes": 579,
+      "sha256": "e2b69f6270edbb2195874192ee8c82b700a387b60c460c5267c0868d12ac31be"
+    },
+    "audio/protoss/protoss1.pcm": {
+      "bytes": 24674300,
+      "sha256": "3a4173f1629212eef30b325b378d8c7109908f5305bfbdef033978e94a031a06"
+    },
+    "audio/protoss/protoss2.pcm": {
+      "bytes": 26042364,
+      "sha256": "056e7f5d01b6f396ead6f7430aaa058f999bba9b29458d02bc287fcb96ba7737"
+    },
+    "audio/protoss/protoss3.pcm": {
+      "bytes": 27006528,
+      "sha256": "23798206b7699f76e1903acbbed701dc3ba9b552e65b12ba8d3166184e3e894e"
+    }
+  }
+}

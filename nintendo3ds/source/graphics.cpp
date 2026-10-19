@@ -20,7 +20,7 @@ void Graphics::clear() {
     if (page_count_) C3D_FrameSync();
     for (unsigned i=0;i<page_count_;++i) C3D_TexDelete(&pages_[i]);
     page_count_=0; loaded_=false;
-    tiles_.clear(); map_.clear(); sprites_.clear();cache_.clear();scratch_.clear();terrain_pages_=0;std::memset(occupied_,0,sizeof occupied_);
+    tiles_.clear(); map_.clear(); sprites_.clear();decltype(cache_){}.swap(cache_);std::vector<uint16_t>().swap(scratch_);terrain_pages_=0;std::memset(occupied_,0,sizeof occupied_);
 }
 unsigned Graphics::texture_bytes() const { return page_count_*atlas_page_bytes; }
 bool Graphics::load(const char* path, unsigned signature) {

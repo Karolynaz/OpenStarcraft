@@ -13,7 +13,7 @@ static void effects(const std::string& root,bool bad=false,bool eight=false) {
 }
 int main() {
     char path[]="/tmp/openbw-audio-test-XXXXXX";assert(mkdtemp(path));const std::string root=path;
-    for(unsigned n=1;n<=3;++n) {std::ofstream f(root+"/terran"+std::to_string(n)+".pcm",std::ios::binary);f<<std::string(4096,'a'+n);}
+    for(const char* race:{"terran","protoss"})for(unsigned n=1;n<=3;++n) {std::ofstream f(root+"/"+race+std::to_string(n)+".pcm",std::ios::binary);f<<std::string(4096,'a'+n);}
     effects(root);
     {
         port3ds::Audio audio;assert(!audio.load(path,false));assert(!audio.stats().ready);
@@ -30,6 +30,8 @@ int main() {
         effects(root,true);assert(!audio.load(path,true));assert(!audio.stats().ready && fake::allocations==0);
         effects(root);assert(audio.load(path,true));
         effects(root,false,true);assert(audio.load(path,true));audio.update(events,1,0,0,false);assert(audio.stats().played==1);
+        audio.unload();assert(!audio.stats().ready && fake::allocations==0);
+        assert(audio.load(path,true,"protoss"));audio.unload();assert(fake::allocations==0);assert(audio.load(path,true));
         // A missing/empty music file must stop cleanly, rather than spin at EOF.
         std::ofstream(root+"/terran1.pcm",std::ios::binary).close();
         assert(!audio.load(path,true));assert(fake::allocations==0 && !audio.stats().ready);
@@ -37,7 +39,7 @@ int main() {
         assert(!audio.load(path,true));assert(audio.stats().io_errors>0 && fake::allocations==0);
     }
     assert(fake::allocations==0 && fake::queued==0);
-    for(unsigned n=1;n<=3;++n) std::remove((root+"/terran"+std::to_string(n)+".pcm").c_str());
+    for(const char* race:{"terran","protoss"})for(unsigned n=1;n<=3;++n) std::remove((root+"/"+race+std::to_string(n)+".pcm").c_str());
     std::remove((root+"/effects.bin").c_str());rmdir(path);
-    std::puts("Audio bounds / missing DSP / EOF track transitions / positional effects / pause / reload / DSP buffer lifetime PASS");
+    std::puts("Audio bounds / missing DSP / EOF track transitions / positional effects / pause / reload / bank unload / race music / DSP buffer lifetime PASS");
 }

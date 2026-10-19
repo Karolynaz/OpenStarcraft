@@ -30,8 +30,8 @@ u64 now_us() {
     return ticks / SYSCLOCK_ARM11 * 1000000 + ticks % SYSCLOCK_ARM11 * 1000000 / SYSCLOCK_ARM11;
 }
 const char* scenario_name(unsigned s) {
-    static const char* names[] = {"Empty map", "Two marines", "Manual base", "AI vs AI", "Player vs AI", "Gas AI vs AI", "All Terran battle", "Terran laboratory"};
-    return names[s % 8];
+    static const char* names[] = {"Empty map", "Two marines", "Manual base", "AI vs AI", "Player vs AI", "Gas AI vs AI", "All Terran battle", "Terran laboratory", "All Protoss battle", "Protoss laboratory"};
+    return names[s % 10];
 }
 }
 
@@ -56,10 +56,9 @@ int main() {
         port3ds::Engine engine;
         port3ds::Graphics graphics;
         port3ds::Audio sound;
-        sound.load("sdmc:/3ds/openbw/audio",R_SUCCEEDED(audio));
         port3ds::Scheduler scheduler;
         port3ds::Controls controls;
-        unsigned scenario = 6, loaded_scenario = 6;
+        unsigned scenario = 8, loaded_scenario = 8;
         port3ds::InputRouter input;
         enum class Menu { none, system, scenarios, catalogue };
         port3ds::OptionPage option_page=port3ds::OptionPage::primary;
@@ -77,7 +76,7 @@ int main() {
         port3ds::CsvLog log;
         bool audio_paused_last=true;
         u64 last_log_flush_us=0;
-        const char* action = "Starting Terran AI vs AI...";
+        const char* action = "Starting Protoss battle...";
         C2D_Text diagnostics{}, commands{}, message{}, resources{};
         C2D_Text menu_rows[8]{};
         // 40 controlled units per side plus the map's neutral resources.
@@ -106,9 +105,13 @@ int main() {
             // Present the loading message for one frame before blocking SD IO.
             if (load_now) {
                 placing = false; attacking=false; menu=Menu::none;
-                sound.reset();
+                // Release resident PCM and sprite scratch before the core's
+                // temporary MPQ/GRP initialization peak on original hardware.
+                sound.unload();graphics.clear();
+                const unsigned next_race=scenario>=8?2:1;
                 loaded_scenario = scenario;
                 paused = !engine.load(root, scenario>=6?arena:map, static_cast<port3ds::Scenario>(scenario));
+                if(engine.ready())sound.load(next_race==2?"sdmc:/3ds/openbw/audio/protoss":"sdmc:/3ds/openbw/audio",R_SUCCEEDED(audio),next_race==2?"protoss":"terran");
                 if (engine.ready()) graphics.load(scenario>=6?"sdmc:/3ds/openbw/graphics-arena.bin":"sdmc:/3ds/openbw/graphics.bin", engine.terrain_signature());
                 else graphics.clear();
                 // Atlas descriptors keep their addresses across reloads, while
@@ -131,7 +134,7 @@ int main() {
                 auto_camera=engine.snapshot().observer;
                 camera_manual_until=0;
                 if(auto_camera && !log) toggle_log();
-                action = engine.ready() ? (auto_camera ? "AI vs AI: automatic camera / START menu" : "Circle Pad cursor / A action / B cancel") : "Load failed; check SD files";
+                action = engine.ready() ? (auto_camera ? "AI vs AI: automatic camera / START menu" : "Circle Pad cursor / A action / B cancel") : engine.error();
             }
             circlePosition circle{}; hidCircleRead(&circle);
             const float ui_seconds=std::min<u64>(elapsed,50000)/1000000.0f;
@@ -144,7 +147,7 @@ int main() {
             auto command=[&](port3ds::Command c) {
                 engine.command(c,controls.world_x(),controls.world_y()); action=engine.command_status();
             };
-            auto menu_count=[&]() -> unsigned {return menu==Menu::system?5:menu==Menu::scenarios?6:menu==Menu::catalogue?option_count:0;};
+            auto menu_count=[&]() -> unsigned {return menu==Menu::system?5:menu==Menu::scenarios?8:menu==Menu::catalogue?option_count:0;};
             auto open_options=[&](port3ds::OptionPage page) {
                 option_page=page;option_count=engine.options(page,option_rows,8);choice=0;
                 menu=option_count?Menu::catalogue:Menu::none;
@@ -166,7 +169,7 @@ int main() {
                     if(choice==3){pending_load=true;action="Loading scenario and graphics...";}
                     if(choice==4)exit_requested=true;
                 } else if(menu==Menu::scenarios) {
-                    static const unsigned modes[]={6,7,4,5,3,1};scenario=modes[choice];pending_load=true;action="Loading scenario and graphics...";
+                    static const unsigned modes[]={8,9,6,7,4,5,3,1};scenario=modes[choice];pending_load=true;action="Loading scenario and graphics...";
                 } else if(menu==Menu::catalogue) {use_option(option_rows[choice]);return;}
                 menu=Menu::none;
             };
@@ -286,18 +289,18 @@ int main() {
                 if(menu==Menu::none) std::snprintf(help,sizeof help,"A action / B cancel\nX army / L+X workers\nY primary / L+Y menu\nR+D-pad: save group\nD-pad: recall group\nTwice: center camera\nSELECT pause\nSTART menu");
                 else {
                     const char* system[]={"Scenarios",auto_camera?"Auto camera: ON":"Auto camera: OFF",log?"CSV: ON":"CSV: OFF","Reload current","Exit"};
-                    const char* modes[]={"All Terran battle","Terran laboratory","Player vs AI","Gas AI vs AI","Marines AI vs AI","Two Marines"};
+                    const char* modes[]={"All Protoss battle","Protoss laboratory","All Terran battle","Terran laboratory","Player vs AI","Gas AI vs AI","Marines AI vs AI","Two Marines"};
                     if(menu==Menu::catalogue)option_count=engine.options(option_page,option_rows,8);
                     unsigned used=0;
                     for(unsigned i=0;i<menu_count();++i)used+=std::snprintf(help+used,sizeof help-used,"%s %s\n",i==choice?">":" ",menu==Menu::system?system[i]:menu==Menu::scenarios?modes[i]:option_rows[i].label);
                 }
-                if(state.benchmark)std::snprintf(hud,sizeof hud,"ALL TERRAN  %us / 180s  Score %u / %u\nRed W%u A%u  Blue W%u A%u  Losses %u/%u",state.battle_seconds,state.score[0],state.score[1],state.players[0].workers,state.players[0].army,state.players[1].workers,state.players[1].army,state.players[0].lost,state.players[1].lost);
+                if(state.benchmark)std::snprintf(hud,sizeof hud,"%s  %us / 180s  Score %u / %u\nRed W%u A%u  Blue W%u A%u  Losses %u/%u",loaded_scenario>=8?"ALL PROTOSS":"ALL TERRAN",state.battle_seconds,state.score[0],state.score[1],state.players[0].workers,state.players[0].army,state.players[1].workers,state.players[1].army,state.players[0].lost,state.players[1].lost);
                 else if(state.observer) std::snprintf(hud,sizeof hud,"AI vs AI | Red W%u A%u B%u / Blue W%u A%u B%u\nMinerals %d/%d Gas %d/%d Losses %u/%u",
                     state.players[0].workers,state.players[0].army,state.players[0].buildings,state.players[1].workers,state.players[1].army,state.players[1].buildings,
                     state.players[0].minerals,state.players[1].minerals,state.players[0].gas,state.players[1].gas,state.players[0].lost,state.players[1].lost);
-                else std::snprintf(hud,sizeof hud,"Minerals %d   Gas %d   Supply %d/%d\n%s x%u HP %d/%d E%d/%d Q%u Work%us",
-                    state.minerals,state.gas,state.supply,state.supply_max,state.selected_name,state.selected,state.selected_hp,state.selected_max_hp,state.selected_energy,state.selected_max_energy,state.queue,unsigned((state.work_frames+23)/24));
-                std::snprintf(error, sizeof error, "%s\n%.100s", action, !sound_stats.ready ? sound.error() : graphics.ready() ? engine.error() : graphics.error());
+                else std::snprintf(hud,sizeof hud,"Minerals %d   Gas %d   Supply %d/%d\n%s x%u HP %d/%d S%d/%d E%d/%d Q%u Work%us",
+                    state.minerals,state.gas,state.supply,state.supply_max,state.selected_name,state.selected,state.selected_hp,state.selected_max_hp,state.selected_shields,state.selected_max_shields,state.selected_energy,state.selected_max_energy,state.queue,unsigned((state.work_frames+23)/24));
+                std::snprintf(error, sizeof error, "%s\n%.100s", action, !engine.ready()?engine.error():!sound_stats.ready ? sound.error() : graphics.ready() ? engine.error() : graphics.error());
                 C2D_TextBufClear(text_buf);
                 C2D_TextParse(&diagnostics, text_buf, status); C2D_TextOptimize(&diagnostics);
                 C2D_TextParse(&commands, text_buf, help); C2D_TextOptimize(&commands);
@@ -350,6 +353,7 @@ int main() {
                 const float w = std::max(24, units[i].width);
                 C2D_DrawRectSolid(x-w/2,y-units[i].height/2-5,0,w,3,C2D_Color32(35,35,35,255));
                 C2D_DrawRectSolid(x-w/2,y-units[i].height/2-5,0,w*units[i].hp/units[i].max_hp,3,green);
+                if(units[i].max_shields)C2D_DrawRectSolid(x-w/2,y-units[i].height/2-9,0,w*units[i].shields/units[i].max_shields,3,C2D_Color32(80,140,255,255));
             }
             const float cx = controls.cursor_x, cy = controls.cursor_y;
             C2D_DrawLine(cx - 6, cy, green, cx + 6, cy, green, 2, 0);

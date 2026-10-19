@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Check packaged PCM against independently decoded WAVs and all effect bounds."""
 import pathlib,sys,struct,subprocess,hashlib,json
-src,out=map(pathlib.Path,sys.argv[1:]);data=(out/'effects.bin').read_bytes()
+src,out=map(pathlib.Path,sys.argv[1:3]);race=sys.argv[3] if len(sys.argv)>3 else 'terran';data=(out/'effects.bin').read_bytes()
 magic,n,size=struct.unpack_from('<8sII',data)
 width=struct.unpack_from('<I',data,16)[0] if magic==b'OBWAUD2\0' else 2
 header=20 if magic==b'OBWAUD2\0' else 16
@@ -15,6 +15,6 @@ for i in range(n):
     assert ref==pcm;ids.add(ident);end=offset+len(pcm)
 assert end==size
 for i in range(1,4):
-    ref=subprocess.check_output(['ffmpeg','-v','error','-i',str(src/f'terran{i}.wav'),'-f','s16le','-ac','2','-ar','22050','-'])
-    music=(out/f'terran{i}.pcm').read_bytes();assert len(music)%4==0 and any(music) and music==ref
+    ref=subprocess.check_output(['ffmpeg','-v','error','-i',str(src/f'{race}{i}.wav'),'-f','s16le','-ac','2','-ar','22050','-'])
+    music=(out/f'{race}{i}.pcm').read_bytes();assert len(music)%4==0 and any(music) and music==ref
 print(f'Audio assets PASS: {n} complete effects, 3 complete non-silent music tracks, exact PCM equality')

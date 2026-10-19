@@ -17,7 +17,7 @@ struct Engine::Impl {
         void play_sound(int id, xy pos, const unit_t*, bool race) override {
             if(id<0) return;
             if(count==events.size()) { ++dropped; return; }
-            events[count++]={static_cast<unsigned>(id+(race?1:0)),static_cast<int>(pos.x),static_cast<int>(pos.y)};
+            events[count++]={static_cast<unsigned>(id+(race?int(st.players[0].race):0)),static_cast<int>(pos.x),static_cast<int>(pos.y)};
         }
     };
     std::unique_ptr<game_player> player;
@@ -41,7 +41,7 @@ struct Engine::Impl {
 };
 
 namespace {
-const char* unit_name(const unit_t* u) {return terran::name(u->unit_type->id);}
+const char* unit_name(const unit_t* u) {if(const char* n=protoss::name(u->unit_type->id))return n;return terran::name(u->unit_type->id);}
 // Use the engine collision box with a small thumbstick tolerance. Prefer
 // the nearest center when two boxes overlap; never select dead/hidden units.
 unit_t* hit_unit(state_functions& funcs, int x, int y, bool own_only) {
@@ -92,7 +92,7 @@ Engine::Engine() : impl_(new Impl) {}
 Engine::~Engine() = default;
 bool Engine::load(const char* data_root, const char* map_path, Scenario scenario) {
     impl_->loaded = false;
-    impl_->battle.reset(scenario==Scenario::terran_battle);
+    impl_->battle.reset(scenario==Scenario::terran_battle || scenario==Scenario::protoss_battle,scenario==Scenario::protoss_battle || scenario==Scenario::protoss_lab);
     impl_->selected.clear();
     for (auto& g:impl_->groups) g.clear();
     impl_->ai.reset(scenario==Scenario::ai_battle || scenario==Scenario::gas_battle,
@@ -135,7 +135,7 @@ bool Engine::load(const char* data_root, const char* map_path, Scenario scenario
             for (unsigned i = 0; i != 12; ++i) {
                 auto& p = player.st().players[i];
                 p.controller = i < 2 ? player_t::controller_occupied : player_t::controller_inactive;
-                p.race = race_t::terran;
+                p.race = (scenario==Scenario::protoss_battle || scenario==Scenario::protoss_lab)?race_t::protoss:race_t::terran;
                 loader.setup_info.create_melee_units_for_player[i] = i < 2 && melee;
             }
         });
@@ -153,7 +153,7 @@ bool Engine::load(const char* data_root, const char* map_path, Scenario scenario
             if(!bases[0] || !bases[1] || !loader.is_reachable(bases[0],bases[1]))
                 throw std::runtime_error("AI ground battle needs connected start locations");
         }
-        if(scenario==Scenario::terran_battle || scenario==Scenario::terran_lab)impl_->battle.setup(loader,scenario==Scenario::terran_lab);
+        if(scenario>=Scenario::terran_battle)impl_->battle.setup(loader,scenario==Scenario::terran_lab || scenario==Scenario::protoss_lab);
         // This no-fog prototype starts with terrain explored for both players.
         // Cloaking, detection and native combat sight ranges remain active.
         for(auto& tile:player.st().tiles)tile.explored&=~3;
@@ -218,12 +218,13 @@ Snapshot Engine::snapshot() const {
     s.frame = st.current_frame;
     s.width = st.game->map_tile_width; s.height = st.game->map_tile_height;
     s.minerals = st.current_minerals[0]; s.gas = st.current_gas[0];
-    const auto race = static_cast<unsigned>(race_t::terran);
+    const auto race = static_cast<unsigned>(st.players[0].race);
     s.supply = st.supply_used[0][race].integer_part();
     s.supply_max = st.supply_available[0][race].integer_part();
     const auto& funcs = impl_->player->funcs();
     if (const auto* u = impl_->first_selected()) {
         s.selected_name = unit_name(u);
+        s.selected_shields=u->shield_points.integer_part();s.selected_max_shields=u->unit_type->shield_points;
         s.selected_hp = u->hp.integer_part(); s.selected_max_hp = u->unit_type->hitpoints.integer_part();
         s.queue = u->build_queue.size();
         if(funcs.ut_has_energy(u)){s.selected_energy=u->energy.integer_part();s.selected_max_energy=funcs.unit_max_energy(u).integer_part();}
@@ -280,10 +281,11 @@ bool Engine::activate(int x,int y) {
     auto* target=hit_unit(f,x,y,true);
     const auto* current=impl_->first_selected();
     const bool loading=current && target && ((f.unit_provides_space(target) && f.unit_can_load_target(target,current)) || (f.unit_provides_space(current) && f.unit_can_load_target(current,target)));
-    const bool repairing=current && target && f.ut_worker(current) && (f.ut_mechanical(target) || f.ut_building(target)) && (!f.u_completed(target) || target->hp<target->unit_type->hitpoints);
+    const bool repairing=current && target && f.unit_is(current,UnitTypes::Terran_SCV) && (f.ut_mechanical(target) || f.ut_building(target)) && (!f.u_completed(target) || target->hp<target->unit_type->hitpoints);
     const bool healing=current && target && f.unit_is(current,UnitTypes::Terran_Medic) && f.ut_organic(target) && target->hp<target->unit_type->hitpoints;
     const bool gas=current && target && f.ut_worker(current) && f.unit_is_refinery(target);
-    if(target && !loading && !repairing && !healing && !gas) {
+    const bool recharge=current && target && f.unit_can_use_shield_battery(current,target);
+    if(target && !loading && !repairing && !healing && !gas && !recharge) {
         const bool ok=select(x,y);impl_->command_message=ok?"Unit selected":"Selection cleared";return ok;
     }
     if(!current) { const bool ok=select(x,y); impl_->command_message=ok?"Unit selected":"Select a unit first"; return ok; }
@@ -474,37 +476,48 @@ unsigned Engine::options(OptionPage page,MenuOption* output,unsigned capacity) c
         else std::snprintf(o.label,sizeof o.label,"%s%s",enabled?"":"x ",name);
     };
     if(page==OptionPage::basic || page==OptionPage::advanced) {
-        for(unsigned i=0;i<12;++i)if((page==OptionPage::basic)==(i<8)) {
-            const auto& b=terran::buildings[i];const auto* t=f.get_unit_type(b.type);
-            add(b.name,OptionKind::build,unsigned(b.type),true,f.unit_can_build(u,t) && f.has_available_resources_for(0,t),t->mineral_cost,t->gas_cost);
-        }
-        return n;
+        unsigned index=0;catalogue::buildings([&](const terran::Product& b){
+            if(b.parent!=u->unit_type->id)return;
+            const auto* t=f.get_unit_type(b.type);if(f.ut_addon(t))return;
+            if((page==OptionPage::basic)==(index++<8))add(b.name,OptionKind::build,unsigned(b.type),true,f.unit_can_build(u,t) && f.has_available_resources_for(0,t),t->mineral_cost,t->gas_cost);
+        });return n;
     }
-    if(f.ut_building(u)) {
-        for(const auto& b:terran::units)if(b.parent==u->unit_type->id && page==OptionPage::primary) {
+    if(f.ut_building(u) || f.unit_is_carrier(u) || f.unit_is_reaver(u)) {
+        catalogue::units([&](const terran::Product& b){if(b.parent==u->unit_type->id && page==OptionPage::primary) {
             const auto* t=f.get_unit_type(b.type);add(b.name,OptionKind::train,unsigned(b.type),false,f.unit_can_build(u,t) && f.has_available_resources_for(0,t) && f.has_available_supply_for(0,t),t->mineral_cost,t->gas_cost);
         }
-        for(const auto& b:terran::buildings)if(b.parent==u->unit_type->id && page==OptionPage::primary) {
+        });catalogue::buildings([&](const terran::Product& b){if(b.parent==u->unit_type->id && page==OptionPage::primary) {
             const auto* t=f.get_unit_type(b.type);add(b.name,OptionKind::addon,unsigned(b.type),false,f.unit_can_build(u,t) && f.has_available_resources_for(0,t),t->mineral_cost,t->gas_cost);
         }
-        for(const auto& t:terran::techs)if(t.parent==u->unit_type->id) {
+        });catalogue::techs([&](const terran::Research& t){if(t.parent==u->unit_type->id) {
             const auto* type=f.get_tech_type(t.type);add(t.name,OptionKind::research,unsigned(t.type),false,f.unit_can_research(u,type,0) && f.has_available_resources_for(0,type,false),type->mineral_cost,type->gas_cost);
         }
-        for(const auto& t:terran::upgrades)if(t.parent==u->unit_type->id) {
+        });catalogue::upgrades([&](const terran::Upgrade& t){if(t.parent==u->unit_type->id) {
             const auto* type=f.get_upgrade_type(t.type);char label[40];std::snprintf(label,sizeof label,"%s L%d",t.name,f.player_upgrade_level(0,t.type)+1);
             add(label,OptionKind::upgrade,unsigned(t.type),false,f.unit_can_upgrade(u,type,0) && f.has_available_resources_for(0,type,false),f.upgrade_mineral_cost(0,type),f.upgrade_gas_cost(0,type));
         }
-        if(page==OptionPage::secondary) {
+        });if(page==OptionPage::secondary) {
             if(u->unit_type->id==UnitTypes::Terran_Command_Center || u->unit_type->id==UnitTypes::Terran_Barracks || u->unit_type->id==UnitTypes::Terran_Factory || u->unit_type->id==UnitTypes::Terran_Starport || u->unit_type->id==UnitTypes::Terran_Science_Facility || u->unit_type->id==UnitTypes::Terran_Engineering_Bay)
                 add(f.u_flying(u)?"Land at cursor":"Lift off",f.u_flying(u)?OptionKind::land:OptionKind::liftoff,0,f.u_flying(u),f.u_completed(u));
             if(f.unit_provides_space(u))add("Unload all",OptionKind::unload,0,false,!f.loaded_units(u).empty());
             add("Cancel work/queue",OptionKind::cancel,0,false,true);
+            if(!f.ut_building(u)){add("Attack-move",OptionKind::order,unsigned(Orders::AttackMove),true,true);add("Stop",OptionKind::order,unsigned(Orders::Stop),false,true);}
         }
+        if(f.unit_is(u,UnitTypes::Protoss_Shield_Battery))add("Recharge shields",OptionKind::order,unsigned(Orders::RechargeShieldsBattery),true,f.u_completed(u) && !f.unit_is_disabled(u) && u->energy>0_fp8);
         if(u->unit_type->id==UnitTypes::Terran_Comsat_Station)add("Scanner Sweep",OptionKind::order,unsigned(Orders::CastScannerSweep),true,true);
         return n;
     }
     auto ability=[&](const char* name,Orders order,TechTypes tech) {add(name,OptionKind::order,unsigned(order),true,f.unit_can_use_tech(u,f.get_tech_type(tech)));};
     switch(u->unit_type->id) {
+    case UnitTypes::Protoss_High_Templar:
+        ability("Psionic Storm",Orders::CastPsionicStorm,TechTypes::Psionic_Storm);ability("Hallucination",Orders::CastHallucination,TechTypes::Hallucination);
+        add("Merge nearest Templar",OptionKind::merge,0,false,true);break;
+    case UnitTypes::Protoss_Dark_Templar:add("Merge nearest Dark Templar",OptionKind::merge,1,false,true);break;
+    case UnitTypes::Protoss_Dark_Archon:
+        ability("Feedback",Orders::CastFeedback,TechTypes::Feedback);ability("Mind Control",Orders::CastMindControl,TechTypes::Mind_Control);ability("Maelstrom",Orders::CastMaelstrom,TechTypes::Maelstrom);break;
+    case UnitTypes::Protoss_Arbiter:ability("Recall",Orders::CastRecall,TechTypes::Recall);ability("Stasis Field",Orders::CastStasisField,TechTypes::Stasis_Field);break;
+    case UnitTypes::Protoss_Corsair:ability("Disruption Web",Orders::CastDisruptionWeb,TechTypes::Disruption_Web);break;
+    case UnitTypes::Protoss_Shuttle:add("Load unit",OptionKind::order,unsigned(Orders::PickupTransport),true,true);add("Unload all",OptionKind::unload,0,false,!f.loaded_units(u).empty());break;
     case UnitTypes::Terran_Marine:case UnitTypes::Terran_Firebat:add("Stim Packs",OptionKind::stim,0,false,f.unit_can_use_tech(u,f.get_tech_type(TechTypes::Stim_Packs)));break;
     case UnitTypes::Terran_Siege_Tank_Tank_Mode:case UnitTypes::Terran_Siege_Tank_Siege_Mode:add("Toggle Siege Mode",OptionKind::siege,0,false,f.unit_can_use_tech(u,f.get_tech_type(TechTypes::Tank_Siege_Mode)));break;
     case UnitTypes::Terran_Vulture:ability("Spider Mine",Orders::PlaceMine,TechTypes::Spider_Mines);break;
@@ -534,15 +547,15 @@ bool Engine::perform(unsigned code,int x,int y) {
     auto& p=*impl_->player;auto& f=p.funcs();action_state state;action_functions a(p.st(),state);a.action_select(0,u);bool ok=false;
     if(kind==OptionKind::build || kind==OptionKind::addon || kind==OptionKind::train) {
         const terran::Product* recipe=nullptr;
-        for(const auto& r:terran::buildings)if(unsigned(r.type)==id && r.parent==u->unit_type->id)recipe=&r;
-        if(kind==OptionKind::train) {recipe=nullptr;for(const auto& r:terran::units)if(unsigned(r.type)==id && r.parent==u->unit_type->id)recipe=&r;}
+        catalogue::buildings([&](const terran::Product& r){if(unsigned(r.type)==id && r.parent==u->unit_type->id)recipe=&r;});
+        if(kind==OptionKind::train) {recipe=nullptr;catalogue::units([&](const terran::Product& r){if(unsigned(r.type)==id && r.parent==u->unit_type->id)recipe=&r;});}
         if(!recipe)return fail("This unit cannot make that product");
         const auto* type=f.get_unit_type(recipe->type);
         if(!f.unit_can_build(u,type))return fail("Requires prerequisites, addon, or free queue");
         if(!f.has_available_resources_for(0,type))return fail("Not enough minerals / gas");
         if(kind==OptionKind::train) {
             if(!f.has_available_supply_for(0,type))return fail("Build more Supply Depots");
-            ok=a.action_train(0,type);
+            ok=(f.unit_is_carrier(u) || f.unit_is_reaver(u))?a.action_train_fighter(0):a.action_train(0,type);
         } else if(kind==OptionKind::addon) {
             const auto pos=u->sprite->position-u->unit_type->placement_size/2+type->addon_position+type->placement_size/2;
             if(!f.can_place_building(u,0,type,pos,true,true))return fail("Addon area is blocked");
@@ -557,16 +570,27 @@ bool Engine::perform(unsigned code,int x,int y) {
             else ok=a.action_build(0,order,type,{size_t(tile.x),size_t(tile.y)});
         } else {
             const auto place=placement_unit(id,x,y);if(!place.valid)return fail("Invalid placement / occupied terrain");
-            ok=a.action_build(0,a.get_order_type(Orders::PlaceBuilding),type,{size_t(place.x/32),size_t(place.y/32)});
+            ok=a.action_build(0,a.get_order_type(f.unit_race(type)==race_t::protoss?Orders::PlaceProtossBuilding:Orders::PlaceBuilding),type,{size_t(place.x/32),size_t(place.y/32)});
         }
     } else if(kind==OptionKind::research) {
-        bool allowed=false;for(const auto& t:terran::techs)if(unsigned(t.type)==id && t.parent==u->unit_type->id)allowed=true;
+        bool allowed=false;catalogue::techs([&](const terran::Research& t){if(unsigned(t.type)==id && t.parent==u->unit_type->id)allowed=true;});
         if(!allowed)return fail("This building cannot research that technology");
         ok=a.action_research(0,a.get_tech_type(static_cast<TechTypes>(id)));
     } else if(kind==OptionKind::upgrade) {
-        bool allowed=false;for(const auto& t:terran::upgrades)if(unsigned(t.type)==id && t.parent==u->unit_type->id)allowed=true;
+        bool allowed=false;catalogue::upgrades([&](const terran::Upgrade& t){if(unsigned(t.type)==id && t.parent==u->unit_type->id)allowed=true;});
         if(!allowed)return fail("This building cannot perform that upgrade");
         ok=a.action_upgrade(0,a.get_upgrade_type(static_cast<UpgradeTypes>(id)));
+    } else if(kind==OptionKind::merge) {
+        const auto type=id?UnitTypes::Protoss_Dark_Templar:UnitTypes::Protoss_High_Templar;
+        if(!f.unit_is(u,type))return fail("Select the matching Templar");
+        unit_t* other=nullptr;int distance=0x7fffffff;
+        for(auto* candidate:ptr(p.st().player_units[0]))if(candidate!=u && f.unit_is(candidate,type) && !f.unit_dead(candidate) && !f.us_hidden(candidate)) {
+            const auto d=candidate->sprite->position-u->sprite->position;const int dd=d.x*d.x+d.y*d.y;
+            if(dd<distance){distance=dd;other=candidate;}
+        }
+        if(!other)return fail("Requires two matching Templar");
+        a.action_select(0,std::array<unit_t*,2>{{u,other}});
+        ok=id?a.action_morph_dark_archon(0):a.action_morph_archon(0);
     } else if(kind==OptionKind::cancel) {
         if(f.unit_is_researching(u))ok=a.action_cancel_research(0);
         else if(f.unit_is_upgrading(u))ok=a.action_cancel_upgrade(0);
@@ -593,7 +617,7 @@ bool Engine::perform(unsigned code,int x,int y) {
             } else if(kind==OptionKind::unload) {if(!f.loaded_units(member).empty()) {a.action_unload_all(0,false);ok=true;}}
             else if(kind==OptionKind::order && id<unsigned(Orders::None)) {
                 const auto order=static_cast<Orders>(id);
-                const bool ground=order==Orders::PlaceMine || order==Orders::CastEMPShockwave || order==Orders::CastScannerSweep || order==Orders::NukePaint || order==Orders::AttackMove || order==Orders::Move || order==Orders::Patrol;
+                const bool ground=order==Orders::CastPsionicStorm || order==Orders::CastStasisField || order==Orders::CastRecall || order==Orders::CastMaelstrom || order==Orders::CastDisruptionWeb || order==Orders::PlaceMine || order==Orders::CastEMPShockwave || order==Orders::CastScannerSweep || order==Orders::NukePaint || order==Orders::AttackMove || order==Orders::Move || order==Orders::Patrol;
                 auto* target=ground?nullptr:hit_unit(f,x,y,false);
                 ok=a.action_order(0,a.get_order_type(static_cast<Orders>(id)),{x,y},target,nullptr,false)||ok;
             }
@@ -628,7 +652,7 @@ std::size_t Engine::visible_units(UnitView* output, std::size_t capacity) const 
         output[n++] = {u->sprite->position.x, u->sprite->position.y, static_cast<unsigned>(u->owner), selected,
                        static_cast<unsigned>(t->id), u->hp.integer_part(), t->hitpoints.integer_part(),
                        t->dimensions.from.x + t->dimensions.to.x + 1, t->dimensions.from.y + t->dimensions.to.y + 1,
-                       funcs.u_completed(u), funcs.ut_worker(u), funcs.unit_is_mineral_field(u),funcs.unit_is(u,UnitTypes::Resource_Vespene_Geyser),funcs.unit_is_refinery(u),funcs.u_flying(u),cargo};
+                       funcs.u_completed(u), funcs.ut_worker(u), funcs.unit_is_mineral_field(u),funcs.unit_is(u,UnitTypes::Resource_Vespene_Geyser),funcs.unit_is_refinery(u),funcs.u_flying(u),cargo,u->shield_points.integer_part(),int(t->shield_points),unsigned(funcs.unit_is_carrier(u)?funcs.unit_interceptor_count(u):funcs.unit_is_reaver(u)?funcs.unit_scarab_count(u):0),unsigned(u->order_type->id),u->energy.integer_part()};
     }
     return n;
 }
@@ -675,7 +699,7 @@ std::size_t Engine::image_types(unsigned* output,std::size_t capacity) const {
     std::size_t n=0;
     for(const auto& line:impl_->player->st().sprites_on_tile_line) for(const auto& sprite:line)
         for(const auto& img:sprite.images) {
-            if(img.modifier<0 || (img.modifier>7 && img.modifier!=9 && img.modifier!=10)) continue;
+            if(img.modifier<0 || (img.modifier>7 && img.modifier!=9 && img.modifier!=10 && img.modifier!=12)) continue;
             const unsigned id=static_cast<unsigned>(img.image_type->id);
             if(id>=1024 || seen[id]) continue;
             seen[id]=true;
@@ -696,7 +720,7 @@ std::size_t Engine::visible_images(SpriteView* output, std::size_t capacity, int
             // Glow/cloak/warp GRPs contain palette remap indices rather than
             // ordinary colors. Omit those effects until their blending tables
             // are supported; drawing them directly produces opaque artifacts.
-            if(img.modifier<0 || (img.modifier>7 && img.modifier!=9 && img.modifier!=10))continue;
+            if(img.modifier<0 || (img.modifier>7 && img.modifier!=9 && img.modifier!=10 && img.modifier!=12))continue;
             const auto p = funcs.get_image_map_position(&img);
             const auto& frame = img.grp->frames.at(img.frame_index);
             if (p.x >= cx + 400 || p.y >= cy + 240 || p.x + static_cast<int>(frame.size.x) <= cx ||
@@ -706,7 +730,7 @@ std::size_t Engine::visible_images(SpriteView* output, std::size_t capacity, int
                            static_cast<unsigned>(sprite.owner), (img.flags & image_t::flag_horizontally_flipped) != 0,
                            img.modifier == 10,
                            ((static_cast<std::uint64_t>(sprite.elevation_level) * 8192 + sprite.position.y) * 4096 + sprite.index) * 64 + layer++,
-                           ((img.modifier>=2 && img.modifier<=7) || (sprite.flags&sprite_t::flag_burrowed))?112u:img.modifier==9?200u:255u};
+                           ((img.modifier>=2 && img.modifier<=7) || (sprite.flags&sprite_t::flag_burrowed))?112u:img.modifier==12?96u:img.modifier==9?200u:255u};
         }
     }
     std::sort(output, output + n, [](const SpriteView& a, const SpriteView& b) { return a.order < b.order; });

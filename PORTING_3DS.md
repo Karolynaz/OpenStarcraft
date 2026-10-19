@@ -1,11 +1,11 @@
 # OpenBW on the original Nintendo 3DS
 
-Status: full standard Terran production, construction, research/upgrades and
-controller ability menus are implemented. The default prepared full-army 1v1
+Status: full standard Terran and Protoss production, construction, research/upgrades and
+controller ability menus are implemented. The default Protoss prepared full-army 1v1
 has a short score/time limit; Terran lab permits manual testing. Original
 music and effects play through NDSP. The earlier gas build was measured on the
 user's original console at 58.47 FPS / 24.03 TPS; the larger Terran build still
-needs its own hardware run. See `nintendo3ds/reports/TERRAN_VALIDATION.md`.
+needs its own hardware run. See `nintendo3ds/reports/PROTOSS_VALIDATION.md` and the Terran report.
 Still a limited experimental profile. Updated: 2026-10-19. Baseline: `heiner/openbw` commit
 `469d2037e2fd03085dac4729912f4188bc2a778b`.
 
@@ -394,3 +394,27 @@ make -C nintendo3ds test test-mpq-audio test-audio test-csv test-sprite-cache HO
 Stage owned MPQs/map first using the earlier staging instructions. Asset tools
 exercise full construction, production, technology and ability scenarios
 before extracting private art/audio. No Blizzard assets belong in Git.
+
+### Protoss milestone (2026-10-19 overnight)
+
+The current local build defaults to Protoss battle; START retains Terran and
+all earlier scenarios. All sixteen Probe buildings, fourteen manufacturing
+products (including fighters), both Archon merges, seven techs, nineteen
+upgrade types, shields, transport and native abilities have integration tests.
+The 200-supply fixture uses 78 troops per side plus fighter ammunition and the
+same short score/time rules. See PROTOSS_VALIDATION.md for exact scope and
+emulator limitations. Zerg remain the next integration step.
+
+Keep separate resident sound banks: Protoss audio is under audio/protoss and
+uses protoss1.pcm..protoss3.pcm; earlier Terran audio remains under audio.
+Neither bank may be concatenated into the other within the original RAM
+budget. Reproduce the private Proto package using:
+
+```sh
+make -C nintendo3ds prepare-protoss-audio prepare-protoss-graphics HOST_CXX=clang++
+make -C nintendo3ds test-protoss-cache HOST_CXX=clang++
+```
+
+The actual SD was already removed after the earlier Terran delivery. The new
+Proto executable/audio have been prepared locally; hardware testing and copying
+the new package to SD are still pending.

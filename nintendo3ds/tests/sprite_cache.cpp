@@ -1,5 +1,5 @@
 #include "graphics.h"
-#include "terran_catalogue.h"
+#include "race_catalogue.h"
 #include <fstream>
 #include <iterator>
 #include <set>
@@ -11,9 +11,9 @@
 #include <cstdio>
 namespace fake {std::atomic<unsigned> queued{0},allocations{0},pauses{0};std::vector<Draw> draws;}
 int main(int argc,char** argv){
- assert(argc==5);using namespace port3ds;
+ assert(argc==5 || argc==6);using namespace port3ds;const bool protoss=argc==6;
  {
-  Engine e;assert(e.load(argv[1],argv[2],Scenario::terran_battle));Graphics g;assert(g.load(argv[3],e.terrain_signature()));
+  Engine e;assert(e.load(argv[1],argv[2],protoss?Scenario::protoss_battle:Scenario::terran_battle));Graphics g;assert(g.load(argv[3],e.terrain_signature()));
   // Compare the runtime decoder against independently exported original GRP
   // palette indices, including every frame of representative Terran bodies,
   // turrets and shadows, both player remaps and neutral colors.
@@ -24,6 +24,7 @@ int main(int argc,char** argv){
   unsigned char team[128];std::copy_n(raw.data()+at,128,team);at+=128;auto cells=u32();at+=cells*2;auto tiles=u32();at+=tiles*1026;
   using bwgame::ImageTypes;
   std::set<unsigned> check={unsigned(ImageTypes::IMAGEID_Marine),unsigned(ImageTypes::IMAGEID_Firebat),unsigned(ImageTypes::IMAGEID_Ghost),unsigned(ImageTypes::IMAGEID_SCV),unsigned(ImageTypes::IMAGEID_Battlecruiser),unsigned(ImageTypes::IMAGEID_Wraith),unsigned(ImageTypes::IMAGEID_Goliath_Base),unsigned(ImageTypes::IMAGEID_Goliath_Turret),unsigned(ImageTypes::IMAGEID_Siege_Tank_Tank_Base),unsigned(ImageTypes::IMAGEID_Siege_Tank_Tank_Turret),unsigned(ImageTypes::IMAGEID_Marine_Shadow)};
+  if(protoss)check={unsigned(ImageTypes::IMAGEID_Probe),unsigned(ImageTypes::IMAGEID_Zealot),unsigned(ImageTypes::IMAGEID_Dragoon),unsigned(ImageTypes::IMAGEID_High_Templar),unsigned(ImageTypes::IMAGEID_Dark_Templar_Unit),unsigned(ImageTypes::IMAGEID_Carrier),unsigned(ImageTypes::IMAGEID_Interceptor),unsigned(ImageTypes::IMAGEID_Scout),unsigned(ImageTypes::IMAGEID_Shuttle),unsigned(ImageTypes::IMAGEID_Observer),unsigned(ImageTypes::IMAGEID_Reaver)};
   unsigned reference_pixels=0;std::vector<uint16_t> decoded(512*512);auto groups=u32();
   for(unsigned g=0;g<groups;++g){auto id=u16(),frames=u16();for(unsigned f=0;f<frames;++f){auto w=u16(),h=u16();assert(at+w*h*2<=raw.size());
    if(check.count(id)){for(unsigned owner: {0u,1u,11u}){assert(e.sprite_pixels(id,f,owner,decoded.data(),decoded.size()));for(unsigned i=0;i<w*h;++i){unsigned c=raw[at+i*2]|raw[at+i*2+1]<<8;uint16_t expected=0;if(c!=65535){if(c>=8 && c<16)c=team[owner*8+c-8];expected=palette[c];}assert(decoded[i]==expected);++reference_pixels;}}}
@@ -50,7 +51,7 @@ int main(int argc,char** argv){
    }
    assert(out==fake::draws.size());
   }
-  assert(!g.cache_overflows());std::printf("Bounded sprite cache / pinned frame lifetime / exact swizzled RGBA / moving full-Terran battle PASS: %u checked pixels, %u misses\n",checked,g.cache_misses());
+  assert(!g.cache_overflows());std::printf("Bounded sprite cache / pinned frame lifetime / exact swizzled RGBA / moving full-race battle PASS: %u checked pixels, %u misses\n",checked,g.cache_misses());
  }
  assert(fake::allocations==0);
 }

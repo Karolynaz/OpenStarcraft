@@ -6,6 +6,8 @@
 #include "../tests/battle.h"
 #include "../tests/terran.h"
 #include "../tests/terran_build.h"
+#include "../tests/protoss.h"
+#include "../tests/protoss_build.h"
 #include <cstdio>
 #include <set>
 #include <stdexcept>
@@ -21,7 +23,8 @@ static void collect(state& st, std::set<unsigned>& ids) {
                 ids.insert((unsigned)image.image_type->id);
 }
 int main(int argc, char** argv) {
-    if (argc != 4) { std::fprintf(stderr, "graphics-export DATA MAP OUTPUT\n"); return 2; }
+    if (argc != 4 && argc != 5) { std::fprintf(stderr, "graphics-export DATA MAP OUTPUT\n"); return 2; }
+    const bool protoss=argc==5 && std::string(argv[4])=="protoss";
     try {
         auto assets = data_loading::data_files_directory(argv[1]);
         std::unique_ptr<game_player> current;
@@ -34,12 +37,14 @@ int main(int argc, char** argv) {
         };
         const std::string map_name(argv[2]);const auto slash=map_name.find_last_of('/');
         const auto arena=map_name.substr(0,slash==std::string::npos?0:slash+1)+"arena.chk";
+        if(protoss){protoss_construction_tests(argv[1],arena.c_str(),profile);protoss_tests(argv[1],arena.c_str(),profile);protoss_battle_test(argv[1],arena.c_str(),profile);}else{
         terran_construction_tests(argv[1],arena.c_str(),profile);
         terran_tests(argv[1],arena.c_str(),profile);terran_battle_test(argv[1],arena.c_str(),profile);
         gameplay_tests(argv[1],argv[2],profile);
         battle_test(argv[1],argv[2],profile);
         gas_tests(argv[1],argv[2],profile);
         battle_test(argv[1],argv[2],profile,port3ds::Scenario::gas_battle);
+        }
         for (unsigned mode = 0; mode != 2; ++mode) {
             // Like the device adapter, use a fresh state for each map load.
             // Reusing upstream's live state leaves stale unit-finder pointers.
@@ -66,7 +71,7 @@ int main(int argc, char** argv) {
             for (int n = 0; n != 480; ++n) { collect(player.st(), ids); player.next_frame(); }
         }
         auto& st = current->st(); auto& global = *st.global; auto& game = *st.game;
-        std::set<unsigned> sound_ids;terran_asset_closure(st,ids,sound_ids);
+        std::set<unsigned> sound_ids;terran_asset_closure(st,ids,sound_ids,protoss);
         const char* names[] = {"badlands","platform","install","ashworld","jungle","desert","ice","twilight"};
         a_vector<uint8_t> palette, vr4, vx4, pcx;
         const auto tileset = game.tileset_index;

@@ -20,7 +20,7 @@ struct Audio::Impl {
     std::array<Voice,voice_count> voices{};
     ndspWaveBuf music[3]{};
     char* linear=nullptr;
-    std::string root;
+    std::string root,music_prefix;
     FILE* file=nullptr;
     Thread thread=nullptr;
     std::atomic<bool> running{false}, paused{false};
@@ -31,7 +31,7 @@ struct Audio::Impl {
     unsigned next_track=1,sample_bytes=2;bool long_voice=false;
     bool open_track() {
         if(file) std::fclose(file);
-        const auto path=root+"/terran"+std::to_string(next_track)+".pcm";
+        const auto path=root+"/"+music_prefix+std::to_string(next_track)+".pcm";
         file=std::fopen(path.c_str(),"rb");
         track=next_track; next_track=next_track%3+1;
         if(!file) {++io_errors;return false;} return true;
@@ -80,12 +80,12 @@ struct Audio::Impl {
 };
 Audio::Audio():impl_(new Impl) {}
 Audio::~Audio()=default;
-bool Audio::load(const char* root,bool dsp_ready) {
+bool Audio::load(const char* root,bool dsp_ready,const char* music_prefix) {
     auto& s=*impl_;s.close();s.counters={};s.underruns=0;s.io_errors=0;s.buffers=0;s.track=0;s.next_track=1;
     std::fill(std::begin(s.last_played),std::end(s.last_played),0);
     auto fail=[&](const char* m) {s.close();std::snprintf(s.message,sizeof s.message,"%s",m);return false;};
     if(!dsp_ready) return fail("DSP unavailable: check /3ds/dspfirm.cdc");
-    s.root=root;
+    s.root=root;s.music_prefix=music_prefix;
     FILE* f=std::fopen((s.root+"/effects.bin").c_str(),"rb");
     if(!f) return fail("Missing audio/effects.bin");
     char magic[8];bool valid=std::fread(magic,1,8,f)==8;
@@ -112,14 +112,15 @@ bool Audio::load(const char* root,bool dsp_ready) {
     for(unsigned i=0;i<voice_count;++i) {s.voices[i]={};s.voices[i].data=s.linear+(i?i+(s.long_voice?1:0):0)*voice_bytes;s.voices[i].capacity=voice_bytes*((!i && s.long_voice)?2:1);}
     for(unsigned i=0;i<3;++i) {
         s.music[i]={};s.music[i].data_vaddr=s.linear+(voice_count+(s.long_voice?1:0))*voice_bytes+i*chunk_bytes;
-        if(!s.fill(s.music[i])) return fail("Cannot stream Terran music");
+        if(!s.fill(s.music[i])) return fail("Cannot stream music");
     }
     s.paused=false;s.running=true;
     // Use the application core, including on original 3DS. No extra CPU mode.
     s.thread=threadCreate(Impl::stream,&s,16*1024,0x31,0,false);
     if(!s.thread) return fail("Cannot create music streaming thread");
-    s.counters.ready=true;std::snprintf(s.message,sizeof s.message,"Terran music + 8 DSP effect voices");return true;
+    s.counters.ready=true;std::snprintf(s.message,sizeof s.message,"Original music + 8 DSP effect voices");return true;
 }
+void Audio::unload(){auto& s=*impl_;s.close();std::vector<char>().swap(s.pcm);std::vector<Impl::Effect>().swap(s.effects);}
 void Audio::reset() {
     auto& s=*impl_;if(!s.counters.ready) return;
     for(unsigned i=0;i<voice_count;++i) {ndspChnWaveBufClear(i+1);s.voices[i].wave={};}

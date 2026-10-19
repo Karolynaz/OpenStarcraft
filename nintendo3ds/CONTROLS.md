@@ -1,6 +1,9 @@
 # Physical controls and observer mode
 
-The default is **All Terran battle**, a prepared symmetric 1v1 on a flat
+The current local build defaults to **All Protoss battle**. It prepares 78
+troops plus native fighter ammunition per side at 200 supply. Carrier/Reaver
+ammunition, Archons, storms, Stasis and other powers use the native engine.
+The earlier **All Terran battle** remains in START → Scenarios, a prepared symmetric 1v1 on a flat
 64×64 arena using original terrain, simulation, weapons, spells and animations.
 Each side has 114 troops across all thirteen standard trainable unit types,
 plus one prepared nuclear missile: 200 supply per side. Tanks siege, Vultures
@@ -34,8 +37,8 @@ closing. Observer mode allows selection/bookmarks but blocks army commands.
 | B | Close menu or cancel pending placement/targeting; otherwise clear selection (does not stop an existing order) |
 | X | Select all completed own military units whose centers are on the current top screen |
 | L + X | Select all completed own workers on the map |
-| Y | SCV: eight basic buildings; producers: train/add-on/research menu; units: primary ability or ability menu |
-| L + Y | SCV: Factory/Starport/Science Facility/Armory; buildings: research/upgrades/flight/cancel; units: abilities and common commands |
+| Y | Worker: eight basic buildings; producers: train/add-on/research menu; units: primary ability or ability menu |
+| L + Y | SCV: four advanced buildings; Probe: eight advanced buildings; buildings: research/upgrades/flight/cancel; units: abilities and common commands |
 | D-pad in a menu | Navigate choices; A confirms, B closes |
 | R + D-pad direction | Save the current selection in one of four direction slots |
 | D-pad outside a menu | Recall that direction's selection |
@@ -69,6 +72,17 @@ A on an allied transport/Bunker loads the selected eligible infantry. Select
 the transport/Bunker and choose Unload to release it. Cloaking/detection and
 native weapon sight ranges remain active even though terrain is fully explored
 and the observer renders both armies without fog.
+
+Probe Y/L+Y exposes all sixteen Protoss buildings in two pages of eight.
+Pylons must power the appropriate structures. Probes use native warp
+construction and can leave the building to finish itself. Assimilators snap
+to a geyser. Carrier/Reaver Y manufactures Interceptors/Scarabs with native
+capacity and resource checks. Templar ability menus include nearest-matching
+Templar merge; both units need a clear path. High Templar, Dark Archon,
+Arbiter and Corsair expose their spells; Shuttle loads/unloads units. A on a
+Shield Battery recharges an eligible selected unit, or select the Battery and
+use Y to choose a recharge target. Selected Protoss units show a blue shield
+bar and shield values in the HUD.
 
 Selections and four bookmarks contain up to 192 generation-checked 32-bit unit
 IDs; recalling drops dead/invalid entries. Workers temporarily hidden inside

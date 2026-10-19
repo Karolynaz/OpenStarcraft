@@ -1,17 +1,25 @@
 #pragma once
 // Host-only conservative traversal of every animation branch reachable from
 // the Terran roster. This includes unobserved directions, death and spell FX.
-#include "terran_catalogue.h"
+#include "race_catalogue.h"
 #include <set>
 #include <vector>
-inline void terran_asset_closure(bwgame::state& st,std::set<unsigned>& images,std::set<unsigned>& sounds) {
+inline void terran_asset_closure(bwgame::state& st,std::set<unsigned>& images,std::set<unsigned>& sounds,bool protoss=false) {
  using namespace bwgame;using namespace iscript_opcodes;
- for(unsigned id:{84u,127u,239u})sounds.insert(id); // Native nuclear launch / warning / spotter sounds.
+ if(!protoss)for(unsigned id:{84u,127u,239u})sounds.insert(id); // Native nuclear launch / warning / spotter sounds.
  auto& g=*st.global;std::vector<unsigned> queue(images.begin(),images.end());
  auto image=[&](unsigned id){if(id<g.image_types.vec.size() && images.insert(id).second)queue.push_back(id);};
  auto sprite=[&](unsigned id){if(id<g.sprite_types.vec.size())image(unsigned(static_cast<ImageTypes>(g.sprite_types.vec[id].image)));};
  auto weapon=[&](const weapon_type_t* w){if(w && w->flingy)sprite(unsigned(static_cast<SpriteTypes>(w->flingy->sprite)));};
  auto unit=[&](UnitTypes id){const auto& u=st.game->unit_types.vec.at(unsigned(id));if(u.flingy)sprite(unsigned(static_cast<SpriteTypes>(u.flingy->sprite)));weapon(u.ground_weapon);weapon(u.air_weapon);};
+ if(protoss){
+  for(const auto& p:port3ds::protoss::buildings)unit(p.type);
+  for(const auto& p:port3ds::protoss::units)unit(p.type);
+  unit(UnitTypes::Protoss_Archon);unit(UnitTypes::Protoss_Dark_Archon);unit(UnitTypes::Spell_Disruption_Web);
+  for(auto id:{ImageTypes::IMAGEID_Psionic_Storm,ImageTypes::IMAGEID_Recall_Field,ImageTypes::IMAGEID_Hallucination_Hit,ImageTypes::IMAGEID_Stasis_Field_Hit,ImageTypes::IMAGEID_Disruption_Web})image(unsigned(id));
+  for(unsigned id=unsigned(ImageTypes::IMAGEID_Mind_Control_Hit_Small);id<=unsigned(ImageTypes::IMAGEID_Feedback_Hit_Large);++id)image(id);
+  for(unsigned id:{550u,551u,552u,553u,616u,618u,1061u,1062u,1064u})sounds.insert(id);
+ }else{
  for(const auto& p:port3ds::terran::buildings)unit(p.type);
  for(const auto& p:port3ds::terran::units)unit(p.type);
  for(auto id:{UnitTypes::Terran_Goliath_Turret,UnitTypes::Terran_Siege_Tank_Tank_Mode_Turret,UnitTypes::Terran_Siege_Tank_Siege_Mode,UnitTypes::Terran_Siege_Tank_Siege_Mode_Turret,UnitTypes::Terran_Vulture_Spider_Mine,UnitTypes::Spell_Scanner_Sweep})unit(id);
@@ -23,6 +31,7 @@ inline void terran_asset_closure(bwgame::state& st,std::set<unsigned>& images,st
  range(ImageTypes::IMAGEID_Restoration_Hit_Small,ImageTypes::IMAGEID_Restoration_Hit_Large);
  range(ImageTypes::IMAGEID_Optical_Flare_Hit_Small,ImageTypes::IMAGEID_Optical_Flare_Hit_Large);
  image(unsigned(ImageTypes::IMAGEID_Nuke_Hit));image(unsigned(ImageTypes::IMAGEID_Nuclear_Missile_Death));
+ }
  const auto& data=g.iscript.program_data;
  for(size_t q=0;q<queue.size();++q){
   const unsigned im=queue[q];const auto script=g.iscript.scripts.find(g.image_types.vec.at(im).iscript_id);if(script==g.iscript.scripts.end())continue;
