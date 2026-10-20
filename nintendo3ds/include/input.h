@@ -22,7 +22,7 @@ public:
         if(in.direction>=0 && in.direction<4) {
             const auto slot=static_cast<unsigned>(in.direction);
             if(in.r) { last_group_=-1; return {InputAction::store,slot}; }
-            if(menu) return {in.direction==0 || in.direction==3 ? InputAction::previous : InputAction::next};
+            if(menu) return {in.direction==0 || in.direction==3 ? InputAction::previous : InputAction::next,slot};
             const bool center=last_group_==in.direction && in.time>=last_time_ && in.time-last_time_<=350000;
             last_group_=in.direction; last_time_=in.time;
             return {InputAction::recall,slot,center};

@@ -17,7 +17,7 @@ enum class Command { context, attack, stop, train, depot, barracks, cancel, prim
 enum class SelectionKind { none, workers, command_center, barracks, other };
 enum class OptionKind : unsigned { build=1, addon, train, research, upgrade, order, stim, siege, cloak, liftoff, land, unload, cancel, merge, morph, burrow, larvae, nydus };
 enum class OptionPage { primary, secondary, basic, advanced };
-struct MenuOption { char label[64]{}; unsigned code=0; bool target=false, enabled=false; };
+struct MenuOption { char label[64]{}; unsigned code=0,icon=~0u; bool target=false, enabled=false; };
 inline unsigned option_code(OptionKind kind,unsigned id=0) {return (unsigned(kind)<<16)|id;}
 struct PlayerView {
     int minerals = 0, gas = 0, supply = 0, supply_max = 0;
@@ -104,6 +104,8 @@ public:
     void set_fog_enabled(bool enabled);
     FogCell fog_cell(unsigned tile_x,unsigned tile_y) const;
     CursorKind cursor_kind(int world_x,int world_y,bool targeting=false) const;
+    SpriteView command_icon(unsigned icon,bool enabled=true) const;
+    SpriteView command_button() const;
     SpriteView cursor_image(CursorKind kind,std::uint64_t elapsed_us) const;
     SpriteInfo sprite_info(unsigned image,unsigned frame) const;
     bool sprite_pixels(unsigned image,unsigned frame,unsigned owner,std::uint16_t* output,std::size_t capacity) const;

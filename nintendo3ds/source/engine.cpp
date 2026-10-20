@@ -5,6 +5,7 @@
 #include "terran_battle.h"
 #include "creep_graphics.h"
 #include "fog_memory.h"
+#include "command_icons.h"
 #include <cstdio>
 #include <cstring>
 #include <stdexcept>
@@ -43,6 +44,7 @@ struct Engine::Impl {
     detail::BattleAI ai;
     detail::TerranBattle battle;
     std::unique_ptr<detail::CreepGraphics> creep;
+    std::unique_ptr<detail::CommandIcons> icons;
     std::array<grp_t,cursor_count> cursors;
     std::array<uint16_t,256> palette{};
     std::array<uint8_t,128> team{};
@@ -119,6 +121,7 @@ bool Engine::load(const char* data_root, const char* map_path, Scenario scenario
         scenario==Scenario::gas_battle || scenario==Scenario::protoss_ai_battle || scenario==Scenario::protoss_versus_ai || scenario==Scenario::zerg_ai_battle || scenario==Scenario::zerg_versus_ai,scenario_race(scenario)==2,scenario_race(scenario)==0);
     impl_->sound.reset();
     impl_->creep.reset();
+    impl_->icons.reset();
     impl_->player.reset();
     for(auto& cursor:impl_->cursors)cursor=grp_t{};
     try {
@@ -227,6 +230,10 @@ bool Engine::load(const char* data_root, const char* map_path, Scenario scenario
         if(exists(root+"arr/units.dat"))load_cursors(load_asset);
         else {auto files=data_loading::data_files_directory(root);load_cursors(files);}
         if(scenario_race(scenario)==0){impl_->creep.reset(new detail::CreepGraphics);impl_->creep->load(player.st(),terrain,impl_->palette,load_asset);}
+        // UI art is optional for loose-asset installations; core gameplay can
+        // retain its text menu if the original command assets were not supplied.
+        try {impl_->icons.reset(new detail::CommandIcons);impl_->icons->load(load_asset,pcx,scenario_race(scenario));}
+        catch(const std::exception&){impl_->icons.reset();}
         impl_->sound.reset(new Impl::SoundFunctions(player.st()));
         impl_->sound->fog=impl_->fog;
         impl_->loaded = true;
@@ -528,7 +535,25 @@ unsigned Engine::options(OptionPage page,MenuOption* output,unsigned capacity) c
     if(!ready())return 0;const auto* u=impl_->first_selected();if(!u || u->owner!=0)return 0;
     const auto& f=impl_->player->funcs();unsigned n=0;
     auto add=[&](const char* name,OptionKind kind,unsigned id,bool target,bool enabled,int minerals=0,int gas=0) {
-        if(n>=capacity)return;auto& o=output[n++];o.code=option_code(kind,id);o.target=target;o.enabled=enabled;
+        if(n>=capacity)return;auto& o=output[n++];o.icon=~0u;o.code=option_code(kind,id);o.target=target;o.enabled=enabled;
+        auto order_icon=[&](Orders order){const auto* type=f.get_order_type(order);if(type->highlight>=0)o.icon=unsigned(type->highlight);else if(unsigned(type->tech_type)<44)o.icon=unsigned(f.get_tech_type(type->tech_type)->icon);};
+        switch(kind){
+        case OptionKind::build:case OptionKind::addon:case OptionKind::train:case OptionKind::morph:o.icon=id;break;
+        case OptionKind::research:o.icon=f.get_tech_type(TechTypes(id))->icon;break;
+        case OptionKind::upgrade:o.icon=f.get_upgrade_type(UpgradeTypes(id))->icon;break;
+        case OptionKind::order:order_icon(Orders(id));if(id==unsigned(Orders::RechargeShieldsBattery))o.icon=unsigned(UnitTypes::Protoss_Shield_Battery);break;
+        case OptionKind::stim:o.icon=f.get_tech_type(TechTypes::Stim_Packs)->icon;break;
+        case OptionKind::siege:order_icon(f.unit_is(u,UnitTypes::Terran_Siege_Tank_Siege_Mode)?Orders::Unsieging:Orders::Sieging);break;
+        case OptionKind::cloak:order_icon(f.u_cloaked(u)?Orders::Decloak:Orders::Cloak);break;
+        case OptionKind::burrow:order_icon(f.u_burrowed(u)?Orders::Unburrowing:Orders::Burrowing);break;
+        case OptionKind::liftoff:order_icon(Orders::BuildingLiftoff);break;
+        case OptionKind::land:order_icon(Orders::BuildingLand);break;
+        case OptionKind::unload:order_icon(Orders::Unload);break;
+        case OptionKind::merge:o.icon=unsigned(f.get_tech_type(id?TechTypes::Dark_Archon_Meld:TechTypes::Archon_Warp)->icon);break;
+        case OptionKind::larvae:o.icon=unsigned(UnitTypes::Zerg_Larva);break;
+        case OptionKind::nydus:o.icon=unsigned(UnitTypes::Zerg_Nydus_Canal);break;
+        default:break;
+        }
         if(minerals || gas)std::snprintf(o.label,sizeof o.label,"%s %s %d/%d",enabled?"":"x",name,minerals,gas);
         else std::snprintf(o.label,sizeof o.label,"%s%s",enabled?"":"x ",name);
     };
@@ -578,7 +603,7 @@ unsigned Engine::options(OptionPage page,MenuOption* output,unsigned capacity) c
         const auto* type=f.get_tech_type(tech);char label[64];if(type->energy_cost)std::snprintf(label,sizeof label,"%s (%u energy)",name,unsigned(type->energy_cost));else if(tech==TechTypes::Spider_Mines)std::snprintf(label,sizeof label,"%s (%u left)",name,unsigned(f.unit_spider_mine_count(u)));else std::snprintf(label,sizeof label,"%s",name);
         bool enabled=false;
         for(auto id:impl_->selected)if(const auto* caster=f.get_unit(id))if(caster->owner==0 && caster->unit_type==u->unit_type && !f.unit_dead(caster) && f.unit_can_use_tech(caster,type) && caster->energy>=fp8::integer(type->energy_cost))enabled=true;
-        add(label,OptionKind::order,unsigned(order),true,enabled);
+        const auto index=n;add(label,OptionKind::order,unsigned(order),true,enabled);if(n>index)output[index].icon=unsigned(type->icon);
     };
     switch(u->unit_type->id) {
     case UnitTypes::Zerg_Queen:
@@ -777,6 +802,8 @@ CursorKind Engine::cursor_kind(int x,int y,bool targeting) const {
     if(unit->owner==1)return targeting?CursorKind::target_enemy:CursorKind::enemy;
     return targeting?CursorKind::target_neutral:CursorKind::neutral;
 }
+SpriteView Engine::command_icon(unsigned icon,bool enabled)const {return ready() && impl_->icons?impl_->icons->view(icon,enabled):SpriteView{};}
+SpriteView Engine::command_button()const {return ready() && impl_->icons?SpriteView{0,0,detail::command_button_image,0,11,false,false,0,255}:SpriteView{};}
 SpriteView Engine::cursor_image(CursorKind kind,std::uint64_t elapsed_us) const {
     const auto index=unsigned(kind);if(!ready() || index>=cursor_count)return {};
     const auto& grp=impl_->cursors[index];if(grp.frames.empty())return {};
@@ -785,6 +812,8 @@ SpriteView Engine::cursor_image(CursorKind kind,std::uint64_t elapsed_us) const 
 }
 SpriteInfo Engine::sprite_info(unsigned image,unsigned frame) const {
     if(!ready())return {};
+    if(image==detail::command_icon_image)return impl_->icons?impl_->icons->info(frame):SpriteInfo{};
+    if(image==detail::command_button_image)return impl_->icons && frame==0?SpriteInfo{48,40,true}:SpriteInfo{};
     if(image>=cursor_image_base && image<cursor_image_base+cursor_count){const auto& grp=impl_->cursors[image-cursor_image_base];if(frame>=grp.frames.size())return {};const auto& f=grp.frames[frame];return {unsigned(f.size.x),unsigned(f.size.y),true};}
     if(impl_->creep && image==detail::creep_tile_image)return frame<16?SpriteInfo{32,32,true}:SpriteInfo{};
     if(impl_->creep && image==detail::creep_edge_image){if(frame>=impl_->creep->edges.frames.size())return {};const auto& r=impl_->creep->edges.frames[frame];return {unsigned(r.size.x),unsigned(r.size.y),true};}
@@ -794,6 +823,8 @@ SpriteInfo Engine::sprite_info(unsigned image,unsigned frame) const {
 }
 bool Engine::sprite_pixels(unsigned image,unsigned frame,unsigned owner,uint16_t* out,std::size_t capacity) const {
     const auto info=sprite_info(image,frame);if(!info.valid || info.width>512 || info.height>512 || size_t(info.width)*info.height>capacity)return false;
+    if(image==detail::command_icon_image)return impl_->icons && impl_->icons->pixels(frame,owner==0,out,capacity);
+    if(image==detail::command_button_image){std::copy(impl_->icons->button.begin(),impl_->icons->button.end(),out);return true;}
     if(image==detail::creep_tile_image){std::copy(impl_->creep->tiles[frame].begin(),impl_->creep->tiles[frame].end(),out);return true;}
     const bool cursor=image>=cursor_image_base && image<cursor_image_base+cursor_count;
     const auto& st=impl_->player->st();const auto& source=cursor?impl_->cursors[image-cursor_image_base].frames[frame]:image==detail::creep_edge_image?impl_->creep->edges.frames[frame]:st.global->image_grp[image]->frames[frame];

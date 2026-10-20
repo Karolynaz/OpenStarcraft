@@ -221,6 +221,20 @@ void Graphics::fog_minimap(const Engine& engine,float x,float y,float w,float h)
     Tex3DS_SubTexture sub={static_cast<u16>(width_),static_cast<u16>(height_),0,1,width_/64.f,1-height_/64.f};
     C2D_DrawImageAt({&fog_texture_[fog_slot_],&sub},x,y,0,nullptr,w/width_,h/height_);
 }
+bool Graphics::ui_image(const SpriteView& view,float x,float y,float scale,const Engine& engine){
+    if(!ready() || view.image<65380 || view.image>65381)return false;
+    // Share this frame's pin age with the world, rather than evicting textures
+    // still referenced by the top screen's queued GPU draws.
+    const auto key=sprite_key(view.image,view.frame,view.owner);auto found=cache_.find(key);
+    if(found==cache_.end()){
+        C2D_Flush();bool dirty[8]{};if(!cache_frame(view,engine,dirty))return false;
+        found=cache_.find(key);if(found==cache_.end())return false;
+        // Bind the uploaded page itself. Citro2D caches its last texture:
+        // forcing another page would make a same-texture draw sample it.
+        C3D_TexBind(0,&pages_[found->second.rect.page]);
+    }else found->second.age=frame_;
+    draw(found->second.rect,x+view.x*scale,y+view.y*scale,scale,scale);return true;
+}
 bool Graphics::cursor(const SpriteView& v,float x,float y,const Engine& engine) {
     if(!ready() || v.image<cursor_image_base || v.image>=cursor_image_base+cursor_count)return false;
     const auto info=engine.sprite_info(v.image,v.frame);

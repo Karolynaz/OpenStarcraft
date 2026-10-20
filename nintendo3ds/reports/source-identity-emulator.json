@@ -1,0 +1,74 @@
+{
+  "runs_in_file": 29,
+  "selected_run": "last",
+  "source_ids": [
+    "src-ef07ed30b780ef84"
+  ],
+  "samples": 66,
+  "active_samples": 30,
+  "excluded_zero_tps_samples": 36,
+  "partial_samples": "retained",
+  "first_frame": 24,
+  "last_frame": 720,
+  "winner": 1,
+  "mean_fps": 57.196000000000005,
+  "mean_tps": 23.822333333333333,
+  "peak_units": 342,
+  "max_tick_us": 123463.0,
+  "peak_heap_bytes": 32618992,
+  "peak_linear_bytes": 7822336,
+  "max_backlog": 0,
+  "missing_sprites": 0,
+  "max_previous_csv_flush_us": 35000.0,
+  "gas": {
+    "red_gas": 20000,
+    "blue_gas": 20000
+  },
+  "audio": {
+    "all_samples_ready": true,
+    "sfx_played": 198,
+    "sfx_culled": 12,
+    "sfx_missing": 0,
+    "sfx_voice_drops": 2991,
+    "event_drops": 0,
+    "music_buffers": 84,
+    "music_underruns": 0,
+    "audio_io_errors": 0,
+    "dsp_drops": 0,
+    "tracks_seen": [
+      1
+    ]
+  },
+  "battle": {
+    "battle_seconds": 30,
+    "red_score": 2050,
+    "blue_score": 4000,
+    "end_reason": 2
+  },
+  "cache": {
+    "cache_misses": 16896,
+    "cache_overflows": 0,
+    "upload_pixels": 35635770
+  },
+  "csv": {
+    "csv_dropped": 0,
+    "csv_errors": 0
+  },
+  "rendering_mean_us": {
+    "render_cpu_us": 6699.41,
+    "frame_wait_us": 6971.383333333333,
+    "sprite_collect_us": 497.58,
+    "sprite_draw_us": 4444.38,
+    "frame_end_us": 307.0066666666667,
+    "gpu_us": 500.97999999999996
+  },
+  "executable_sha256": "28bf8de7a3c426230ff627dd1c53e295dff590553eb5193a7890e646383e97d8",
+  "environment": {
+    "model": "original 3DS",
+    "cpu_percent": 100,
+    "dsp": "HLE",
+    "physical_console": false
+  },
+  "scope": "Functional stress and source-identity check; not a physical-console or matched performance comparison",
+  "validated_csv_columns": 53
+}

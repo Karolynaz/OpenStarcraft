@@ -1,0 +1,93 @@
+{
+  "environment": {
+    "model": "original 3DS",
+    "cpu_percent": 100,
+    "dsp": "HLE",
+    "physical_console": false
+  },
+  "prototype_sha256": "b20267ca71cf8a121ab823b558baa5934380643d56924204198a2e48febf97db",
+  "scope": "Manual catalogue workflow and default Zerg stress regression, not a physical benchmark",
+  "runs": {
+    "candidate1": {
+      "9": {
+        "samples": 104,
+        "active_samples": 60,
+        "last_frame": 1441,
+        "winner": -1,
+        "scores": [
+          500,
+          1150
+        ]
+      },
+      "10": {
+        "samples": 51,
+        "active_samples": 30,
+        "last_frame": 720,
+        "winner": 1,
+        "scores": [
+          2050,
+          4000
+        ]
+      },
+      "11": {
+        "samples": 162,
+        "active_samples": 114,
+        "last_frame": 2731,
+        "winner": -1,
+        "scores": [
+          800,
+          550
+        ]
+      }
+    },
+    "candidate2": {
+      "7": {
+        "samples": 186,
+        "active_samples": 126,
+        "last_frame": 3011,
+        "winner": -1,
+        "scores": [
+          400,
+          0
+        ]
+      },
+      "10": {
+        "samples": 49,
+        "active_samples": 30,
+        "last_frame": 720,
+        "winner": 1,
+        "scores": [
+          2050,
+          4000
+        ]
+      }
+    }
+  },
+  "peak_heap": 34069384,
+  "peak_linear": 7822336,
+  "errors": {
+    "missing_images": 0,
+    "cache_overflows": 0,
+    "sfx_missing": 0,
+    "event_drops": 0,
+    "music_underruns": 0,
+    "audio_io_errors": 0,
+    "dsp_drops": 0,
+    "csv_dropped": 0,
+    "csv_errors": 0
+  },
+  "checks": [
+    "Zerg Larva original icons, RIGHT then DOWN chooses Hydralisk",
+    "Hydralisk pays 75/25 and completes",
+    "Protoss Gateway original button art and enabled/disabled icons",
+    "Final Terran Barracks grid queues a paid 50-mineral Marine and completes",
+    "Native Zerg stress outcome unchanged",
+    "Normal exit; emulator stopped and original model settings restored",
+    "Binding-fixed candidate a68d... rechecked the eight-cell Larva grid; source-identified final release completed the Zerg stress test with expected scores."
+  ],
+  "metadata_candidate_sha256": "28e9c1c32af6d64fe63697a210a44113616b2884774b35d5dbb3376b91b8a1d1",
+  "binding_regression": "All 390 icons cross atlas pages with zero stale bindings; rebuilding the prior forced-first-page path fails the focused regression.",
+  "binding_candidate_sha256": "a68d01274e0a27eddb5f8fbb5255e13dc6e5fbead31a091f1446aff1f1a7e773",
+  "release_sha256": "28bf8de7a3c426230ff627dd1c53e295dff590553eb5193a7890e646383e97d8",
+  "source_id": "src-ef07ed30b780ef84"
+}

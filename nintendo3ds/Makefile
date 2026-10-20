@@ -7,7 +7,7 @@ HOST_CXX ?= c++
 ARM_CXX := $(DEVKITARM)/bin/arm-none-eabi-g++
 export PATH := $(DEVKITPRO)/tools/bin:$(DEVKITARM)/bin:$(PATH)
 ARCH := -march=armv6k -mtune=mpcore -mfloat-abi=hard -mtp=soft
-COMMON := -std=gnu++14 -O2 -g -fno-strict-aliasing -ffunction-sections -fdata-sections -Iinclude -I..
+COMMON := -std=gnu++14 -O2 -g -fno-strict-aliasing -ffunction-sections -fdata-sections -Iinclude -I.. -Ibuild
 # OpenBW uses both typeid and exceptions. Do not copy the SDK template's
 # -fno-rtti/-fno-exceptions options into this build.
 ARM_FLAGS := $(COMMON) $(ARCH) -mword-relocations -D__3DS__ -I$(DEVKITPRO)/libctru/include
@@ -161,3 +161,26 @@ build/fog-memory-test: tests/fog_memory.cpp $(HEADERS) | build
 .PHONY: test-fog-memory
 test-fog-memory: build/fog-memory-test
 	ASAN_OPTIONS=detect_leaks=0 ./build/fog-memory-test "$(ASSET_ROOT)" local-data/3ds/openbw/maps/probe.scx
+
+build/ui-export: tools/ui_export.cpp $(HEADERS) | build
+	$(HOST_CXX) $(COMMON) tools/ui_export.cpp -o $@
+local-data/ui-work/reference.bin: build/ui-export tools/prepare_ui_reference.py
+	mkdir -p local-data/ui-work
+	./build/ui-export "$(ASSET_ROOT)" local-data/ui-work
+	python3 tools/prepare_ui_reference.py local-data/ui-work
+build/command-grid-test: tests/command_grid.cpp include/command_grid.h include/input.h | build
+	$(HOST_CXX) -std=c++14 -Iinclude tests/command_grid.cpp -o $@
+.PHONY: test-command-grid
+test-command-grid: build/command-grid-test
+	./build/command-grid-test
+
+build/command-icons-test: tests/command_icons.cpp tests/fake3ds/citro2d.h source/engine.cpp source/graphics.cpp $(HEADERS) | build
+	$(HOST_CXX) $(COMMON) -O1 -g -fsanitize=address -fno-omit-frame-pointer -pthread -Itests/fake3ds tests/command_icons.cpp source/engine.cpp source/graphics.cpp -o $@
+.PHONY: test-command-icons
+test-command-icons: build/command-icons-test local-data/ui-work/reference.bin
+	ASAN_OPTIONS=detect_leaks=0 ./build/command-icons-test "$(ASSET_ROOT)" local-data/3ds/openbw/maps/arena.chk local-data/3ds/openbw/graphics-arena.bin local-data/ui-work/reference.bin
+
+# Only the platform executable embeds source identity; game assets stay private.
+build/source_id.h: $(HEADERS) $(wildcard source/*.cpp) tools/build_info.py Makefile arm11.specs | build
+	python3 tools/build_info.py $@
+build/main.o: build/source_id.h

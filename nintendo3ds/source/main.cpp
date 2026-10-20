@@ -7,6 +7,8 @@
 #include "frame_pacer.h"
 #include "input.h"
 #include "ability_controls.h"
+#include "command_grid.h"
+#include "source_id.h"
 #include "audio.h"
 #include "csv_log.h"
 #include <cstdio>
@@ -37,8 +39,8 @@ void load_stage(unsigned scenario,const char* stage,const char* detail="") {
     FILE* f=std::fopen("sdmc:/3ds/openbw/logs/scenario-load.log","a");
     if(!f)return;
     const auto heap=mallinfo();
-    std::fprintf(f,"%llu build=reload-safe-v2 scenario=%u stage=%s heap_used=%d heap_free=%d linear_free=%lu %s\n",
-        static_cast<unsigned long long>(osGetTime()),scenario,stage,heap.uordblks,heap.fordblks,
+    std::fprintf(f,"%llu build=%s scenario=%u stage=%s heap_used=%d heap_free=%d linear_free=%lu %s\n",
+        static_cast<unsigned long long>(osGetTime()),port3ds::source_id,scenario,stage,heap.uordblks,heap.fordblks,
         static_cast<unsigned long>(linearSpaceFree()),detail);
     std::fclose(f);
 }
@@ -94,7 +96,7 @@ int main() {
         bool audio_paused_last=true;
         u64 last_log_flush_us=0;
         const char* action = "Starting Zerg battle...";
-        C2D_Text diagnostics{}, commands{}, message{}, resources{};
+        C2D_Text diagnostics{}, commands{}, message{}, resources{}, option_hint{};
         C2D_Text menu_rows[8]{};
         // 40 controlled units per side plus the map's neutral resources.
         constexpr unsigned unit_view_capacity=512;
@@ -104,7 +106,7 @@ int main() {
         auto toggle_log=[&]() {
             if(log) { log.close(); action="CSV logging closed"; return; }
             mkdir("sdmc:/3ds/openbw/logs",0777);
-            log.open("sdmc:/3ds/openbw/logs/ai-audio-benchmark.csv","scenario,frame,units,fps,tps,mean_tick_us,max_tick_us,heap_bytes,linear_used,backlog,atlas_bytes,missing_images,red_workers,red_army,red_buildings,red_minerals,red_lost,blue_workers,blue_army,blue_buildings,blue_minerals,blue_lost,winner,audio_ready,sfx_played,sfx_culled,sfx_missing,sfx_voice_drops,event_drops,music_buffers,music_underruns,audio_io_errors,music_track,dsp_drops,red_gas,blue_gas,csv_flush_us,battle_seconds,red_score,blue_score,end_reason,cache_misses,cache_overflows,upload_pixels,csv_dropped,csv_errors,render_cpu_us,frame_wait_us,sprite_collect_us,sprite_draw_us,frame_end_us,gpu_us\n");
+            log.open("sdmc:/3ds/openbw/logs/ai-audio-benchmark.csv","scenario,frame,units,fps,tps,mean_tick_us,max_tick_us,heap_bytes,linear_used,backlog,atlas_bytes,missing_images,red_workers,red_army,red_buildings,red_minerals,red_lost,blue_workers,blue_army,blue_buildings,blue_minerals,blue_lost,winner,audio_ready,sfx_played,sfx_culled,sfx_missing,sfx_voice_drops,event_drops,music_buffers,music_underruns,audio_io_errors,music_track,dsp_drops,red_gas,blue_gas,csv_flush_us,battle_seconds,red_score,blue_score,end_reason,cache_misses,cache_overflows,upload_pixels,csv_dropped,csv_errors,render_cpu_us,frame_wait_us,sprite_collect_us,sprite_draw_us,frame_end_us,gpu_us,source_id\n");
             action=log?"CSV logging enabled":"Cannot open ai-audio-benchmark.csv";
         };
         while (aptMainLoop()) {
@@ -199,7 +201,7 @@ int main() {
                 } else if(menu==Menu::scenarios) {
                     if(choice==7){menu=Menu::legacy;choice=0;return;}
                     static const unsigned modes[]={10,11,8,9,6,7,4};scenario=modes[choice];pending_load=true;action="Loading scenario and graphics...";
-                } else if(menu==Menu::legacy){static const unsigned modes[]={14,15,12,13,5,3,1,2};scenario=modes[choice];pending_load=true;action="Loading skirmish...";} else if(menu==Menu::catalogue) {use_option(option_rows[choice]);return;}
+                } else if(menu==Menu::legacy){static const unsigned modes[]={14,15,12,13,5,3,1,2};scenario=modes[choice];pending_load=true;action="Loading skirmish...";} else if(menu==Menu::catalogue) {option_count=engine.options(option_page,option_rows,8);if(choice<option_count)use_option(option_rows[choice]);else {menu=Menu::none;action="Selection has no available commands";}return;}
                 menu=Menu::none;
             };
             port3ds::InputFrame frame;
@@ -241,8 +243,9 @@ int main() {
                 else if(attacking){if(engine.perform(target_code,controls.world_x(),controls.world_y()))attacking=false;action=engine.command_status();}
                 else {engine.activate(controls.world_x(),controls.world_y());action=engine.command_status();}
                 break;
-            case I::previous: if(menu_count()) choice=(choice+menu_count()-1)%menu_count(); break;
-            case I::next: if(menu_count()) choice=(choice+1)%menu_count(); break;
+            case I::previous:case I::next:
+                if(menu_count())choice=menu==Menu::catalogue?port3ds::CommandGrid::move(choice,event.slot,menu_count()):event.action==I::previous?(choice+menu_count()-1)%menu_count():(choice+1)%menu_count();
+                break;
             case I::store: action=engine.store_group(event.slot)?"Group saved to D-pad":"Empty group saved"; break;
             case I::recall: {
                 placing=false;attacking=false;
@@ -258,9 +261,8 @@ int main() {
             // Touch is also allowed on an open bottom-screen command menu.
             if((down&KEY_TOUCH) && menu!=Menu::none) {
                 touchPosition t{};hidTouchRead(&t);
-                if(t.px>=136 && t.px<320 && t.py>=144 && t.py<144+menu_count()*12) {
-                    choice=(t.py-144)/12;activate_menu();
-                }
+                if(menu==Menu::catalogue){const int hit=port3ds::CommandGrid::hit(t.px,t.py,option_count);if(hit>=0){choice=unsigned(hit);activate_menu();}}
+                else if(t.px>=136 && t.px<320 && t.py>=144 && t.py<144+menu_count()*12) {choice=(t.py-144)/12;activate_menu();}
             }
             if(exit_requested) break;
             const bool step = false;
@@ -295,14 +297,14 @@ int main() {
                 fps = renders / seconds; tps = ticks / seconds;
                 mean = ticks ? tick_sum / ticks : 0; worst = tick_max;
                 if (log) {
-                    char row[1400];std::snprintf(row,sizeof row, "%u,%lu,%u,%.2f,%.2f,%.1f,%.1f,%d,%lu,%llu,%u,%u,%u,%u,%u,%d,%u,%u,%u,%u,%d,%u,%d,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%d,%d,%llu,%u,%u,%u,%u,%u,%u,%u,%u,%u,%.1f,%.1f,%.1f,%.1f,%.1f,%.1f\n",
+                    char row[1400];std::snprintf(row,sizeof row, "%u,%lu,%u,%.2f,%.2f,%.1f,%.1f,%d,%lu,%llu,%u,%u,%u,%u,%u,%d,%u,%u,%u,%u,%d,%u,%d,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%d,%d,%llu,%u,%u,%u,%u,%u,%u,%u,%u,%u,%.1f,%.1f,%.1f,%.1f,%.1f,%.1f,%s\n",
                         loaded_scenario, static_cast<unsigned long>(state.frame), state.units,
                         fps, tps, mean, worst, heap.uordblks, static_cast<unsigned long>(linear_used),
                         static_cast<unsigned long long>(scheduler.backlog()), graphics.texture_bytes(), missing_images,
                         state.players[0].workers,state.players[0].army,state.players[0].buildings,state.players[0].minerals,state.players[0].lost,
                         state.players[1].workers,state.players[1].army,state.players[1].buildings,state.players[1].minerals,state.players[1].lost,state.winner,
                         unsigned(sound_stats.ready),sound_stats.played,sound_stats.culled,sound_stats.missing,sound_stats.voice_drops,engine.dropped_sounds(),
-                        sound_stats.music_buffers,sound_stats.music_underruns,sound_stats.io_errors,sound_stats.music_track,sound_stats.dsp_drops,state.players[0].gas,state.players[1].gas,static_cast<unsigned long long>(last_log_flush_us),state.battle_seconds,state.score[0],state.score[1],state.end_reason,graphics.cache_misses(),graphics.cache_overflows(),graphics.upload_pixels(),log.stats().dropped,log.stats().errors,render_sum/std::max(1u,renders),wait_sum/std::max(1u,renders),collect_sum/std::max(1u,renders),sprite_sum/std::max(1u,renders),end_sum/std::max(1u,renders),gpu_sum/std::max(1u,renders));
+                        sound_stats.music_buffers,sound_stats.music_underruns,sound_stats.io_errors,sound_stats.music_track,sound_stats.dsp_drops,state.players[0].gas,state.players[1].gas,static_cast<unsigned long long>(last_log_flush_us),state.battle_seconds,state.score[0],state.score[1],state.end_reason,graphics.cache_misses(),graphics.cache_overflows(),graphics.upload_pixels(),log.stats().dropped,log.stats().errors,render_sum/std::max(1u,renders),wait_sum/std::max(1u,renders),collect_sum/std::max(1u,renders),sprite_sum/std::max(1u,renders),end_sum/std::max(1u,renders),gpu_sum/std::max(1u,renders),port3ds::source_id);
                     log.write(row);
                 }
                 renders = ticks = 0; tick_sum = tick_max = 0; interval = sample_time;
@@ -313,12 +315,12 @@ int main() {
             if (sample_time >= next_text || down) {
                 char status[900], help[800], error[220], hud[200];
                 std::snprintf(status, sizeof status,
-                    "OpenBW / ORIGINAL 3DS\nCore DCL/endian: %s   DSP: %s\n"
+                    "OpenBW / ORIGINAL 3DS\n%s  Core: %s   DSP: %s\n"
                     "%s  Frame %lu  Units %u\nFPS %.1f   TPS %.1f / 24\n"
                     "Tick avg %.1f / max %.1f us\nHeap %d KiB  Linear %lu KiB\n"
                     "Debt %llu  Camera %.0f,%.0f  CSV %s\n"
                     "%s  Selected %u\nAtlas %lu KiB  Missing sprites %u\nAudio %s  FX %u  Gaps %u / IO %u",
-                    self_test ? "PASS" : "FAIL", R_SUCCEEDED(audio) ? "ready" : "off",
+                    port3ds::source_id,self_test ? "PASS" : "FAIL", R_SUCCEEDED(audio) ? "ready" : "off",
                     !engine.ready() ? "NOT LOADED" : paused ? "PAUSED" : "RUNNING",
                     static_cast<unsigned long>(state.frame), state.units, fps, tps, mean, worst,
                     heap.uordblks / 1024, static_cast<unsigned long>(linear_used / 1024),
@@ -332,9 +334,9 @@ int main() {
                     const char* system[]={"Scenarios",auto_camera?"Auto camera: ON":"Auto camera: OFF",log?"CSV: ON":"CSV: OFF","Reload current",engine.fog_enabled()?"Fog: ON (player)":"Fog: OFF (observer)","Exit"};
                     const char* modes[]={"All Zerg battle","Zerg laboratory","All Protoss battle","Protoss laboratory","All Terran battle","Terran laboratory","Player vs AI","More scenarios..."};
                     const char* legacy[]={"Zerg AI vs AI","Zerg player vs AI","Protoss AI vs AI","Protoss player vs AI","Gas AI vs AI","Marines AI vs AI","Two Marines","Manual base"};
-                    if(menu==Menu::catalogue)option_count=engine.options(option_page,option_rows,8);
+                    if(menu==Menu::catalogue){option_count=engine.options(option_page,option_rows,8);choice=std::min(choice,option_count?option_count-1:0u);}
                     unsigned used=0;
-                    for(unsigned i=0;i<menu_count();++i)used+=std::snprintf(help+used,sizeof help-used,"%s %s\n",i==choice?">":" ",menu==Menu::system?system[i]:menu==Menu::scenarios?modes[i]:menu==Menu::legacy?legacy[i]:option_rows[i].label);
+                    for(unsigned i=0;i<menu_count();++i)used+=std::snprintf(help+used,sizeof help-used,"%s %s\n",menu==Menu::catalogue?"":i==choice?">":" ",menu==Menu::system?system[i]:menu==Menu::scenarios?modes[i]:menu==Menu::legacy?legacy[i]:option_rows[i].label);
                 }
                 if(state.benchmark)std::snprintf(hud,sizeof hud,"%s  %us / 180s  Score %u / %u\nRed W%u A%u  Blue W%u A%u  Losses %u/%u",loaded_scenario>=10?"ALL ZERG":loaded_scenario>=8?"ALL PROTOSS":"ALL TERRAN",state.battle_seconds,state.score[0],state.score[1],state.players[0].workers,state.players[0].army,state.players[1].workers,state.players[1].army,state.players[0].lost,state.players[1].lost);
                 else if(state.observer) std::snprintf(hud,sizeof hud,"AI vs AI | Red W%u A%u B%u / Blue W%u A%u B%u\nMinerals %d/%d Gas %d/%d Losses %u/%u",
@@ -356,6 +358,7 @@ int main() {
                 }
                 C2D_TextParse(&message, text_buf, error); C2D_TextOptimize(&message);
                 C2D_TextParse(&resources, text_buf, hud); C2D_TextOptimize(&resources);
+                C2D_TextParse(&option_hint,text_buf,menu==Menu::catalogue && option_count?option_rows[choice].label:"");C2D_TextOptimize(&option_hint);
                 next_text = sample_time + 250000;
             }
             const u64 render_begin=now_us();
@@ -421,7 +424,17 @@ int main() {
             }
             C2D_TargetClear(bottom, bg); C2D_SceneBegin(bottom);
             C2D_DrawText(&diagnostics, C2D_WithColor, 8, 4, 0, 0.42f, 0.42f, white);
-            if(menu_count()) {
+            if(menu==Menu::catalogue && option_count){
+                using G=port3ds::CommandGrid;
+                C2D_DrawText(&option_hint,C2D_WithColor,136,132,0,0.32f,0.32f,white);
+                for(unsigned i=0;i<option_count;++i){
+                    const float x=G::x+(i%G::columns)*G::cell_width,y=G::y+(i/G::columns)*G::cell_height;
+                    C2D_DrawRectSolid(x,y,0,G::cell_width-1,G::cell_height-1,C2D_Color32(i==choice?35:12,i==choice?80:26,i==choice?65:30,255));
+                    graphics.ui_image(engine.command_button(),x+1,y+1,0.55f,engine);
+                    graphics.ui_image(engine.command_icon(option_rows[i].icon,option_rows[i].enabled),x+4,y+3,0.55f,engine);
+                    C2D_DrawText(&menu_rows[i],C2D_WithColor|C2D_WordWrap,x+29,y+2,0,0.28f,0.28f,option_rows[i].enabled?white:C2D_Color32(135,145,150,255),61.0f);
+                }
+            }else if(menu_count()) {
                 C2D_DrawRectSolid(136,144+choice*12,0,184,12,C2D_Color32(25,65,55,255));
                 for(unsigned i=0;i<menu_count();++i) C2D_DrawText(&menu_rows[i],C2D_WithColor,140,144+i*12,0,0.38f,0.38f,white);
             } else C2D_DrawText(&commands,C2D_WithColor,140,144,0,0.38f,0.38f,white);

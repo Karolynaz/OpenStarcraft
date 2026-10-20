@@ -18,7 +18,7 @@ r=runs[-1];active=[x for x in r if float(x['tps'])>0]
 if not active:raise ValueError('No active simulation samples')
 mean=lambda rows,k:sum(float(x[k]) for x in rows)/len(rows)
 peak=lambda k:max(float(x[k]) for x in r)
-s={'runs_in_file':len(runs),'selected_run':'last','samples':len(r),'active_samples':len(active),
+s={'runs_in_file':len(runs),'selected_run':'last','source_ids':sorted({x.get('source_id','unidentified') for x in r}),'samples':len(r),'active_samples':len(active),
    'excluded_zero_tps_samples':len(r)-len(active),'partial_samples':'retained',
    'first_frame':int(r[0]['frame']),'last_frame':int(r[-1]['frame']),'winner':int(r[-1]['winner']),
    'mean_fps':mean(active,'fps'),'mean_tps':mean(active,'tps'),

@@ -357,3 +357,60 @@ Temporary /tmp/sc3ds-ui-extract.cpp usesOpenBWGRPdecode; privatecontactsheet
 icons-remapped.pngshowscorrectgoldicons. Commoncommands228+needverifiedmapping;
 uniticonframe=unitid; research/upgrade/abilityiconsfromnativeDATiconfields.
 Do not inventiconsorgeneratefakeBlizzardassets. ExistingpurchasedMPQsprivate.
+
+
+## Final checked work in the current quota window — 2026-10-20
+
+Quota clarification: the earlier 12:45 wall-clock estimate treated the user
+message as a fresh timer. The account reports that the CURRENT five-hour window
+resets at 07:27:34 UTC / 10:27:34 Vilnius. At the planning check 89% was used.
+Do not start another window, use reset credits, or create automatic continuation.
+The old automation remains paused. No empty wake/ping loops were created.
+
+Added original command art: cmdicons.grp, native unit/tech/upgrade/order icon
+metadata, original ticon index remaps into race console PCX palettes, and small
+race button backgrounds. Catalogue is two columns/four rows with icons, costs,
+disabled state, caption and shared D-pad/touch bounds. Native shortcuts retained.
+Assets load once; incomplete loose assets retain text. The world atlas is reused
+without extra linear allocation. The UI keeps the world's current pin age.
+A focused all-390-icon pressure test models Citro2D's cached texture binding:
+old forced-first-page uploads fail; binding the uploaded page passes. Pixel
+oracle: 2,046,792 pixels, 294 catalogue mappings, 75 battle viewports/1200 UI draws,
+no overwritten queued world regions or leaked allocations. Grid/CSV/common tests,
+fog, 28 ASan reloads and Protoss/Zerg full economy regressions pass.
+
+Emulator prototypes b20267ca... and28e9c1c3... verified Zerg, Protoss and Terran
+menus. RIGHT then DOWN in Larva grid chose Hydralisk, paid75/25 and completed;
+Terran Marine paid50 and completed. Final binding candidate a68d0127... rechecked
+Larva grid. Then final source-identified release completed Zerg stress720,
+blue2050/4000, losses130/121, zero graphics/cache/missing/music/IO/DSP/CSV errors.
+Original3DS/CPU100/DSPHLE, linear7,822,336 bytes; manual-session heap peak34,069,384.
+These are emulator checks, not physical performance claims.
+
+Physical audit: returned CSV is IDENTICAL to the pre-performance-delivery CSV,
+179509 bytes, SHAa091c027100469b072bb5a95e4c8e5f1b8a5cb2d1dc56388baa90ced4c47ba91.
+It has no new render-phase headers. Do NOT attribute its old FPS to1660ed or
+current builds; no new physical performance session is established by that file.
+Added build/source_id.h generation from native source inputs, excluding assets,
+absolute paths and documentation. Marker visible in diagnostics, load journal,
+every CSV row; summarizer handles old unidentified rows. Every new row has53
+matching fields. Source marker src-ef07ed30b780ef84. Exact executable SHA
+28bf8de7a3c426230ff627dd1c53e295dff590553eb5193a7890e646383e97d8; ELF/rawlogs
+local-data/build-identity-2026-10-20/. UI prototype ELFs/logs retained separately
+under local-data/original-ui-2026-10-20/. Full Zerg economy a77c... remains there
+in its own stage, not the current executable. No source/MPQ data published.
+
+Canonical staging and emulator now source-identified28bf... release.
+Private original-command-ui-2026-10-20.zip:25 files,344078553 bytes,SHA
+b038692015b945d25f89dd9dfd40c3e277c2f99ad8e32f9a8696da094c54bc78.
+Replaces an undelivered UI prototype ZIP; its old manifest is marked retired.
+Prior Zerg/fog/cursor releases retained. PHYSICAL SD STILL39607cd... cursor
+release, unmounted; use its matching cursor ELF for physical dumps. No second
+SD write without a new insertion/request. Emulator stopped and original model
+preferences restored. Reports COMMAND_UI_VALIDATION.md, command-ui-emulator.json,
+PHYSICAL_LOG_AUDIT.md and source-identity-emulator.json.
+
+Next useful user-driven work: physical test of this release, original selection
+circles/HUD/title menus, then higher-tech/research/expansion AI and mixed races.
+Current opening AI is mirror-race only; campaign missions/movies remain separate.
+Do not continue these automatically after this window.
