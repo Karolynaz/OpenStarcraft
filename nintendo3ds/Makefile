@@ -151,3 +151,13 @@ build/fog-test: tests/fog.cpp tests/fake3ds/citro2d.h source/engine.cpp source/g
 .PHONY: test-fog
 test-fog: build/fog-test
 	ASAN_OPTIONS=detect_leaks=0 ./build/fog-test "$(ASSET_ROOT)" local-data/3ds/openbw/maps/probe.scx local-data/3ds/openbw/graphics.bin
+
+.PHONY: test-zerg-economy
+test-zerg-economy: build/protoss-economy-test
+	ASAN_OPTIONS=detect_leaks=0 ./build/protoss-economy-test "$(ASSET_ROOT)" local-data/3ds/openbw/maps/probe.scx local-data/3ds/openbw/graphics.bin local-data/3ds/openbw/audio/zerg/effects.bin zerg
+
+build/fog-memory-test: tests/fog_memory.cpp $(HEADERS) | build
+	$(HOST_CXX) $(COMMON) -O1 -g -fsanitize=address -fno-omit-frame-pointer tests/fog_memory.cpp -o $@
+.PHONY: test-fog-memory
+test-fog-memory: build/fog-memory-test
+	ASAN_OPTIONS=detect_leaks=0 ./build/fog-memory-test "$(ASSET_ROOT)" local-data/3ds/openbw/maps/probe.scx

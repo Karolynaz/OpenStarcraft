@@ -6,10 +6,10 @@
 #include "cursor.h"
 
 namespace port3ds {
-enum class Scenario { empty, two_units, melee, ai_battle, versus_ai, gas_battle, terran_battle, terran_lab, protoss_battle, protoss_lab, zerg_battle, zerg_lab, protoss_ai_battle, protoss_versus_ai };
+enum class Scenario { empty, two_units, melee, ai_battle, versus_ai, gas_battle, terran_battle, terran_lab, protoss_battle, protoss_lab, zerg_battle, zerg_lab, protoss_ai_battle, protoss_versus_ai, zerg_ai_battle, zerg_versus_ai };
 inline bool arena_scenario(Scenario s) {return s>=Scenario::terran_battle && s<=Scenario::zerg_lab;}
 inline unsigned scenario_race(Scenario s) {
-    return s==Scenario::zerg_battle || s==Scenario::zerg_lab?0:
+    return s==Scenario::zerg_battle || s==Scenario::zerg_lab || s==Scenario::zerg_ai_battle || s==Scenario::zerg_versus_ai?0:
         s==Scenario::protoss_battle || s==Scenario::protoss_lab || s==Scenario::protoss_ai_battle || s==Scenario::protoss_versus_ai?2:1;
 }
 enum class FogCell : unsigned { unexplored, explored, visible };
@@ -37,7 +37,7 @@ struct Snapshot {
     unsigned queue = 0;
     unsigned selected = 0;
     int selected_energy=0,selected_max_energy=0,work_frames=0;
-    bool selected_building=false;
+    bool selected_building=false,selected_larva=false;
     SelectionKind selection = SelectionKind::none;
     std::array<PlayerView,2> players{};
     int winner = -1;
@@ -98,6 +98,7 @@ public:
     PlacementView placement(Command building, int world_x, int world_y) const;
     std::size_t visible_units(UnitView* output, std::size_t capacity) const;
     std::size_t visible_images(SpriteView* output, std::size_t capacity, int camera_x, int camera_y) const;
+    std::size_t remembered_units(UnitView* output,std::size_t capacity) const;
     std::uint32_t frame() const;
     bool fog_enabled() const;
     void set_fog_enabled(bool enabled);

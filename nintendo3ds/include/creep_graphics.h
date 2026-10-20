@@ -4,6 +4,13 @@
 namespace port3ds {namespace detail {
 // Reserved adapter image IDs; they share the bounded sprite GPU cache.
 constexpr unsigned creep_tile_image=65500,creep_edge_image=65501;
+// OpenBW's original UI uses common variants 0..5 and rare variants 6..12.
+// CV5 entries 13..15 are unused on some tilesets and produce black squares.
+inline unsigned creep_variant(unsigned x,unsigned y){
+ uint32_t seed=(y*64+x+1)*22695477u+1;const unsigned rare=((seed>>16)&0x7fff)%100;
+ seed=seed*22695477u+1;const unsigned choice=(seed>>16)&0x7fff;
+ return rare<4?6+choice%7:choice%6;
+}
 struct CreepGraphics {
  std::array<std::array<uint16_t,1024>,16> tiles{};
  bwgame::grp_t edges;

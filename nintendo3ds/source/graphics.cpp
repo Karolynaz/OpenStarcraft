@@ -71,7 +71,9 @@ bool Graphics::load(const char* path, unsigned signature) {
         }
         for(auto& texture:fog_texture_){
             if(!C3D_TexInit(&texture,64,64,GPU_RGBA4))throw std::runtime_error("Not enough linear RAM for fog mask");
-            C3D_TexSetFilter(&texture,GPU_NEAREST,GPU_NEAREST);C3D_TexSetWrap(&texture,GPU_CLAMP_TO_EDGE,GPU_CLAMP_TO_EDGE);
+            // Tile-center samples interpolate on the GPU, softening the vision
+            // boundary without a larger texture or a per-screen CPU mask.
+            C3D_TexSetFilter(&texture,GPU_LINEAR,GPU_LINEAR);C3D_TexSetWrap(&texture,GPU_CLAMP_TO_EDGE,GPU_CLAMP_TO_EDGE);
         }
         loaded_=true; std::snprintf(error_,sizeof error_,"Terrain %u pages + bounded GRP cache",terrain_pages_); return true;
     } catch(const std::exception& e) {

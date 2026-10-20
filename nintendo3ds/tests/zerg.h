@@ -17,9 +17,9 @@ inline void zerg_tests(const char* data,const char* arena,const std::function<vo
  auto select=[&](UnitTypes type){auto u=locate(type);return e.select(u.x,u.y);};
  require(e.load(data,arena,Scenario::zerg_lab),"load lab");tick(500);
  require(select(UnitTypes::Zerg_Hatchery) && e.perform(option_code(OptionKind::larvae)),"select native connected larva");
- require(e.snapshot().selected_name==std::string("Larva"),"Larva selection reflected in UI");
+ require(e.snapshot().selected_larva && e.snapshot().selected_name==std::string("Larva"),"Larva selection reflected in UI");
  MenuOption options[8];require(e.options(OptionPage::primary,options,8)==8,"first eight Larva morphs");
- require(e.options(OptionPage::secondary,options,8)>=1 && (options[0].code&65535)==unsigned(UnitTypes::Zerg_Ultralisk),"ninth Larva product available on L+Y");
+ require(e.options(OptionPage::secondary,options,8)==1 && (options[0].code&65535)==unsigned(UnitTypes::Zerg_Ultralisk),"ninth Larva product available on L+Y");
  // Native research is needed before Hydralisk -> Lurker morph.
  require(select(UnitTypes::Zerg_Hydralisk_Den) && e.perform(option_code(OptionKind::research,unsigned(TechTypes::Lurker_Aspect))),"Lurker Aspect accepted");
  for(unsigned i=0;i<5000 && !e.researched(unsigned(TechTypes::Lurker_Aspect));++i)tick(1);require(e.researched(unsigned(TechTypes::Lurker_Aspect)),"Lurker Aspect complete");

@@ -23,6 +23,10 @@ int main(int argc,char** argv){
   if(argc==4){
    reload(Scenario::protoss_ai_battle,argv[3]);
    if(!engine.snapshot().observer || !engine.snapshot().players[0].ai)throw std::runtime_error("Protoss observer flags");
+   reload(Scenario::zerg_ai_battle,argv[3]);
+   if(!engine.snapshot().observer || scenario_race(Scenario::zerg_ai_battle)!=0 || arena_scenario(Scenario::zerg_ai_battle))throw std::runtime_error("Zerg economy classification");
+   reload(Scenario::zerg_versus_ai,argv[3]);
+   if(!engine.fog_enabled() || engine.snapshot().players[0].ai || !engine.snapshot().players[1].ai)throw std::runtime_error("Zerg manual ownership / fog after reload");
    reload(Scenario::zerg_lab,argv[2]);
    reload(Scenario::protoss_versus_ai,argv[3]);
    const auto s=engine.snapshot();if(s.observer || s.players[0].ai || !s.players[1].ai)throw std::runtime_error("Manual Protoss ownership after reload");

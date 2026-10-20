@@ -1,0 +1,75 @@
+{
+  "runs_in_file": 19,
+  "selected_run": "last",
+  "samples": 566,
+  "active_samples": 491,
+  "excluded_zero_tps_samples": 75,
+  "partial_samples": "retained",
+  "first_frame": 24,
+  "last_frame": 11796,
+  "winner": 0,
+  "mean_fps": 59.83272912423625,
+  "mean_tps": 23.95409368635438,
+  "peak_units": 106,
+  "max_tick_us": 4447.0,
+  "peak_heap_bytes": 31977400,
+  "peak_linear_bytes": 7822336,
+  "max_backlog": 0,
+  "missing_sprites": 0,
+  "combat_from_frame5000": {
+    "samples": 284,
+    "mean_fps": 59.83109154929577,
+    "mean_tps": 23.923204225352116
+  },
+  "max_previous_csv_flush_us": 1000.0,
+  "gas": {
+    "red_gas": 159,
+    "blue_gas": 183
+  },
+  "audio": {
+    "all_samples_ready": true,
+    "sfx_played": 1166,
+    "sfx_culled": 2609,
+    "sfx_missing": 0,
+    "sfx_voice_drops": 474,
+    "event_drops": 0,
+    "music_buffers": 1326,
+    "music_underruns": 0,
+    "audio_io_errors": 0,
+    "dsp_drops": 0,
+    "tracks_seen": [
+      1,
+      2
+    ]
+  },
+  "battle": {
+    "battle_seconds": 0,
+    "red_score": 0,
+    "blue_score": 0,
+    "end_reason": 0
+  },
+  "cache": {
+    "cache_misses": 10856,
+    "cache_overflows": 0,
+    "upload_pixels": 14185406
+  },
+  "csv": {
+    "csv_dropped": 0,
+    "csv_errors": 0
+  },
+  "rendering_mean_us": {
+    "render_cpu_us": 2451.471690427699,
+    "frame_wait_us": 12812.933604887985,
+    "sprite_collect_us": 216.2623217922607,
+    "sprite_draw_us": 637.4904276985743,
+    "frame_end_us": 307.2262729124236,
+    "gpu_us": 500.4651731160896
+  },
+  "executable_sha256": "a77c505872d33dab61c9e58f77d3b432ae7ddbf85c50775466796c7952638681",
+  "environment": {
+    "model": "original 3DS",
+    "cpu_percent": 100,
+    "dsp": "HLE",
+    "physical_console": false
+  }
+}

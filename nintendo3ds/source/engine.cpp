@@ -4,6 +4,7 @@
 #include "battle_ai.h"
 #include "terran_battle.h"
 #include "creep_graphics.h"
+#include "fog_memory.h"
 #include <cstdio>
 #include <cstring>
 #include <stdexcept>
@@ -18,10 +19,16 @@ bool player_sees(const state_functions& f,const unit_t* unit) {
 struct Engine::Impl {
     struct SoundFunctions : state_functions {
         std::array<SoundEvent,256> events{};
-        unsigned count=0, dropped=0;
+        unsigned count=0, dropped=0;bool fog=false;
         explicit SoundFunctions(state& st) : state_functions(st) {}
-        void play_sound(int id, xy pos, const unit_t*, bool race) override {
-            if(id<0) return;
+        void play_sound(int id, xy pos, const unit_t* source,bool race) override {
+            if(id<0)return;
+            // Frozen fog memories are silent. Global UI sounds have no map
+            // position; native local effects require current player sight.
+            if(fog){
+                if(source){if(source->owner!=0 && (!source->sprite || !(source->sprite->visibility_flags&1)))return;}
+                else if(pos.x>0 && pos.y>0 && pos.x<int(st.game->map_width) && pos.y<int(st.game->map_height) && !player_position_is_visible(0,pos))return;
+            }
             if(count==events.size()) { ++dropped; return; }
             events[count++]={static_cast<unsigned>(id+(race?int(st.players[0].race):0)),static_cast<int>(pos.x),static_cast<int>(pos.y)};
         }
@@ -32,6 +39,7 @@ struct Engine::Impl {
     bool loaded = false,fog=false;
     static_vector<unit_id_32,192> selected;
     std::array<static_vector<unit_id_32,192>,4> groups;
+    detail::FogMemory memory;
     detail::BattleAI ai;
     detail::TerranBattle battle;
     std::unique_ptr<detail::CreepGraphics> creep;
@@ -101,13 +109,14 @@ Engine::Engine() : impl_(new Impl) {}
 Engine::~Engine() = default;
 bool Engine::load(const char* data_root, const char* map_path, Scenario scenario) {
     impl_->loaded = false;
-    impl_->fog=scenario==Scenario::melee || scenario==Scenario::versus_ai || scenario==Scenario::protoss_versus_ai;
+    impl_->fog=scenario==Scenario::melee || scenario==Scenario::versus_ai || scenario==Scenario::protoss_versus_ai || scenario==Scenario::zerg_versus_ai;
     impl_->battle.reset(scenario==Scenario::terran_battle || scenario==Scenario::protoss_battle || scenario==Scenario::zerg_battle,scenario_race(scenario));
     impl_->selected.clear();
+    impl_->memory.reset();
     for (auto& g:impl_->groups) g.clear();
-    impl_->ai.reset(scenario==Scenario::ai_battle || scenario==Scenario::gas_battle || scenario==Scenario::protoss_ai_battle,
-        scenario==Scenario::ai_battle || scenario==Scenario::versus_ai || scenario==Scenario::gas_battle || scenario==Scenario::protoss_ai_battle || scenario==Scenario::protoss_versus_ai,
-        scenario==Scenario::gas_battle || scenario==Scenario::protoss_ai_battle || scenario==Scenario::protoss_versus_ai,scenario_race(scenario)==2);
+    impl_->ai.reset(scenario==Scenario::ai_battle || scenario==Scenario::gas_battle || scenario==Scenario::protoss_ai_battle || scenario==Scenario::zerg_ai_battle,
+        scenario==Scenario::ai_battle || scenario==Scenario::versus_ai || scenario==Scenario::gas_battle || scenario==Scenario::protoss_ai_battle || scenario==Scenario::protoss_versus_ai || scenario==Scenario::zerg_ai_battle || scenario==Scenario::zerg_versus_ai,
+        scenario==Scenario::gas_battle || scenario==Scenario::protoss_ai_battle || scenario==Scenario::protoss_versus_ai || scenario==Scenario::zerg_ai_battle || scenario==Scenario::zerg_versus_ai,scenario_race(scenario)==2,scenario_race(scenario)==0);
     impl_->sound.reset();
     impl_->creep.reset();
     impl_->player.reset();
@@ -140,7 +149,7 @@ bool Engine::load(const char* data_root, const char* map_path, Scenario scenario
         }
         game_load_functions loader(player.st());
         loader.load_map_data(chk.data(), chk.size(), [&]() {
-            const bool melee=scenario==Scenario::melee || scenario==Scenario::ai_battle || scenario==Scenario::versus_ai || scenario==Scenario::gas_battle || scenario==Scenario::protoss_ai_battle || scenario==Scenario::protoss_versus_ai;
+            const bool melee=scenario==Scenario::melee || scenario==Scenario::ai_battle || scenario==Scenario::versus_ai || scenario==Scenario::gas_battle || scenario==Scenario::protoss_ai_battle || scenario==Scenario::protoss_versus_ai || scenario==Scenario::zerg_ai_battle || scenario==Scenario::zerg_versus_ai;
             loader.setup_info.create_no_units = !melee;
             loader.setup_info.victory_condition = 0;
             loader.setup_info.resource_type = 1;
@@ -152,17 +161,17 @@ bool Engine::load(const char* data_root, const char* map_path, Scenario scenario
                 loader.setup_info.create_melee_units_for_player[i] = i < 2 && melee;
             }
         });
-        // Both slots are human/idle: this probe does not claim a functioning AI.
+        // The deterministic controller runs after loading; native player slots stay human.
         if (scenario == Scenario::two_units) {
             auto* type = loader.get_unit_type(UnitTypes::Terran_Marine);
             if (!loader.create_initial_unit(type, {128, 128}, 0) ||
                 !loader.create_initial_unit(type, {512, 128}, 1))
                 throw std::runtime_error("Could not place the two probe units");
         }
-        if(scenario==Scenario::ai_battle || scenario==Scenario::versus_ai || scenario==Scenario::gas_battle || scenario==Scenario::protoss_ai_battle || scenario==Scenario::protoss_versus_ai) {
+        if(scenario==Scenario::ai_battle || scenario==Scenario::versus_ai || scenario==Scenario::gas_battle || scenario==Scenario::protoss_ai_battle || scenario==Scenario::protoss_versus_ai || scenario==Scenario::zerg_ai_battle || scenario==Scenario::zerg_versus_ai) {
             unit_t* bases[2]={nullptr,nullptr};
             for(unsigned p=0;p!=2;++p) for(auto* u:ptr(player.st().player_units[p]))
-                if(loader.unit_is(u,scenario_race(scenario)==2?UnitTypes::Protoss_Nexus:UnitTypes::Terran_Command_Center)) bases[p]=u;
+                if(loader.unit_is(u,scenario_race(scenario)==0?UnitTypes::Zerg_Hatchery:scenario_race(scenario)==2?UnitTypes::Protoss_Nexus:UnitTypes::Terran_Command_Center)) bases[p]=u;
             if(!bases[0] || !bases[1] || !loader.is_reachable(bases[0],bases[1]))
                 throw std::runtime_error("AI ground battle needs connected start locations");
         }
@@ -219,6 +228,7 @@ bool Engine::load(const char* data_root, const char* map_path, Scenario scenario
         else {auto files=data_loading::data_files_directory(root);load_cursors(files);}
         if(scenario_race(scenario)==0){impl_->creep.reset(new detail::CreepGraphics);impl_->creep->load(player.st(),terrain,impl_->palette,load_asset);}
         impl_->sound.reset(new Impl::SoundFunctions(player.st()));
+        impl_->sound->fog=impl_->fog;
         impl_->loaded = true;
         std::snprintf(impl_->message, sizeof impl_->message, "Loaded %ux%u tiles", width, height);
         return true;
@@ -234,6 +244,7 @@ bool Engine::tick() {
         impl_->sound->next_frame();
         impl_->ai.step(*impl_->player);
         impl_->battle.step(*impl_->player);
+        if(impl_->fog)impl_->memory.update(impl_->player->funcs());
         return true;
     } catch (const std::exception& e) {
         std::snprintf(impl_->message, sizeof impl_->message, "%s", e.what());
@@ -262,7 +273,7 @@ Snapshot Engine::snapshot() const {
     s.supply_max = std::min(200,st.supply_available[0][race].integer_part());
     const auto& funcs = impl_->player->funcs();
     if (const auto* u = impl_->first_selected()) {
-        s.selected_name = unit_name(u);s.selected_building=funcs.ut_building(u);
+        s.selected_name = unit_name(u);s.selected_building=funcs.ut_building(u);s.selected_larva=funcs.unit_is(u,UnitTypes::Zerg_Larva);
         s.selected_shields=u->shield_points.integer_part();s.selected_max_shields=u->unit_type->shield_points;
         s.selected_hp = u->hp.integer_part(); s.selected_max_hp = u->unit_type->hitpoints.integer_part();
         s.queue = u->build_queue.size();
@@ -361,7 +372,7 @@ bool Engine::store_group(unsigned slot) {
     impl_->groups[slot].clear();
     const auto& f=impl_->player->funcs();
     for(auto id:impl_->selected) if(auto* u=f.get_unit(id))
-        if(!f.unit_dead(u)) impl_->groups[slot].push_back(id);
+        if(!f.unit_dead(u) && (!impl_->fog || player_sees(f,u))) impl_->groups[slot].push_back(id);
     return !impl_->groups[slot].empty();
 }
 bool Engine::recall_group(unsigned slot,int* x,int* y) {
@@ -375,7 +386,7 @@ bool Engine::recall_group(unsigned slot,int* x,int* y) {
         retained.push_back(id);
         // Entering a refinery is temporary. Keep this live bookmark while the
         // worker is hidden, but do not select or command an unavailable unit.
-        if(f.us_hidden(u)) continue;
+        if(f.us_hidden(u) || (impl_->fog && !player_sees(f,u))) continue;
         impl_->selected.push_back(id); sx+=u->sprite->position.x; sy+=u->sprite->position.y;
     }
     impl_->groups[slot]=retained;
@@ -389,9 +400,9 @@ bool Engine::observer_focus(int& x,int& y) const {
     const auto& st=impl_->player->st(); const auto& f=impl_->player->funcs();
     const unit_t* moving=nullptr;
     for(unsigned p=0;p!=2;++p) for(const auto* u:ptr(st.player_units[p])) {
-        if(f.unit_dead(u) || f.ut_building(u) || f.ut_worker(u) || f.ut_turret(u) || f.us_hidden(u))continue;
+        if(f.unit_dead(u) || f.ut_building(u) || f.ut_worker(u) || f.ut_turret(u) || f.us_hidden(u) || (impl_->fog && !player_sees(f,u)))continue;
         const auto* target=u->order_target.unit;
-        if(target && target->owner<2 && target->owner!=p && !f.unit_dead(target)) {
+        if(target && target->owner<2 && target->owner!=p && !f.unit_dead(target) && (!impl_->fog || player_sees(f,target))) {
             x=(u->sprite->position.x+target->sprite->position.x)/2;
             y=(u->sprite->position.y+target->sprite->position.y)/2; return true;
         }
@@ -399,7 +410,7 @@ bool Engine::observer_focus(int& x,int& y) const {
     }
     if(moving) { x=moving->sprite->position.x; y=moving->sprite->position.y; return true; }
     const unsigned side=(st.current_frame/360)%2;
-    for(const auto* u:ptr(st.player_units[side])) if(!f.unit_dead(u) && f.ut_building(u)) {
+    for(const auto* u:ptr(st.player_units[side])) if(!f.unit_dead(u) && f.ut_building(u) && (!impl_->fog || player_sees(f,u))) {
         x=u->sprite->position.x; y=u->sprite->position.y; return true;
     }
     return false;
@@ -415,14 +426,18 @@ PlacementView Engine::placement_unit(unsigned id,int x,int y) const {
     const auto* u=impl_->first_selected();
     if(f.unit_is_refinery(type)) {
         bool found=false;
-        for(auto* g:ptr(impl_->player->st().visible_units))if(f.unit_is(g,UnitTypes::Resource_Vespene_Geyser) && !f.unit_dead(g)) {
+        for(auto* g:ptr(impl_->player->st().visible_units))if(f.unit_is(g,UnitTypes::Resource_Vespene_Geyser) && !f.unit_dead(g) && (!impl_->fog || player_sees(f,g))) {
             auto p=g->sprite->position;if(std::abs(x-p.x)<=64 && std::abs(y-p.y)<=48) {view.x=p.x-view.width/2;view.y=p.y-view.height/2;found=true;break;}
+        }
+        if(!found && impl_->fog){
+            UnitView remembered[64];const auto n=impl_->memory.markers(remembered,64);
+            for(std::size_t i=0;i<n;++i)if(remembered[i].type==unsigned(UnitTypes::Resource_Vespene_Geyser) && std::abs(x-remembered[i].x)<=64 && std::abs(y-remembered[i].y)<=48){view.x=remembered[i].x-view.width/2;view.y=remembered[i].y-view.height/2;found=true;break;}
         }
         if(!found)return view;
     }
     view.valid=!impl_->ai.enabled(0) && !impl_->battle.enabled() && u && u->owner==0 && !f.unit_dead(u) &&
         ((f.unit_is_nydus(u) && f.unit_is(type,UnitTypes::Zerg_Nydus_Canal) && !u->building.nydus.exit && f.u_completed(u)) || (f.unit_can_build(u,type) && f.has_available_resources_for(0,type))) && x>=view.width/2 && y>=view.height/2 &&
-        f.can_place_building(u,0,type,{view.x+view.width/2,view.y+view.height/2},true,true);
+        f.can_place_building(u,0,type,{view.x+view.width/2,view.y+view.height/2},!impl_->fog,!impl_->fog);
     return view;
 }
 PlacementView Engine::placement(Command kind,int x,int y) const {
@@ -557,9 +572,10 @@ unsigned Engine::options(OptionPage page,MenuOption* output,unsigned capacity) c
         const unsigned index=product_index++;if((page==OptionPage::primary)!=(index<8))return;
         const auto* t=f.get_unit_type(b.type);add(b.name,OptionKind::morph,unsigned(b.type),false,f.unit_can_build(u,t) && f.has_available_resources_for(0,t) && f.has_available_supply_for(0,t),t->mineral_cost,t->gas_cost);
     });
+    if(f.unit_is(u,UnitTypes::Zerg_Larva))return n;
     if(f.ut_can_burrow(u))add(f.u_burrowed(u)?"Unburrow":"Burrow",OptionKind::burrow,0,false,f.unit_can_use_tech(u,f.get_tech_type(TechTypes::Burrowing)));
     auto ability=[&](const char* name,Orders order,TechTypes tech) {
-        const auto* type=f.get_tech_type(tech);char label[64];std::snprintf(label,sizeof label,"%s (%u energy)",name,unsigned(type->energy_cost));
+        const auto* type=f.get_tech_type(tech);char label[64];if(type->energy_cost)std::snprintf(label,sizeof label,"%s (%u energy)",name,unsigned(type->energy_cost));else if(tech==TechTypes::Spider_Mines)std::snprintf(label,sizeof label,"%s (%u left)",name,unsigned(f.unit_spider_mine_count(u)));else std::snprintf(label,sizeof label,"%s",name);
         bool enabled=false;
         for(auto id:impl_->selected)if(const auto* caster=f.get_unit(id))if(caster->owner==0 && caster->unit_type==u->unit_type && !f.unit_dead(caster) && f.unit_can_use_tech(caster,type) && caster->energy>=fp8::integer(type->energy_cost))enabled=true;
         add(label,OptionKind::order,unsigned(order),true,enabled);
@@ -744,7 +760,8 @@ std::uint32_t Engine::terrain_signature() const {
 }
 std::uint32_t Engine::frame() const {return ready()?impl_->player->st().current_frame:0;}
 bool Engine::fog_enabled() const {return ready() && impl_->fog;}
-void Engine::set_fog_enabled(bool enabled) {impl_->fog=enabled;}
+void Engine::set_fog_enabled(bool enabled) {impl_->fog=enabled;if(impl_->sound)impl_->sound->fog=enabled;if(enabled && ready())impl_->memory.update(impl_->player->funcs());}
+std::size_t Engine::remembered_units(UnitView* output,std::size_t capacity)const {return fog_enabled()?impl_->memory.markers(output,capacity):0;}
 FogCell Engine::fog_cell(unsigned x,unsigned y) const {
     if(!ready())return FogCell::unexplored;
     const auto& st=impl_->player->st();if(x>=st.game->map_tile_width || y>=st.game->map_tile_height)return FogCell::unexplored;
@@ -821,10 +838,10 @@ std::size_t Engine::visible_images(SpriteView* output, std::size_t capacity, int
     if(impl_->creep){
         const int w=st.game->map_tile_width,h=st.game->map_tile_height;
         const xy dirs[]={{1,1},{0,1},{-1,1},{1,0},{-1,0},{1,-1},{0,-1},{-1,-1}};
-        auto has=[&](int x,int y){return x>=0 && y>=0 && x<w && y<h && (st.tiles[x+y*w].flags&tile_t::flag_has_creep);};
+        auto has=[&](int x,int y){return x>=0 && y>=0 && x<w && y<h && (impl_->fog?impl_->memory.creep(x,y):(st.tiles[x+y*w].flags&tile_t::flag_has_creep));};
         for(int y=std::max(0,cy/32);y<std::min(h,(cy+271)/32);++y)for(int x=std::max(0,cx/32);x<std::min(w,(cx+431)/32);++x){
-            if(n==capacity || (impl_->fog && fog_cell(x,y)!=FogCell::visible))continue;
-            if(has(x,y))output[n++]={x*32,y*32,detail::creep_tile_image,unsigned((x*13+y*7)&15),11,false,false,0,255};
+            if(n==capacity || (impl_->fog && fog_cell(x,y)==FogCell::unexplored))continue;
+            if(has(x,y))output[n++]={x*32,y*32,detail::creep_tile_image,detail::creep_variant(x,y),11,false,false,0,255};
             else{unsigned mask=0;for(unsigned d=0;d<8;++d)if(has(x+dirs[d].x,y+dirs[d].y))mask|=1<<d;
                 const unsigned frame=impl_->creep->edge_frames[mask];if(frame && frame<=impl_->creep->edges.frames.size()){const auto& r=impl_->creep->edges.frames[frame-1];output[n++]={x*32+int(r.offset.x),y*32+int(r.offset.y),detail::creep_edge_image,frame-1,11,false,false,0,255};}
             }
@@ -865,6 +882,7 @@ std::size_t Engine::visible_images(SpriteView* output, std::size_t capacity, int
                            ((img.modifier>=2 && img.modifier<=7) || (sprite.flags&sprite_t::flag_burrowed))?112u:img.modifier==12?96u:trail?128u:img.modifier==9?(glow?255u:128u):255u,glow};
         }
     }
+    if(impl_->fog && n<capacity)n+=impl_->memory.images(output+n,capacity-n,cx,cy,funcs);
     std::sort(output, output + n, [](const SpriteView& a, const SpriteView& b) { return a.order < b.order; });
     return n;
 }

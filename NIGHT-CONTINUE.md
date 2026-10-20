@@ -304,3 +304,56 @@ cursor release from earlier delivery. Do not use fogELF for that card's dumps.
 SD was safely unmounted; no secondwrite during user testing. Await next SD
 insertion/request for newfog release. Earlier cursor/effects/economy ZIPs retained.
 One-time Oct19 automation was paused on its stale Oct20 trigger; do not restart.
+
+
+## 2026-10-20 user-authorized five-hour work session (no automatic extension)
+
+Started 04:45:13 UTC / 07:45:13 Vilnius; requested window ends 09:45:13 UTC /
+12:45:13 Vilnius. User explicitly says no automatic continuation afterward.
+Old automation remains PAUSED. Work in this turn without adding automations.
+
+Completed Zerg economy modes 14/15 on ordinary map, existing Zerg bank: native
+Hatchery/four Drones/one Overlord/50 minerals, Larva morphs, Overlords, Pool,
+Extractor, Den, paired Zerglings/Hydralisks and bounded 40-object opening AI.
+Host full match frame12049 including240 post-victory frames, peak106, red winner,
+losses23/46. Original3DS CPU100 DSP HLE emulator matches winner/losses at11796,
+491 active samples59.8327FPS/23.9541TPS, heap31,977,400 / linear7,822,336 bytes,
+zero backlog/cache/missing/music/IO/DSP/CSV errors; 474 intentional effect-voice
+budget declines. Full-match executablea77c5058... and matchingELF/rawlogs at
+local-data/zerg-economy-2026-10-20/. Protoss/Terran AI outcomes unchanged.
+
+Added bounded last-seen building/resource images and minimap markers (64x16
+layers), 4096-byte creep memory, no native pointers. Unseen death keepsmemory;
+revisiting empty footprint removesit. Mobile enemies/hover/currentHPstayhidden.
+Observer bookmarkrecall and autocamera respectfog; placement preview avoids
+hiddenobstacleknowledge. Local soundssightfiltered. Fog hardwarelinearfilter
+softens32px boundariesusingexistingmasktextures. Correctedblackcreep squares:
+validCV5 variants0..12, common0..5/rare6..12 peroriginalOpenBWUI insteadall16.
+LarvaYnowopensproductionmenu;L+Yremaining9thchoice,notgenericarmyorders.
+Mineslabelremainingcharges. Allracecatalogues/stressscoresunchanged,75complete
+cachecompositionviewports/cursors,28reloadASan,fog/scout/radar/bookmark tests pass.
+NativeARMv6K/VFPv2/noThumb2orNEON,36/8MiB unchanged. Manualoriginal3DSemulator
+verifiescreepfix,FogON/OFF,Hatchery→LarvaY8choices,paidfifthDroneproduction.
+A manuallongscoutattemptaimedatimpassablebottommapedge,notanenginefailure:
+hostnativecontextscoutofthenewpaidDronecorrectlymoves(1755,1882)→(1571,1453)
+in120frames towardactualenemybase(288,1808). OriginalspawnsareBOTTOM corners.
+
+Final executable3b97834496dc71eda0353c8240681acd7923446b4e0ac4e38cd8ed80c4003221,
+ELF/rawlogs local-data/fog-memory-2026-10-20/. Localprivatepackage
+zerg-economy-fog-memory-2026-10-20.zip:25files,344072362bytes,SHA
+80a756f2462e33ea497da6daecae2d459fbbfeb9367c453f0b38b6fc76032b0b.
+Canonicalstagingandemulatorhave3b978...; physicalSDSTILL39607cd...cursorrelease,
+unmounted,no newinsertion/uploadrequest. Do not usecurrentELFforphysicaldumps.
+Emulatorexited/stopped/preferencesrestored. ReportsZERG_ECONOMY_VALIDATION.md,
+FOG_MEMORY_VALIDATION.md,zerg-economy-emulator.json.
+
+Next withinwindow: originalcommandiconsandbetterbottomcatalogue. Inspected
+privateoriginalsunderlocal-data/original-ui-2026-10-20/: unit/cmdbtns/cmdicons.grp
+390frames,36x34canvas; unit/cmdbtns/ticon.pcx96x1indexremap,NOTitsmagentaPCXpalette.
+CorrecticoncolorsremapGRPindices0..15throughfirst16ticonpixelsintoconsolePCX
+palette. Second16aregray/disabled. game/tconsole.pcx,pconsole,zconsole are
+640x480originalHUDpanels. glue/palmm/backgnd.pcxandrez/gluMain.binexist.
+Temporary /tmp/sc3ds-ui-extract.cpp usesOpenBWGRPdecode; privatecontactsheet
+icons-remapped.pngshowscorrectgoldicons. Commoncommands228+needverifiedmapping;
+uniticonframe=unitid; research/upgrade/abilityiconsfromnativeDATiconfields.
+Do not inventiconsorgeneratefakeBlizzardassets. ExistingpurchasedMPQsprivate.

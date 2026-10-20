@@ -6,7 +6,7 @@ struct C3D_Tex{void* data=nullptr;};
 struct Tex3DS_SubTexture{u16 width,height;float left,top,right,bottom;};
 struct C2D_Image{C3D_Tex* tex;Tex3DS_SubTexture* subtex;};
 struct C2D_ImageTint{unsigned color=0;float blend=0;};
-enum{GPU_RGBA5551,GPU_RGBA4,GPU_NEAREST,GPU_CLAMP_TO_EDGE,GPU_GREATER,GPU_GEQUAL,GPU_ALWAYS,GPU_WRITE_ALL,GPU_WRITE_COLOR,GPU_BLEND_ADD,GPU_SRC_ALPHA,GPU_ONE,GPU_ONE_MINUS_SRC_ALPHA};
+enum{GPU_RGBA5551,GPU_RGBA4,GPU_NEAREST,GPU_LINEAR,GPU_CLAMP_TO_EDGE,GPU_GREATER,GPU_GEQUAL,GPU_ALWAYS,GPU_WRITE_ALL,GPU_WRITE_COLOR,GPU_BLEND_ADD,GPU_SRC_ALPHA,GPU_ONE,GPU_ONE_MINUS_SRC_ALPHA};
 namespace fake {struct DepthState{bool enabled=false,alpha=false,additive=false;unsigned write=GPU_WRITE_COLOR;};inline DepthState& depth_state(){static DepthState s;return s;}struct Draw{C3D_Tex* tex;Tex3DS_SubTexture sub;float x,y,depth,sx,sy;unsigned tint;float blend;bool depth_test,alpha_test;unsigned depth_write;bool additive;};extern std::vector<Draw> draws;}
 inline unsigned linearSpaceFree(){return 4*1024*1024-fake::allocations.load()*512*1024;}
 inline bool C3D_TexInit(C3D_Tex* t,unsigned w,unsigned h,unsigned){t->data=linearAlloc(w*h*2);return t->data;}

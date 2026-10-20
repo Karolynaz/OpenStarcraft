@@ -43,8 +43,8 @@ void load_stage(unsigned scenario,const char* stage,const char* detail="") {
     std::fclose(f);
 }
 const char* scenario_name(unsigned s) {
-    static const char* names[] = {"Empty map", "Two marines", "Manual base", "AI vs AI", "Player vs AI", "Gas AI vs AI", "All Terran battle", "Terran laboratory", "All Protoss battle", "Protoss laboratory", "All Zerg battle", "Zerg laboratory", "Protoss AI vs AI", "Protoss player vs AI"};
-    return names[s % 14];
+    static const char* names[] = {"Empty map", "Two marines", "Manual base", "AI vs AI", "Player vs AI", "Gas AI vs AI", "All Terran battle", "Terran laboratory", "All Protoss battle", "Protoss laboratory", "All Zerg battle", "Zerg laboratory", "Protoss AI vs AI", "Protoss player vs AI", "Zerg AI vs AI", "Zerg player vs AI"};
+    return names[s % 16];
 }
 }
 
@@ -173,7 +173,7 @@ int main() {
             auto command=[&](port3ds::Command c) {
                 engine.command(c,controls.world_x(),controls.world_y()); action=engine.command_status();
             };
-            auto menu_count=[&]() -> unsigned {return menu==Menu::system?6:menu==Menu::scenarios?8:menu==Menu::legacy?6:menu==Menu::catalogue?option_count:0;};
+            auto menu_count=[&]() -> unsigned {return menu==Menu::system?6:menu==Menu::scenarios?8:menu==Menu::legacy?8:menu==Menu::catalogue?option_count:0;};
             auto open_options=[&](port3ds::OptionPage page) {
                 option_page=page;option_count=engine.options(page,option_rows,8);choice=0;
                 menu=option_count?Menu::catalogue:Menu::none;
@@ -199,7 +199,7 @@ int main() {
                 } else if(menu==Menu::scenarios) {
                     if(choice==7){menu=Menu::legacy;choice=0;return;}
                     static const unsigned modes[]={10,11,8,9,6,7,4};scenario=modes[choice];pending_load=true;action="Loading scenario and graphics...";
-                } else if(menu==Menu::legacy){static const unsigned modes[]={12,13,5,3,1,2};scenario=modes[choice];pending_load=true;action="Loading skirmish...";} else if(menu==Menu::catalogue) {use_option(option_rows[choice]);return;}
+                } else if(menu==Menu::legacy){static const unsigned modes[]={14,15,12,13,5,3,1,2};scenario=modes[choice];pending_load=true;action="Loading skirmish...";} else if(menu==Menu::catalogue) {use_option(option_rows[choice]);return;}
                 menu=Menu::none;
             };
             port3ds::InputFrame frame;
@@ -226,7 +226,7 @@ int main() {
                     const auto selected=engine.snapshot();
                     if(!selected.selected_building){
                         option_count=engine.options(port3ds::OptionPage::primary,option_rows,8);
-                        const int shortcut=port3ds::ability_shortcut(option_count,event.action==I::secondary);
+                        const int shortcut=port3ds::ability_shortcut(option_count,event.action==I::secondary,selected.selected_larva);
                         if(shortcut>=0)use_option(option_rows[shortcut]);
                         else open_options(event.action==I::primary?port3ds::OptionPage::primary:port3ds::OptionPage::secondary);
                     }else {
@@ -331,7 +331,7 @@ int main() {
                 else {
                     const char* system[]={"Scenarios",auto_camera?"Auto camera: ON":"Auto camera: OFF",log?"CSV: ON":"CSV: OFF","Reload current",engine.fog_enabled()?"Fog: ON (player)":"Fog: OFF (observer)","Exit"};
                     const char* modes[]={"All Zerg battle","Zerg laboratory","All Protoss battle","Protoss laboratory","All Terran battle","Terran laboratory","Player vs AI","More scenarios..."};
-                    const char* legacy[]={"Protoss AI vs AI","Protoss player vs AI","Gas AI vs AI","Marines AI vs AI","Two Marines","Manual base"};
+                    const char* legacy[]={"Zerg AI vs AI","Zerg player vs AI","Protoss AI vs AI","Protoss player vs AI","Gas AI vs AI","Marines AI vs AI","Two Marines","Manual base"};
                     if(menu==Menu::catalogue)option_count=engine.options(option_page,option_rows,8);
                     unsigned used=0;
                     for(unsigned i=0;i<menu_count();++i)used+=std::snprintf(help+used,sizeof help-used,"%s %s\n",i==choice?">":" ",menu==Menu::system?system[i]:menu==Menu::scenarios?modes[i]:menu==Menu::legacy?legacy[i]:option_rows[i].label);
@@ -435,6 +435,8 @@ int main() {
                     C2D_Color32(100,150,255,255):C2D_Color32(155,170,180,255);
                 C2D_DrawRectSolid(C::minimap_x + units[i].x * sx, C::minimap_y + units[i].y * sy, 0, 2, 2,color);
             }
+            port3ds::UnitView memories[64];const auto remembered=engine.remembered_units(memories,64);
+            for(std::size_t i=0;i<remembered;++i)C2D_DrawRectSolid(C::minimap_x+memories[i].x*sx,C::minimap_y+memories[i].y*sy,0,2,2,memories[i].owner==1?C2D_Color32(100,150,255,255):C2D_Color32(155,170,180,255));
             graphics.fog_minimap(engine,C::minimap_x,C::minimap_y,C::minimap_w,C::minimap_h);
             const float mx = C::minimap_x + controls.camera_x * sx, my = C::minimap_y + controls.camera_y * sy;
             C2D_DrawLine(mx, my, green, mx + 400 * sx, my, green, 1, 0);
