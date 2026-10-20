@@ -6,6 +6,7 @@
 #include "scheduler.h"
 #include "frame_pacer.h"
 #include "input.h"
+#include "ability_controls.h"
 #include "audio.h"
 #include "csv_log.h"
 #include <cstdio>
@@ -83,6 +84,7 @@ int main() {
         bool pending_load = false;
         bool placing = false;
         unsigned placing_code=0, target_code=0;
+        char target_help[128]{};
         auto shown_cursor=port3ds::CursorKind::arrow;u64 cursor_since=now_us();
         u64 previous = now_us(), interval = previous, next_text = 0;
         unsigned renders = 0, ticks = 0;
@@ -171,7 +173,7 @@ int main() {
             auto command=[&](port3ds::Command c) {
                 engine.command(c,controls.world_x(),controls.world_y()); action=engine.command_status();
             };
-            auto menu_count=[&]() -> unsigned {return menu==Menu::system?5:menu==Menu::scenarios?8:menu==Menu::legacy?6:menu==Menu::catalogue?option_count:0;};
+            auto menu_count=[&]() -> unsigned {return menu==Menu::system?6:menu==Menu::scenarios?8:menu==Menu::legacy?6:menu==Menu::catalogue?option_count:0;};
             auto open_options=[&](port3ds::OptionPage page) {
                 option_page=page;option_count=engine.options(page,option_rows,8);choice=0;
                 menu=option_count?Menu::catalogue:Menu::none;
@@ -179,9 +181,10 @@ int main() {
             };
             bool exit_requested=false;
             auto use_option=[&](const port3ds::MenuOption& option) {
+                if(!option.enabled){action="Unavailable: research, energy, resources or queue";return;}
                 const auto kind=static_cast<port3ds::OptionKind>(option.code>>16);
                 if(kind==port3ds::OptionKind::build) {placing=true;attacking=false;placing_code=option.code;action="A place building / B cancel";}
-                else if(option.target) {attacking=true;placing=false;target_code=option.code;action="A choose target / B cancel";}
+                else if(option.target) {attacking=true;placing=false;target_code=option.code;std::snprintf(target_help,sizeof target_help,"%.64s: A target / B cancel",option.label);action=target_help;}
                 else {engine.perform(option.code,controls.world_x(),controls.world_y());action=engine.command_status();}
                 menu=Menu::none;
             };
@@ -191,7 +194,8 @@ int main() {
                     if(choice==1) {auto_camera=!auto_camera;action=auto_camera?"Automatic camera on":"Automatic camera off";}
                     if(choice==2)toggle_log();
                     if(choice==3){pending_load=true;action="Loading scenario and graphics...";}
-                    if(choice==4)exit_requested=true;
+                    if(choice==4){engine.set_fog_enabled(!engine.fog_enabled());action=engine.fog_enabled()?"Fog of war: player vision":"Fog of war: full-map observer";}
+                    if(choice==5)exit_requested=true;
                 } else if(menu==Menu::scenarios) {
                     if(choice==7){menu=Menu::legacy;choice=0;return;}
                     static const unsigned modes[]={10,11,8,9,6,7,4};scenario=modes[choice];pending_load=true;action="Loading scenario and graphics...";
@@ -212,26 +216,36 @@ int main() {
                 if(menu!=Menu::none || placing || attacking) { menu=Menu::none;placing=false;attacking=false;action="Action cancelled"; }
                 else { engine.clear_selection();action="Selection cleared"; }
                 break;
-            case I::army: engine.select_army(controls.camera_x,controls.camera_y);action="Military units on screen selected";menu=Menu::none;break;
-            case I::workers: engine.select_workers();action="All own workers selected";menu=Menu::none;break;
+            case I::army: placing=false;attacking=false;engine.select_army(controls.camera_x,controls.camera_y);action="Military units on screen selected";menu=Menu::none;break;
+            case I::workers: placing=false;attacking=false;engine.select_workers();action="All own workers selected";menu=Menu::none;break;
             case I::primary:
             case I::secondary:
+                placing=false;attacking=false;
                 if(engine.snapshot().selection==port3ds::SelectionKind::workers)open_options(event.action==I::primary?port3ds::OptionPage::basic:port3ds::OptionPage::advanced);
                 else {
-                    open_options(event.action==I::primary?port3ds::OptionPage::primary:port3ds::OptionPage::secondary);
-                    if(event.action==I::primary && option_count==1)use_option(option_rows[0]);
+                    const auto selected=engine.snapshot();
+                    if(!selected.selected_building){
+                        option_count=engine.options(port3ds::OptionPage::primary,option_rows,8);
+                        const int shortcut=port3ds::ability_shortcut(option_count,event.action==I::secondary);
+                        if(shortcut>=0)use_option(option_rows[shortcut]);
+                        else open_options(event.action==I::primary?port3ds::OptionPage::primary:port3ds::OptionPage::secondary);
+                    }else {
+                        open_options(event.action==I::primary?port3ds::OptionPage::primary:port3ds::OptionPage::secondary);
+                        if(event.action==I::primary && option_count==1)use_option(option_rows[0]);
+                    }
                 }
                 break;
             case I::confirm:
                 if(menu!=Menu::none)activate_menu();
                 else if(placing){if(engine.perform(placing_code,controls.world_x(),controls.world_y()))placing=false;action=engine.command_status();}
-                else if(attacking){engine.perform(target_code,controls.world_x(),controls.world_y());action=engine.command_status();attacking=false;}
+                else if(attacking){if(engine.perform(target_code,controls.world_x(),controls.world_y()))attacking=false;action=engine.command_status();}
                 else {engine.activate(controls.world_x(),controls.world_y());action=engine.command_status();}
                 break;
             case I::previous: if(menu_count()) choice=(choice+menu_count()-1)%menu_count(); break;
             case I::next: if(menu_count()) choice=(choice+1)%menu_count(); break;
             case I::store: action=engine.store_group(event.slot)?"Group saved to D-pad":"Empty group saved"; break;
             case I::recall: {
+                placing=false;attacking=false;
                 int x=0,y=0;
                 if(engine.recall_group(event.slot,&x,&y)) {
                     if(event.center) { controls.center_camera(x,y);camera_manual_until=now+8000000; }
@@ -312,9 +326,10 @@ int main() {
                     controls.camera_x, controls.camera_y, log.stats().errors?"ERR":log ? "ON" : "OFF", scenario_name(loaded_scenario), state.selected,
                     static_cast<unsigned long>(graphics.texture_bytes()/1024), missing_images,
                     sound_stats.ready?"ON":"OFF",sound_stats.played,sound_stats.music_underruns,sound_stats.io_errors);
-                if(menu==Menu::none) std::snprintf(help,sizeof help,"A action / B cancel\nX army / L+X workers\nY primary / L+Y menu\nR+D-pad: save group\nD-pad: recall group\nTwice: center camera\nSELECT pause\nSTART menu");
+                if(menu==Menu::none && attacking)std::snprintf(help,sizeof help,"%.64s\nA confirm target\nB cancel targeting\nCircle Pad: aim",target_help);
+                else if(menu==Menu::none) std::snprintf(help,sizeof help,"A action / B cancel\nX army / L+X workers\nY power1 / L+Y power2/menu\nR+D-pad: save group\nD-pad: recall group\nTwice: center camera\nSELECT pause\nSTART menu");
                 else {
-                    const char* system[]={"Scenarios",auto_camera?"Auto camera: ON":"Auto camera: OFF",log?"CSV: ON":"CSV: OFF","Reload current","Exit"};
+                    const char* system[]={"Scenarios",auto_camera?"Auto camera: ON":"Auto camera: OFF",log?"CSV: ON":"CSV: OFF","Reload current",engine.fog_enabled()?"Fog: ON (player)":"Fog: OFF (observer)","Exit"};
                     const char* modes[]={"All Zerg battle","Zerg laboratory","All Protoss battle","Protoss laboratory","All Terran battle","Terran laboratory","Player vs AI","More scenarios..."};
                     const char* legacy[]={"Protoss AI vs AI","Protoss player vs AI","Gas AI vs AI","Marines AI vs AI","Two Marines","Manual base"};
                     if(menu==Menu::catalogue)option_count=engine.options(option_page,option_rows,8);
@@ -379,6 +394,7 @@ int main() {
             collect_sum+=sprites_begin-collect_begin;
             missing_images=graphics.sprites(images,image_count,controls.camera_x,controls.camera_y,engine);
             sprite_sum+=now_us()-sprites_begin;
+            graphics.fog(engine,controls.camera_x,controls.camera_y);
             if (placing) {
                 const auto site=engine.placement_unit(placing_code&65535,controls.world_x(),controls.world_y());
                 const u32 color=site.valid ? C2D_Color32(70,230,100,100) : C2D_Color32(240,60,60,100);
@@ -419,6 +435,7 @@ int main() {
                     C2D_Color32(100,150,255,255):C2D_Color32(155,170,180,255);
                 C2D_DrawRectSolid(C::minimap_x + units[i].x * sx, C::minimap_y + units[i].y * sy, 0, 2, 2,color);
             }
+            graphics.fog_minimap(engine,C::minimap_x,C::minimap_y,C::minimap_w,C::minimap_h);
             const float mx = C::minimap_x + controls.camera_x * sx, my = C::minimap_y + controls.camera_y * sy;
             C2D_DrawLine(mx, my, green, mx + 400 * sx, my, green, 1, 0);
             C2D_DrawLine(mx, my, green, mx, my + 240 * sy, green, 1, 0);

@@ -464,3 +464,21 @@ no cursor file reads occur during play. Input mappings remain unchanged.
 ASan independently checks all 17 kinds / 74 frames / 303104 texture pixels and
 24 cross-map/race reloads; all three existing cache suites and controls pass.
 See `nintendo3ds/reports/CURSOR_VALIDATION.md` for implementation limits/tests.
+
+### Fog and power controls (2026-10-20)
+
+Ordinary player skirmishes now use native unexplored/current-vision/detection
+state. START > Fog switches between player vision and full-map observation;
+labs/stress fixtures retain their explored setup and default fog off. A shared
+double-buffered64x64 RGBA4 mask adds16KiB linear and draws one quad per view.
+Enemy unit images, minimap markers, cursor lookup and direct targets respect
+vision/detection; generic effects also use native visibility. Initial fog edges
+are tiled, and last-seen enemy building/creep snapshots are not implemented.
+
+Y uses a unit's first power, L+Y uses its second when there are two or opens the
+extended menu. Worker/building menus retain their existing role. Power energy
+costs/availability are shown; rejected target orders keep aiming active, B
+cancels, and selection changes cancel stale targets. Native Scanner Sweep
+vision/energy/expiry and scouting/retreat fog transitions are ASan tested.
+See `nintendo3ds/reports/FOG_ABILITIES_VALIDATION.md` and emulator JSON for
+verified workflows, limits and the separate SD cursor delivery.

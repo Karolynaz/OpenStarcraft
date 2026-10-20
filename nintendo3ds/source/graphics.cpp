@@ -18,12 +18,13 @@ struct Input {
 Graphics::~Graphics() { clear(); }
 void Graphics::clear() {
     if (page_count_ || cursor_texture_[0].data || cursor_texture_[1].data) C3D_FrameSync();
+    for(auto& texture:fog_texture_){if(texture.data)C3D_TexDelete(&texture);texture={};}fog_slot_=0;fog_frame_=~0u;
     for(auto& texture:cursor_texture_){if(texture.data)C3D_TexDelete(&texture);texture={};}cursor_key_=~0u;cursor_slot_=0;
     for (unsigned i=0;i<page_count_;++i) C3D_TexDelete(&pages_[i]);
     page_count_=0; loaded_=false;
     tiles_.clear(); map_.clear(); sprites_.clear();decltype(cache_){}.swap(cache_);std::vector<uint16_t>().swap(scratch_);terrain_pages_=0;std::memset(occupied_,0,sizeof occupied_);
 }
-unsigned Graphics::texture_bytes() const { return page_count_*atlas_page_bytes+(cursor_texture_[0].data?64*64*4:0); }
+unsigned Graphics::texture_bytes() const { return page_count_*atlas_page_bytes+(cursor_texture_[0].data?64*64*4:0)+(fog_texture_[0].data?64*64*4:0); }
 bool Graphics::load(const char* path, unsigned signature) {
     clear();
     try {
@@ -66,6 +67,10 @@ bool Graphics::load(const char* path, unsigned signature) {
         if(std::fgetc(in.file)!=EOF) throw std::runtime_error("Unexpected graphics data after atlas pages");
         for(auto& texture:cursor_texture_){
             if(!C3D_TexInit(&texture,64,64,GPU_RGBA5551))throw std::runtime_error("Not enough linear RAM for original cursor");
+            C3D_TexSetFilter(&texture,GPU_NEAREST,GPU_NEAREST);C3D_TexSetWrap(&texture,GPU_CLAMP_TO_EDGE,GPU_CLAMP_TO_EDGE);
+        }
+        for(auto& texture:fog_texture_){
+            if(!C3D_TexInit(&texture,64,64,GPU_RGBA4))throw std::runtime_error("Not enough linear RAM for fog mask");
             C3D_TexSetFilter(&texture,GPU_NEAREST,GPU_NEAREST);C3D_TexSetWrap(&texture,GPU_CLAMP_TO_EDGE,GPU_CLAMP_TO_EDGE);
         }
         loaded_=true; std::snprintf(error_,sizeof error_,"Terrain %u pages + bounded GRP cache",terrain_pages_); return true;
@@ -192,6 +197,27 @@ unsigned Graphics::sprites(const SpriteView* views,std::size_t count,int cx,int 
     // The following selection bars, cursor, text and minimap are UI overlays.
     C2D_Flush();C3D_DepthTest(false,GPU_ALWAYS,GPU_WRITE_COLOR);
     return missing;
+}
+bool Graphics::update_fog(const Engine& engine) {
+    if(!ready() || !engine.fog_enabled())return false;
+    const auto frame=engine.frame();if(frame==fog_frame_)return true;
+    C2D_Flush();fog_slot_^=1;auto* out=static_cast<uint16_t*>(fog_texture_[fog_slot_].data);
+    for(unsigned y=0;y<64;++y)for(unsigned x=0;x<64;++x){
+        const auto cell=engine.fog_cell(x,y);const uint16_t alpha=cell==FogCell::visible?0:cell==FogCell::explored?10:15;
+        const unsigned morton=(x&1)|((y&1)<<1)|((x&2)<<1)|((y&2)<<2)|((x&4)<<2)|((y&4)<<3);
+        out[((y/8)*8+x/8)*64+morton]=alpha;
+    }
+    C3D_TexFlush(&fog_texture_[fog_slot_]);fog_frame_=frame;return true;
+}
+void Graphics::fog(const Engine& engine,int cx,int cy){
+    if(!update_fog(engine))return;
+    Tex3DS_SubTexture sub={400,240,cx/2048.f,1-cy/2048.f,(cx+400)/2048.f,1-(cy+240)/2048.f};
+    C2D_DrawImageAt({&fog_texture_[fog_slot_],&sub},0,0,0,nullptr,1,1);
+}
+void Graphics::fog_minimap(const Engine& engine,float x,float y,float w,float h){
+    if(!update_fog(engine))return;
+    Tex3DS_SubTexture sub={static_cast<u16>(width_),static_cast<u16>(height_),0,1,width_/64.f,1-height_/64.f};
+    C2D_DrawImageAt({&fog_texture_[fog_slot_],&sub},x,y,0,nullptr,w/width_,h/height_);
 }
 bool Graphics::cursor(const SpriteView& v,float x,float y,const Engine& engine) {
     if(!ready() || v.image<cursor_image_base || v.image>=cursor_image_base+cursor_count)return false;

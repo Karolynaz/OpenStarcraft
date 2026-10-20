@@ -10,6 +10,11 @@
 
 namespace port3ds {
 using namespace bwgame;
+namespace {
+bool player_sees(const state_functions& f,const unit_t* unit) {
+    return unit->owner==0 || ((unit->sprite->visibility_flags&1) && !f.unit_is_undetected(unit,0));
+}
+}
 struct Engine::Impl {
     struct SoundFunctions : state_functions {
         std::array<SoundEvent,256> events{};
@@ -24,7 +29,7 @@ struct Engine::Impl {
     std::unique_ptr<game_player> player;
     std::unique_ptr<SoundFunctions> sound;
     char message[192] = "Not loaded";
-    bool loaded = false;
+    bool loaded = false,fog=false;
     static_vector<unit_id_32,192> selected;
     std::array<static_vector<unit_id_32,192>,4> groups;
     detail::BattleAI ai;
@@ -38,7 +43,7 @@ struct Engine::Impl {
     unit_t* first_selected() const {
         if (!loaded) return nullptr;
         for (auto id:selected) if (auto* u=player->funcs().get_unit(id))
-            if (!player->funcs().unit_dead(u)) return u;
+            if (!player->funcs().unit_dead(u) && (!fog || player_sees(player->funcs(),u))) return u;
         return nullptr;
     }
     const char* command_message = "A select / B act";
@@ -48,11 +53,11 @@ namespace {
 const char* unit_name(const unit_t* u) {if(const char* n=zerg::name(u->unit_type->id))return n;if(const char* n=protoss::name(u->unit_type->id))return n;return terran::name(u->unit_type->id);}
 // Use the engine collision box with a small thumbstick tolerance. Prefer
 // the nearest center when two boxes overlap; never select dead/hidden units.
-unit_t* hit_unit(state_functions& funcs, int x, int y, bool own_only) {
+unit_t* hit_unit(state_functions& funcs, int x, int y, bool own_only,bool fog=false) {
     unit_t* best = nullptr;
     int distance = 0x7fffffff;
     for (auto* u : ptr(funcs.st.visible_units)) {
-        if (funcs.ut_turret(u) || (own_only && u->owner != 0) || funcs.unit_dead(u) ||
+        if ((fog && !player_sees(funcs,u)) || funcs.ut_turret(u) || (own_only && u->owner != 0) || funcs.unit_dead(u) ||
             (u->sprite->flags & sprite_t::flag_hidden)) continue;
         const auto box = funcs.unit_inner_bounding_box(u, u->sprite->position);
         if (x < box.from.x - 6 || y < box.from.y - 6 || x > box.to.x + 6 || y > box.to.y + 6) continue;
@@ -96,6 +101,7 @@ Engine::Engine() : impl_(new Impl) {}
 Engine::~Engine() = default;
 bool Engine::load(const char* data_root, const char* map_path, Scenario scenario) {
     impl_->loaded = false;
+    impl_->fog=scenario==Scenario::melee || scenario==Scenario::versus_ai || scenario==Scenario::protoss_versus_ai;
     impl_->battle.reset(scenario==Scenario::terran_battle || scenario==Scenario::protoss_battle || scenario==Scenario::zerg_battle,scenario_race(scenario));
     impl_->selected.clear();
     for (auto& g:impl_->groups) g.clear();
@@ -161,9 +167,9 @@ bool Engine::load(const char* data_root, const char* map_path, Scenario scenario
                 throw std::runtime_error("AI ground battle needs connected start locations");
         }
         if(arena_scenario(scenario))impl_->battle.setup(loader,scenario==Scenario::terran_lab || scenario==Scenario::protoss_lab || scenario==Scenario::zerg_lab);
-        // This no-fog prototype starts with terrain explored for both players.
-        // Cloaking, detection and native combat sight ranges remain active.
-        for(auto& tile:player.st().tiles)tile.explored&=~3;
+        // Normal player skirmishes retain native exploration. Prepared labs
+        // and observer fixtures keep their historical fully explored terrain.
+        if(!impl_->fog)for(auto& tile:player.st().tiles)tile.explored&=~3;
         // GRPs are already resident because native iscript/collision requires
         // them. Load only palette tables, then expand frames on GPU-cache miss.
         auto load_asset=[&](a_vector<uint8_t>& dst,const a_string& name) {
@@ -256,7 +262,7 @@ Snapshot Engine::snapshot() const {
     s.supply_max = std::min(200,st.supply_available[0][race].integer_part());
     const auto& funcs = impl_->player->funcs();
     if (const auto* u = impl_->first_selected()) {
-        s.selected_name = unit_name(u);
+        s.selected_name = unit_name(u);s.selected_building=funcs.ut_building(u);
         s.selected_shields=u->shield_points.integer_part();s.selected_max_shields=u->unit_type->shield_points;
         s.selected_hp = u->hp.integer_part(); s.selected_max_hp = u->unit_type->hitpoints.integer_part();
         s.queue = u->build_queue.size();
@@ -265,7 +271,7 @@ Snapshot Engine::snapshot() const {
         s.selection=funcs.ut_worker(u) ? SelectionKind::workers : funcs.unit_is(u,UnitTypes::Terran_Command_Center) ?
             SelectionKind::command_center : funcs.unit_is(u,UnitTypes::Terran_Barracks) ? SelectionKind::barracks : SelectionKind::other;
     }
-    for(auto id:impl_->selected) if(auto* u=funcs.get_unit(id)) if(!funcs.unit_dead(u)) ++s.selected;
+    for(auto id:impl_->selected) if(auto* u=funcs.get_unit(id)) if(!funcs.unit_dead(u) && (!impl_->fog || player_sees(funcs,u))) ++s.selected;
     s.observer=impl_->ai.observer() || impl_->battle.enabled(); s.winner=impl_->battle.enabled()?impl_->battle.winner():impl_->ai.winner();
     s.benchmark=impl_->battle.enabled();s.battle_seconds=impl_->battle.seconds();s.end_reason=impl_->battle.reason();
     s.score[0]=impl_->battle.score(0);s.score[1]=impl_->battle.score(1);
@@ -298,7 +304,7 @@ unsigned Engine::upgrade_level(unsigned type) const {return ready() && type<61?i
 bool Engine::select(int x, int y) {
     if (!ready()) return false;
     auto& funcs = impl_->player->funcs();
-    auto* nearest = hit_unit(funcs, x, y, !(impl_->ai.observer() || impl_->battle.enabled()));
+    auto* nearest = hit_unit(funcs, x, y, !(impl_->ai.observer() || impl_->battle.enabled()),impl_->fog);
     impl_->selected.clear();
     if(nearest && nearest->owner<2) impl_->selected.push_back(funcs.get_unit_id_32(nearest));
     if(!impl_->selected.empty()) {
@@ -312,7 +318,7 @@ bool Engine::activate(int x,int y) {
     if(!ready()) return false;
     if(impl_->ai.observer() || impl_->battle.enabled()) { const bool ok=select(x,y); impl_->command_message=ok?"Observer selection":"Selection cleared"; return ok; }
     auto& f=impl_->player->funcs();
-    auto* target=hit_unit(f,x,y,true);
+    auto* target=hit_unit(f,x,y,true,impl_->fog);
     const auto* current=impl_->first_selected();
     const bool loading=current && target && ((f.unit_provides_space(target) && f.unit_can_load_target(target,current)) || (f.unit_provides_space(current) && f.unit_can_load_target(current,target)));
     const bool repairing=current && target && f.unit_is(current,UnitTypes::Terran_SCV) && (f.ut_mechanical(target) || f.ut_building(target)) && (!f.u_completed(target) || target->hp<target->unit_type->hitpoints);
@@ -443,7 +449,7 @@ bool Engine::command(Command command, int x, int y) {
     case Command::primary: {
         if (x < 0 || y < 0 || x >= static_cast<int>(player.st().game->map_width) ||
             y >= static_cast<int>(player.st().game->map_height)) return fail("Target outside map");
-        auto* target = hit_unit(funcs, x, y, false);
+        auto* target = hit_unit(funcs, x, y, false,impl_->fog);
         // Issue group actions in native batches of at most twelve. Buildings
         // are single-select; no upstream selection limits are changed.
         static_vector<unit_t*,12> batch;
@@ -543,7 +549,7 @@ unsigned Engine::options(OptionPage page,MenuOption* output,unsigned capacity) c
         }
         if(f.unit_is(u,UnitTypes::Zerg_Nydus_Canal))add("Build Nydus exit",OptionKind::nydus,unsigned(UnitTypes::Zerg_Nydus_Canal),true,!u->building.nydus.exit && f.u_completed(u));
         if(f.unit_is(u,UnitTypes::Protoss_Shield_Battery))add("Recharge shields",OptionKind::order,unsigned(Orders::RechargeShieldsBattery),true,f.u_completed(u) && !f.unit_is_disabled(u) && u->energy>0_fp8);
-        if(u->unit_type->id==UnitTypes::Terran_Comsat_Station)add("Scanner Sweep",OptionKind::order,unsigned(Orders::CastScannerSweep),true,true);
+        if(u->unit_type->id==UnitTypes::Terran_Comsat_Station)add("Scanner Sweep (50 energy)",OptionKind::order,unsigned(Orders::CastScannerSweep),true,f.u_completed(u) && !f.unit_is_disabled(u) && u->energy>=fp8::integer(50));
         return n;
     }
     unsigned product_index=0;
@@ -552,7 +558,12 @@ unsigned Engine::options(OptionPage page,MenuOption* output,unsigned capacity) c
         const auto* t=f.get_unit_type(b.type);add(b.name,OptionKind::morph,unsigned(b.type),false,f.unit_can_build(u,t) && f.has_available_resources_for(0,t) && f.has_available_supply_for(0,t),t->mineral_cost,t->gas_cost);
     });
     if(f.ut_can_burrow(u))add(f.u_burrowed(u)?"Unburrow":"Burrow",OptionKind::burrow,0,false,f.unit_can_use_tech(u,f.get_tech_type(TechTypes::Burrowing)));
-    auto ability=[&](const char* name,Orders order,TechTypes tech) {add(name,OptionKind::order,unsigned(order),true,f.unit_can_use_tech(u,f.get_tech_type(tech)));};
+    auto ability=[&](const char* name,Orders order,TechTypes tech) {
+        const auto* type=f.get_tech_type(tech);char label[64];std::snprintf(label,sizeof label,"%s (%u energy)",name,unsigned(type->energy_cost));
+        bool enabled=false;
+        for(auto id:impl_->selected)if(const auto* caster=f.get_unit(id))if(caster->owner==0 && caster->unit_type==u->unit_type && !f.unit_dead(caster) && f.unit_can_use_tech(caster,type) && caster->energy>=fp8::integer(type->energy_cost))enabled=true;
+        add(label,OptionKind::order,unsigned(order),true,enabled);
+    };
     switch(u->unit_type->id) {
     case UnitTypes::Zerg_Queen:
         ability("Parasite",Orders::CastParasite,TechTypes::Parasite);ability("Spawn Broodlings",Orders::CastSpawnBroodlings,TechTypes::Spawn_Broodlings);ability("Ensnare",Orders::CastEnsnare,TechTypes::Ensnare);ability("Infest Command Center",Orders::CastInfestation,TechTypes::Infestation);break;
@@ -684,7 +695,7 @@ bool Engine::perform(unsigned code,int x,int y) {
             else if(kind==OptionKind::order && id<unsigned(Orders::None)) {
                 const auto order=static_cast<Orders>(id);
                 const bool ground=order==Orders::CastDarkSwarm || order==Orders::CastPlague || order==Orders::CastEnsnare || order==Orders::CastPsionicStorm || order==Orders::CastStasisField || order==Orders::CastRecall || order==Orders::CastMaelstrom || order==Orders::CastDisruptionWeb || order==Orders::PlaceMine || order==Orders::CastEMPShockwave || order==Orders::CastScannerSweep || order==Orders::NukePaint || order==Orders::AttackMove || order==Orders::Move || order==Orders::Patrol;
-                auto* target=ground?nullptr:hit_unit(f,x,y,false);
+                auto* target=ground?nullptr:hit_unit(f,x,y,false,impl_->fog);
                 ok=a.action_order(0,a.get_order_type(static_cast<Orders>(id)),{x,y},target,nullptr,false)||ok;
             }
         }
@@ -711,7 +722,7 @@ std::size_t Engine::visible_units(UnitView* output, std::size_t capacity) const 
     std::size_t n = 0;
     for (const auto* u : ptr(impl_->player->st().visible_units)) {
         if (n == capacity) break;
-        if (funcs.unit_dead(u) || funcs.ut_turret(u)) continue;
+        if (funcs.unit_dead(u) || funcs.ut_turret(u) || (impl_->fog && !player_sees(impl_->player->funcs(),u))) continue;
         const auto* t = u->unit_type;
         const bool selected=std::find(impl_->selected.begin(),impl_->selected.end(),funcs.get_unit_id_32(u))!=impl_->selected.end();
         unsigned cargo=0;for(auto* passenger:funcs.loaded_units(u)){(void)passenger;++cargo;}
@@ -731,9 +742,19 @@ std::uint32_t Engine::terrain_signature() const {
     for (auto tile : st.tiles_mega_tile_index) hash = terrain_hash_step(hash, tile);
     return hash;
 }
+std::uint32_t Engine::frame() const {return ready()?impl_->player->st().current_frame:0;}
+bool Engine::fog_enabled() const {return ready() && impl_->fog;}
+void Engine::set_fog_enabled(bool enabled) {impl_->fog=enabled;}
+FogCell Engine::fog_cell(unsigned x,unsigned y) const {
+    if(!ready())return FogCell::unexplored;
+    const auto& st=impl_->player->st();if(x>=st.game->map_tile_width || y>=st.game->map_tile_height)return FogCell::unexplored;
+    if(!impl_->fog)return FogCell::visible;
+    const auto& tile=st.tiles[y*st.game->map_tile_width+x];
+    return !(tile.visible&1)?FogCell::visible:!(tile.explored&1)?FogCell::explored:FogCell::unexplored;
+}
 CursorKind Engine::cursor_kind(int x,int y,bool targeting) const {
     if(!ready())return CursorKind::arrow;
-    const auto* unit=hit_unit(impl_->player->funcs(),x,y,false);
+    const auto* unit=hit_unit(impl_->player->funcs(),x,y,false,impl_->fog);
     if(!unit)return targeting?CursorKind::target:CursorKind::arrow;
     if(unit->owner==0)return targeting?CursorKind::target:CursorKind::own;
     if(unit->owner==1)return targeting?CursorKind::target_enemy:CursorKind::enemy;
@@ -802,15 +823,24 @@ std::size_t Engine::visible_images(SpriteView* output, std::size_t capacity, int
         const xy dirs[]={{1,1},{0,1},{-1,1},{1,0},{-1,0},{1,-1},{0,-1},{-1,-1}};
         auto has=[&](int x,int y){return x>=0 && y>=0 && x<w && y<h && (st.tiles[x+y*w].flags&tile_t::flag_has_creep);};
         for(int y=std::max(0,cy/32);y<std::min(h,(cy+271)/32);++y)for(int x=std::max(0,cx/32);x<std::min(w,(cx+431)/32);++x){
-            if(n==capacity)continue;
+            if(n==capacity || (impl_->fog && fog_cell(x,y)!=FogCell::visible))continue;
             if(has(x,y))output[n++]={x*32,y*32,detail::creep_tile_image,unsigned((x*13+y*7)&15),11,false,false,0,255};
             else{unsigned mask=0;for(unsigned d=0;d<8;++d)if(has(x+dirs[d].x,y+dirs[d].y))mask|=1<<d;
                 const unsigned frame=impl_->creep->edge_frames[mask];if(frame && frame<=impl_->creep->edges.frames.size()){const auto& r=impl_->creep->edges.frames[frame-1];output[n++]={x*32+int(r.offset.x),y*32+int(r.offset.y),detail::creep_edge_image,frame-1,11,false,false,0,255};}
             }
         }
     }
+    // Detection is per unit; visual effects use the native sprite visibility.
+    // The fixed native sprite pool bounds this scratch without frame allocation.
+    bool undetected[2500];
+    if(impl_->fog)std::fill_n(undetected,2500,false);
+    if(impl_->fog)for(const auto* unit:ptr(st.visible_units))if(!player_sees(impl_->player->funcs(),unit)){
+        if(unit->sprite->index<2500)undetected[unit->sprite->index]=true;
+        if(unit->subunit && unit->subunit->sprite->index<2500)undetected[unit->subunit->sprite->index]=true;
+    }
     for (const auto& line : st.sprites_on_tile_line) for (const auto& sprite : line) {
         if (sprite.flags & sprite_t::flag_hidden) continue;
+        if(impl_->fog && (!(sprite.visibility_flags&1) || (sprite.index<2500 && undetected[sprite.index])))continue;
         unsigned layer = 0;
         for (const auto& img : reverse(sprite.images)) {
             if((img.flags & image_t::flag_hidden) && !(img.modifier>=2 && img.modifier<=7) && !(sprite.flags&sprite_t::flag_burrowed))continue;

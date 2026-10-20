@@ -66,3 +66,12 @@ linear allocation 7,805,952 bytes. Music/effects enabled, all listed
 missing-graphics/cache/audio/I/O/DSP/CSV errors zero. This is a workflow smoke
 check, not a complete large-battle comparison or physical-console measurement.
 Summary: `cursors-emulator.json`; private raw CSV and load journal retained.
+
+## Subsequent physical SD delivery — 2026-10-20
+
+On the user's explicit request, the identified SD was updated to this exact
+39607cd... cursor executable. All 25 read-back hashes passed; only executable
+and README changed. 15 existing DSP/log/dump files were backed up and preserved.
+Card synced and safely unmounted; receipt and returned prior-console evidence
+remain private in `local-data/cursors-2026-10-19/sd-delivery-2026-10-20/`.
+Further fog/ability work is a separate local stage, not part of this SD delivery.

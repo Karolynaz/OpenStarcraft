@@ -247,3 +247,60 @@ Exit, emulator stopped and original preferences restored. Lab 138active samples
 59.836FPS/23.996TPS, maxheap33704288,linear7805952;
 no listed graphics/audio/I/O/CSV errors. Not a full battle or hardware benchmark.
 See cursors-emulator.json. Physical SD unchanged.
+
+
+## SD delivery on explicit user request — 2026-10-20
+
+Verified mounted disk4s1 UUID7DFD8F37-8701-3051-A125-45E84C4C885E, installed
+original-cursors-2026-10-19.zip:25 files read-back hash checked,2 changed.
+15 DSP/log/Luma files preserved, evidence copied privately. Synced and safely
+unmounted disk4; user told card can be removed/tested. Physical SD NOW runs
+39607cd8f58702873c6d4e5c87a4c7f9497e34450863682bc8e953ac3c9df5cb,
+not older1660ed. Matching ELF remains cursors-2026-10-19/candidate.elf; use that
+for future dumps. Receipt/raw prior-console logs:
+local-data/cursors-2026-10-19/sd-delivery-2026-10-20/. Prior1660 logs retained
+there, not yet systematically analyzed; do not confuse them with new cursor run.
+User next requested fog of war and ability UI improvements; subsequent local
+work must not be claimed to be on the current SD until a later delivery.
+
+
+## Fog / ability UI milestone — 2026-10-20
+
+Default native fog/exploration for scenarios2/4/13. Prepared labs/stress/AI
+observers remain explored and fog-off; START system row4 toggles Fog, Exit now
+row5 (six system rows). Native tile states black/gray/visible feed double64x64
+RGBA4 texture16KiB shared by battlefield/minimap, onequad/view, no SDread/frame.
+Enemy units/images/minimap/hover/targeting respect native visibility/detection;
+generic owner0 effects also require native sprite visibility. Fixed spritepool
+scratch2500bytes only initialized when fogon. 36/8MiB unchanged. No building/
+creep lastseen ghosts or smooth fogedges yet; intentionally documented MVP.
+
+Unit Yfirstpower; L+Ysecond ifexactly2 else fullmenu. Worker/building menus remain.
+Energy labels/checks consider matching selected casters; disabled options cannot
+enter aiming. Rejected A keeps targetmode, Bcancels, selection changes cancel.
+Scanner Sweep UI checks fp8::integer(50) (fp8 literals are raw units!). Native
+vision/energy/duration unchanged. ASan fogtest scouts enemy400ticks, withdraw75,
+all4096fogtexels/states and minimap match; ScanSweepreveals1tick, energyexhaustion
+UI disabled, finalremainingduration174ticks. Own/scouted sprites remain visible.
+24crossloads/common controls/cursors/all3cache75composition tests pass. Allrace
+production/tech/powers/stress suites pass; native manual commands and Proto AI
+11761/34:10 outcome unchanged. Original3DS ARMv6K/VFPv2 passes.
+
+Manual emulator candidate3d23...: playerFogON/OFF, blackunknown viewport/minimap,
+grayexplored terrain, Comsat CirclePad/A selection, Ytargetnamed50energy, Bcancel,
+Acastnativeenergy, Ydisabledbelow50. Mean~59.83FPS/24TPS in152player/214lab samples,
+no listed errors. Final1edf... tightereffectfilter: fullZerg battle720/2050:4000/
+loss130:121 unchanged,29active samples57.371FPS/23.989TPS; Proto13reload ownNexus/
+workers visible and unknown black. NormalExit; emulator stopped/preferences
+restored. These are emulator checks, not new physical-console measurements.
+Reports FOG_ABILITIES_VALIDATION.md and fog-abilities-emulator.json.
+
+Final executable1edfb1a2c630115fb9d5af396e7bed9fdc26eaa1c702819a469ea1aa366a8eef;
+exactELFs/candidates/rawlogs/tests local-data/fog-abilities-2026-10-20/.
+Private fog-abilities-2026-10-20.zip verified25files/344061886bytes,
+SHA3c378a7630fe2385440598785df56bc73f3fcae1f0ff9631661f32f39cdd302a.
+Canonical staging/emulator now finalfogbuild, but PHYSICAL SD REMAINS39607cd...
+cursor release from earlier delivery. Do not use fogELF for that card's dumps.
+SD was safely unmounted; no secondwrite during user testing. Await next SD
+insertion/request for newfog release. Earlier cursor/effects/economy ZIPs retained.
+One-time Oct19 automation was paused on its stale Oct20 trigger; do not restart.

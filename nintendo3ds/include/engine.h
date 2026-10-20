@@ -12,6 +12,7 @@ inline unsigned scenario_race(Scenario s) {
     return s==Scenario::zerg_battle || s==Scenario::zerg_lab?0:
         s==Scenario::protoss_battle || s==Scenario::protoss_lab || s==Scenario::protoss_ai_battle || s==Scenario::protoss_versus_ai?2:1;
 }
+enum class FogCell : unsigned { unexplored, explored, visible };
 enum class Command { context, attack, stop, train, depot, barracks, cancel, primary, refinery };
 enum class SelectionKind { none, workers, command_center, barracks, other };
 enum class OptionKind : unsigned { build=1, addon, train, research, upgrade, order, stim, siege, cloak, liftoff, land, unload, cancel, merge, morph, burrow, larvae, nydus };
@@ -36,6 +37,7 @@ struct Snapshot {
     unsigned queue = 0;
     unsigned selected = 0;
     int selected_energy=0,selected_max_energy=0,work_frames=0;
+    bool selected_building=false;
     SelectionKind selection = SelectionKind::none;
     std::array<PlayerView,2> players{};
     int winner = -1;
@@ -96,6 +98,10 @@ public:
     PlacementView placement(Command building, int world_x, int world_y) const;
     std::size_t visible_units(UnitView* output, std::size_t capacity) const;
     std::size_t visible_images(SpriteView* output, std::size_t capacity, int camera_x, int camera_y) const;
+    std::uint32_t frame() const;
+    bool fog_enabled() const;
+    void set_fog_enabled(bool enabled);
+    FogCell fog_cell(unsigned tile_x,unsigned tile_y) const;
     CursorKind cursor_kind(int world_x,int world_y,bool targeting=false) const;
     SpriteView cursor_image(CursorKind kind,std::uint64_t elapsed_us) const;
     SpriteInfo sprite_info(unsigned image,unsigned frame) const;

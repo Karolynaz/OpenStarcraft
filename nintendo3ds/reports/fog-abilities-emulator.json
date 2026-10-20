@@ -1,0 +1,85 @@
+{
+  "manual_candidate_sha256": "3d23bc749528441e6accccb7c23192e6c5fb87db40eef9a3cd98028917a7df18",
+  "final_candidate_sha256": "1edfb1a2c630115fb9d5af396e7bed9fdc26eaa1c702819a469ea1aa366a8eef",
+  "environment": {
+    "model": "original 3DS",
+    "cpu_percent": 100,
+    "dsp": "HLE",
+    "physical_console": false
+  },
+  "scope": "Manual workflow, not a complete stress benchmark. Scenario 13 includes explicit Fog ON/OFF toggling.",
+  "manual_workflow": {
+    "13": {
+      "active_samples": 152,
+      "mean_fps": 59.835921052631576,
+      "mean_tps": 23.995592105263157
+    },
+    "7": {
+      "active_samples": 214,
+      "mean_fps": 59.83378504672897,
+      "mean_tps": 23.995467289719628
+    }
+  },
+  "peak_heap": 33782096,
+  "peak_linear": 7822336,
+  "errors": {
+    "missing_images": 0,
+    "cache_overflows": 0,
+    "sfx_missing": 0,
+    "music_underruns": 0,
+    "audio_io_errors": 0,
+    "dsp_drops": 0,
+    "csv_errors": 0,
+    "csv_dropped": 0
+  },
+  "checks": [
+    "Player vs AI default fog",
+    "unknown viewport and minimap black",
+    "START Fog OFF exposes full minimap, Fog ON restores shroud",
+    "explored area darkens outside current sight",
+    "Comsat selected with Circle Pad/A",
+    "Y Scanner Sweep target shows name/energy",
+    "B cancels targeted power",
+    "Y/A cast consumes native energy and exits targeting",
+    "Y after energy <50 shows unavailable option",
+    "START > Exit"
+  ],
+  "sd_fog_build_installed": false,
+  "final_smoke": {
+    "zerg_stress": {
+      "final_frame": 720,
+      "winner": 1,
+      "scores": [
+        2050,
+        4000
+      ],
+      "losses": [
+        130,
+        121
+      ],
+      "active_samples": 29,
+      "mean_fps": 57.37103448275862,
+      "mean_tps": 23.98896551724138
+    },
+    "checks": [
+      "friendly Nexus and workers remain visible under native visibility filter",
+      "unknown terrain viewport/minimap black after camera movement",
+      "original cursor and HUD remain visible over fog",
+      "START > Exit"
+    ],
+    "peak_heap": 33780376,
+    "peak_linear": 7822336,
+    "errors": {
+      "missing_images": 0,
+      "cache_overflows": 0,
+      "sfx_missing": 0,
+      "music_underruns": 0,
+      "audio_io_errors": 0,
+      "dsp_drops": 0,
+      "csv_errors": 0,
+      "csv_dropped": 0
+    },
+    "emulator_stopped": true,
+    "preferences_restored": true
+  }
+}

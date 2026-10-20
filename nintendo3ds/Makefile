@@ -145,3 +145,9 @@ build/cursor-test: tests/cursors.cpp tests/fake3ds/citro2d.h source/engine.cpp s
 .PHONY: test-cursors
 test-cursors: build/cursor-test
 	ASAN_OPTIONS=detect_leaks=0 ./build/cursor-test "$(ASSET_ROOT)" local-data/3ds/openbw/maps/arena.chk local-data/3ds/openbw/graphics-arena.bin
+
+build/fog-test: tests/fog.cpp tests/fake3ds/citro2d.h source/engine.cpp source/graphics.cpp $(HEADERS) | build
+	$(HOST_CXX) $(COMMON) -O1 -g -fsanitize=address -fno-omit-frame-pointer -pthread -Itests/fake3ds tests/fog.cpp source/engine.cpp source/graphics.cpp -o $@
+.PHONY: test-fog
+test-fog: build/fog-test
+	ASAN_OPTIONS=detect_leaks=0 ./build/fog-test "$(ASSET_ROOT)" local-data/3ds/openbw/maps/probe.scx local-data/3ds/openbw/graphics.bin
