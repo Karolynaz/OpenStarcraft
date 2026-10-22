@@ -8,6 +8,7 @@
 #include "input.h"
 #include "ability_controls.h"
 #include "command_grid.h"
+#include "frontend_draw.h"
 #include "source_id.h"
 #include "audio.h"
 #include "csv_log.h"
@@ -67,14 +68,38 @@ int main() {
     const bool self_test = port3ds::core_self_test();
     const Result audio = ndspInit();
     if (R_SUCCEEDED(audio)) ndspSetOutputMode(NDSP_OUTPUT_STEREO);
+    int launch_scenario=-1;
     {
+        port3ds::Frontend front;front.init(root);
+        port3ds::UiArt art;const bool art_ok=art.load("sdmc:/3ds/openbw/ui/menu.bin");
+        C2D_Prepare();u64 last=now_us();
+        while(aptMainLoop()){
+            hidScanInput();const u32 down=hidKeysDown();circlePosition stick{};hidCircleRead(&stick);
+            const auto now=now_us();front.stick(stick.dx,stick.dy,std::min<u64>(now-last,50000)/1000000.f);last=now;
+            if(down&KEY_TOUCH){touchPosition t{};hidTouchRead(&t);front.x=t.px;front.y=t.py;front.hover=front.hit(t.px,t.py);front.activate(front.hover);}
+            if(down&KEY_A)front.activate(front.hit(int(front.x),int(front.y)));
+            if(down&KEY_B)front.back();
+            if(front.quit)break;
+            if(front.play){launch_scenario=int(front.scenario());break;}
+            C3D_FrameBegin(C3D_FRAME_SYNCDRAW);C2D_TextBufClear(text_buf);
+            C2D_TargetClear(top,C2D_Color32(0,0,0,255));C2D_SceneBegin(top);C3D_DepthTest(false,GPU_ALWAYS,GPU_WRITE_COLOR);
+            art.draw("title",0,0);
+            C2D_TargetClear(bottom,C2D_Color32(0,0,0,255));C2D_SceneBegin(bottom);
+            if(art_ok)port3ds::draw_frontend(front,art,text_buf,unsigned(now/125000));
+            else {port3ds::ui_text(text_buf,"Missing ui/menu.bin",160,90,.55f,C2D_Color32(255,200,180,255),true);port3ds::ui_text(text_buf,"Install the complete SD package.",160,120,.40f,C2D_Color32(255,255,255,255),true);if(down&KEY_START)break;}
+            C3D_FrameEnd(0);
+        }
+    }
+    if(launch_scenario>=0) {
         port3ds::Engine engine;
         port3ds::Graphics graphics;
         port3ds::Audio sound;
         port3ds::Scheduler scheduler;
         port3ds::FramePacer frame_pacer;
         port3ds::Controls controls;
-        unsigned scenario = 10, loaded_scenario = 10;
+        unsigned scenario = unsigned(launch_scenario), loaded_scenario = scenario;
+        port3ds::UiArt hud_art;hud_art.load("sdmc:/3ds/openbw/ui/hud.bin");
+        auto hud_buf=C2D_TextBufNew(4096);
         port3ds::InputRouter input;
         enum class Menu { none, system, scenarios, legacy, catalogue };
         port3ds::OptionPage option_page=port3ds::OptionPage::primary;
@@ -95,7 +120,7 @@ int main() {
         port3ds::CsvLog log;
         bool audio_paused_last=true;
         u64 last_log_flush_us=0;
-        const char* action = "Starting Zerg battle...";
+        const char* action = "Loading player vs AI...";
         C2D_Text diagnostics{}, commands{}, message{}, resources{}, option_hint{};
         C2D_Text menu_rows[8]{};
         // 40 controlled units per side plus the map's neutral resources.
@@ -161,7 +186,7 @@ int main() {
                 fps = tps = mean = worst = 0;
                 auto_camera=engine.snapshot().observer;
                 camera_manual_until=0;
-                if(auto_camera && !log) toggle_log();
+                if(!log) toggle_log();
                 action = engine.ready() ? (auto_camera ? "AI vs AI: automatic camera / START menu" : "Circle Pad cursor / A action / B cancel") : engine.error();
             }
             circlePosition circle{}; hidCircleRead(&circle);
@@ -258,11 +283,24 @@ int main() {
             }
             default: break;
             }
-            // Touch is also allowed on an open bottom-screen command menu.
-            if((down&KEY_TOUCH) && menu!=Menu::none) {
+            if(down&KEY_TOUCH) {
                 touchPosition t{};hidTouchRead(&t);
-                if(menu==Menu::catalogue){const int hit=port3ds::CommandGrid::hit(t.px,t.py,option_count);if(hit>=0){choice=unsigned(hit);activate_menu();}}
-                else if(t.px>=136 && t.px<320 && t.py>=144 && t.py<144+menu_count()*12) {choice=(t.py-144)/12;activate_menu();}
+                if(port3ds::UiRect{244,161,66,21}.hit(t.px,t.py)){menu=menu==Menu::system?Menu::none:Menu::system;choice=0;}
+                else if(menu==Menu::none || menu==Menu::catalogue){
+                    if(menu==Menu::none){option_page=port3ds::OptionPage::primary;option_count=engine.options(option_page,option_rows,8);}
+                    const int hit=port3ds::CommandGrid::hit(t.px,t.py,9);
+                    if(hit>=0 && hit<int(option_count)){choice=unsigned(hit);use_option(option_rows[choice]);}
+                    else if(hit==8){
+                        const bool worker=engine.snapshot().selection==port3ds::SelectionKind::workers;
+                        open_options(worker?(option_page==port3ds::OptionPage::basic?port3ds::OptionPage::advanced:port3ds::OptionPage::basic):(option_page==port3ds::OptionPage::primary?port3ds::OptionPage::secondary:port3ds::OptionPage::primary));
+                    }else {
+                        unsigned slot=0;const auto selectable=engine.visible_units(units,unit_view_capacity);
+                        for(std::size_t i=0;i<selectable && slot<12;++i)if(units[i].selected){
+                            const auto rect=port3ds::UiRect{15+int(slot%6)*34,166+int(slot/6)*34,32,32};
+                            if(rect.hit(t.px,t.py)){engine.select(units[i].x,units[i].y);break;}++slot;
+                        }
+                    }
+                }else if(t.px>=164 && t.px<306 && t.py>=46 && t.py<46+menu_count()*17){choice=(t.py-46)/17;activate_menu();}
             }
             if(exit_requested) break;
             const bool step = false;
@@ -338,12 +376,7 @@ int main() {
                     unsigned used=0;
                     for(unsigned i=0;i<menu_count();++i)used+=std::snprintf(help+used,sizeof help-used,"%s %s\n",menu==Menu::catalogue?"":i==choice?">":" ",menu==Menu::system?system[i]:menu==Menu::scenarios?modes[i]:menu==Menu::legacy?legacy[i]:option_rows[i].label);
                 }
-                if(state.benchmark)std::snprintf(hud,sizeof hud,"%s  %us / 180s  Score %u / %u\nRed W%u A%u  Blue W%u A%u  Losses %u/%u",loaded_scenario>=10?"ALL ZERG":loaded_scenario>=8?"ALL PROTOSS":"ALL TERRAN",state.battle_seconds,state.score[0],state.score[1],state.players[0].workers,state.players[0].army,state.players[1].workers,state.players[1].army,state.players[0].lost,state.players[1].lost);
-                else if(state.observer) std::snprintf(hud,sizeof hud,"AI vs AI | Red W%u A%u B%u / Blue W%u A%u B%u\nMinerals %d/%d Gas %d/%d Losses %u/%u",
-                    state.players[0].workers,state.players[0].army,state.players[0].buildings,state.players[1].workers,state.players[1].army,state.players[1].buildings,
-                    state.players[0].minerals,state.players[1].minerals,state.players[0].gas,state.players[1].gas,state.players[0].lost,state.players[1].lost);
-                else std::snprintf(hud,sizeof hud,"Minerals %d   Gas %d   Supply %d/%d\n%s x%u HP %d/%d S%d/%d E%d/%d Q%u Work%us",
-                    state.minerals,state.gas,state.supply,state.supply_max,state.selected_name,state.selected,state.selected_hp,state.selected_max_hp,state.selected_shields,state.selected_max_shields,state.selected_energy,state.selected_max_energy,state.queue,unsigned((state.work_frames+23)/24));
+                std::snprintf(hud,sizeof hud,"Minerals %d   Gas %d   Supply %d/%d",state.minerals,state.gas,state.supply,state.supply_max);
                 std::snprintf(error, sizeof error, "%s\n%.100s", action, !engine.ready()?engine.error():!sound_stats.ready ? sound.error() : graphics.ready() ? engine.error() : graphics.error());
                 C2D_TextBufClear(text_buf);
                 C2D_TextParse(&diagnostics, text_buf, status); C2D_TextOptimize(&diagnostics);
@@ -411,9 +444,10 @@ int main() {
                 if(units[i].max_shields)C2D_DrawRectSolid(x-w/2,y-units[i].height/2-9,0,w*units[i].shields/units[i].max_shields,3,C2D_Color32(80,140,255,255));
             }
             const float cx = controls.cursor_x, cy = controls.cursor_y;
-            C2D_DrawRectSolid(0,0,0,400,29,C2D_Color32(8,16,24,210));
-            C2D_DrawText(&resources, C2D_WithColor, 8, 1, 0, 0.40f, 0.40f, white);
-            C2D_DrawText(&message, C2D_WithColor | C2D_WordWrap, 8, 206, 0, 0.38f, 0.38f, white, 384.0f);
+            float resource_width=0,resource_height=0;C2D_TextGetDimensions(&resources,.36f,.36f,&resource_width,&resource_height);
+            C2D_DrawRectSolid(394-resource_width,0,0,resource_width+6,14,C2D_Color32(8,16,24,210));
+            C2D_DrawText(&resources,C2D_WithColor,397-resource_width,1,0,.36f,.36f,white);
+            if(placing || attacking || pending_load || !engine.ready())C2D_DrawText(&message,C2D_WithColor|C2D_WordWrap,8,211,0,.34f,.34f,white,384.f);
             auto cursor=engine.cursor_kind(controls.world_x(),controls.world_y(),attacking);
             if(menu!=Menu::none)cursor=port3ds::CursorKind::arrow;
             else if(placing){const auto site=engine.placement_unit(placing_code&65535,controls.world_x(),controls.world_y());cursor=site.valid?port3ds::CursorKind::target:port3ds::CursorKind::target_enemy;}
@@ -423,21 +457,32 @@ int main() {
                 C2D_DrawLine(cx-6,cy,green,cx+6,cy,green,2,0);C2D_DrawLine(cx,cy-6,green,cx,cy+6,green,2,0);
             }
             C2D_TargetClear(bottom, bg); C2D_SceneBegin(bottom);
-            C2D_DrawText(&diagnostics, C2D_WithColor, 8, 4, 0, 0.42f, 0.42f, white);
-            if(menu==Menu::catalogue && option_count){
+            hud_art.draw("hud",0,0);
+            C2D_TextBufClear(hud_buf);
+            char clock[20];std::snprintf(clock,sizeof clock,"%02lu:%02lu",static_cast<unsigned long>(state.frame/24/60),static_cast<unsigned long>(state.frame/24%60));
+            port3ds::ui_text(hud_buf,clock,69,25,.34f,white,true);
+            port3ds::ui_text(hud_buf,"Meniu",279,163,.38f,white,true);
+            if(menu==Menu::none){option_page=port3ds::OptionPage::primary;option_count=engine.options(option_page,option_rows,8);}
+            if(menu==Menu::none || menu==Menu::catalogue){
                 using G=port3ds::CommandGrid;
-                C2D_DrawText(&option_hint,C2D_WithColor,136,132,0,0.32f,0.32f,white);
                 for(unsigned i=0;i<option_count;++i){
                     const float x=G::x+(i%G::columns)*G::cell_width,y=G::y+(i/G::columns)*G::cell_height;
-                    C2D_DrawRectSolid(x,y,0,G::cell_width-1,G::cell_height-1,C2D_Color32(i==choice?35:12,i==choice?80:26,i==choice?65:30,255));
-                    graphics.ui_image(engine.command_button(),x+1,y+1,0.55f,engine);
-                    graphics.ui_image(engine.command_icon(option_rows[i].icon,option_rows[i].enabled),x+4,y+3,0.55f,engine);
-                    C2D_DrawText(&menu_rows[i],C2D_WithColor|C2D_WordWrap,x+29,y+2,0,0.28f,0.28f,option_rows[i].enabled?white:C2D_Color32(135,145,150,255),61.0f);
+                    graphics.ui_image(engine.command_icon(option_rows[i].icon,option_rows[i].enabled),x+1,y+1,.82f,engine);
+                    if(menu==Menu::catalogue && i==choice)port3ds::ui_border({int(x),int(y),32,32},green);
                 }
-            }else if(menu_count()) {
-                C2D_DrawRectSolid(136,144+choice*12,0,184,12,C2D_Color32(25,65,55,255));
-                for(unsigned i=0;i<menu_count();++i) C2D_DrawText(&menu_rows[i],C2D_WithColor,140,144+i*12,0,0.38f,0.38f,white);
-            } else C2D_DrawText(&commands,C2D_WithColor,140,144,0,0.38f,0.38f,white);
+                port3ds::ui_text(hud_buf,"...",262,125,.48f,green,true);
+                if(menu==Menu::catalogue && choice<option_count)port3ds::ui_text(hud_buf,option_rows[choice].label,220,32,.28f,white,true);
+                else if(state.selected)port3ds::ui_text(hud_buf,state.selected_name,220,32,.32f,white,true);
+            }
+            unsigned selected_slot=0;
+            for(std::size_t i=0;i<count && selected_slot<12;++i)if(units[i].selected){const auto& u=units[i];
+                const int x=15+int(selected_slot%6)*34,y=166+int(selected_slot/6)*34;
+                graphics.ui_image(engine.command_icon(u.type),x+1,y+1,.82f,engine);
+                if(u.max_hp>0)C2D_DrawRectSolid(x,y+29,0,32.f*u.hp/u.max_hp,2,green);
+                if(selected_slot==0)graphics.ui_image(engine.command_icon(u.type),255,193,1.1f,engine);
+                ++selected_slot;
+            }
+            if(selected_slot){char hp[40];std::snprintf(hp,sizeof hp,"%d/%d",state.selected_hp,state.selected_max_hp);port3ds::ui_text(hud_buf,hp,275,230,.25f,green,true);}
             using C = port3ds::Controls;
             C2D_DrawRectSolid(C::minimap_x, C::minimap_y, 0, C::minimap_w, C::minimap_h, grid);
             graphics.minimap(C::minimap_x,C::minimap_y,C::minimap_w,C::minimap_h);
@@ -456,6 +501,10 @@ int main() {
             C2D_DrawLine(mx, my, green, mx, my + 240 * sy, green, 1, 0);
             C2D_DrawLine(mx + 400 * sx, my, green, mx + 400 * sx, my + 240 * sy, green, 1, 0);
             C2D_DrawLine(mx, my + 240 * sy, green, mx + 400 * sx, my + 240 * sy, green, 1, 0);
+            if(menu!=Menu::none && menu!=Menu::catalogue){
+                C2D_DrawRectSolid(161,40,0,151,12+menu_count()*17,C2D_Color32(4,12,16,245));
+                for(unsigned i=0;i<menu_count();++i){if(i==choice)C2D_DrawRectSolid(164,46+i*17,0,142,16,C2D_Color32(25,65,55,255));C2D_DrawText(&menu_rows[i],C2D_WithColor,167,47+i*17,0,.32f,.32f,white);}
+            }
             const u64 end_begin=now_us();
             C3D_FrameEnd(0);
             const u64 render_end=now_us();
@@ -471,6 +520,7 @@ int main() {
             }
         }
         log.close();
+        if(hud_buf)C2D_TextBufDelete(hud_buf);
     }
     if (R_SUCCEEDED(audio)) ndspExit();
     aptUnhook(&cookie);

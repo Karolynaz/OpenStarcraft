@@ -281,7 +281,7 @@ Snapshot Engine::snapshot() const {
     const auto& funcs = impl_->player->funcs();
     if (const auto* u = impl_->first_selected()) {
         s.selected_name = unit_name(u);s.selected_building=funcs.ut_building(u);s.selected_larva=funcs.unit_is(u,UnitTypes::Zerg_Larva);
-        s.selected_shields=u->shield_points.integer_part();s.selected_max_shields=u->unit_type->shield_points;
+        s.selected_shields=u->unit_type->has_shield?u->shield_points.integer_part():0;s.selected_max_shields=u->unit_type->has_shield?u->unit_type->shield_points:0;
         s.selected_hp = u->hp.integer_part(); s.selected_max_hp = u->unit_type->hitpoints.integer_part();
         s.queue = u->build_queue.size();
         if(funcs.ut_has_energy(u)){s.selected_energy=u->energy.integer_part();s.selected_max_energy=funcs.unit_max_energy(u).integer_part();}
@@ -770,7 +770,7 @@ std::size_t Engine::visible_units(UnitView* output, std::size_t capacity) const 
         output[n++] = {u->sprite->position.x, u->sprite->position.y, static_cast<unsigned>(u->owner), selected,
                        static_cast<unsigned>(t->id), u->hp.integer_part(), t->hitpoints.integer_part(),
                        t->dimensions.from.x + t->dimensions.to.x + 1, t->dimensions.from.y + t->dimensions.to.y + 1,
-                       funcs.u_completed(u), funcs.ut_worker(u), funcs.unit_is_mineral_field(u),funcs.unit_is(u,UnitTypes::Resource_Vespene_Geyser),funcs.unit_is_refinery(u),funcs.u_flying(u),cargo,u->shield_points.integer_part(),int(t->shield_points),unsigned(funcs.unit_is_carrier(u)?funcs.unit_interceptor_count(u):funcs.unit_is_reaver(u)?funcs.unit_scarab_count(u):0),unsigned(u->order_type->id),u->energy.integer_part(),funcs.u_burrowed(u)};
+                       funcs.u_completed(u), funcs.ut_worker(u), funcs.unit_is_mineral_field(u),funcs.unit_is(u,UnitTypes::Resource_Vespene_Geyser),funcs.unit_is_refinery(u),funcs.u_flying(u),cargo,t->has_shield?u->shield_points.integer_part():0,t->has_shield?int(t->shield_points):0,unsigned(funcs.unit_is_carrier(u)?funcs.unit_interceptor_count(u):funcs.unit_is_reaver(u)?funcs.unit_scarab_count(u):0),unsigned(u->order_type->id),u->energy.integer_part(),funcs.u_burrowed(u)};
     }
     return n;
 }

@@ -39,7 +39,8 @@ inline void verify_composite(const port3ds::Engine& engine,const port3ds::Sprite
         assert(d.alpha_test && d.depth_test);
         const auto* data=static_cast<const std::uint16_t*>(d.tex->data);
         const unsigned ox=std::lround(d.sub.left*512),oy=std::lround((1-d.sub.top)*512);
-        const int left=std::lround(d.x+(d.sx<0?-int(d.sub.width):0));
+        // Match C2Di_CalcQuad: negative scale flips UVs, never the origin.
+        const int left=std::lround(d.x);
         raster(left,std::lround(d.y),d.sub.width,d.sub.height,d.sx<0,
             [&](unsigned x,unsigned y){
                 const unsigned px=ox+x,py=oy+y;

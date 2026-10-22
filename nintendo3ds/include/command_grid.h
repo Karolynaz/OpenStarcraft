@@ -3,9 +3,10 @@ namespace port3ds {
 // Bottom catalogue cells and touch share the same bounds. Other menus retain
 // their existing text rows, and closed-menu touches remain minimap-only.
 struct CommandGrid {
-    static constexpr int x=136,y=144,columns=2,cell_width=92,cell_height=24;
+    static constexpr int x=166,y=49,columns=3,cell_width=40,cell_height=35;
     static int hit(int px,int py,unsigned count){
-        if(px<x || py<y || px>=x+columns*cell_width || py>=y+4*cell_height)return -1;
+        if(px<x || py<y || px>=x+columns*cell_width || py>=y+3*cell_height)return -1;
+        if((px-x)%cell_width>=32 || (py-y)%cell_height>=32)return -1;
         const unsigned index=(py-y)/cell_height*columns+(px-x)/cell_width;
         return index<count?int(index):-1;
     }

@@ -91,7 +91,8 @@ void Graphics::draw(const Rect& r, float x, float y, float sx, float sy, bool fl
     C2D_ImageTint tint;
     if(!shadow && opacity<255)C2D_PlainImageTint(&tint,C2D_Color32(255,255,255,opacity),0);
     if(shadow) C2D_PlainImageTint(&tint,C2D_Color32(0,0,0,100),1);
-    C2D_DrawImageAt(img,flip?x+r.width*sx:x,y,depth,(shadow || opacity<255)?&tint:nullptr,flip?-sx:sx,sy);
+    // Citro2D flips UVs and uses abs(width); x remains the left edge.
+    C2D_DrawImageAt(img,x,y,depth,(shadow || opacity<255)?&tint:nullptr,flip?-sx:sx,sy);
 }
 void Graphics::terrain(int cx,int cy) {
     if(!ready()) return;

@@ -12,8 +12,8 @@ class Controls {
 public:
     float cursor_x = 200, cursor_y = 120;
     float camera_x = 0, camera_y = 0;
-    // The only touch-sensitive area, drawn identically by the bottom renderer.
-    static constexpr int minimap_x = 8, minimap_y = 144, minimap_w = 120, minimap_h = 88;
+    // Camera touch bounds match the supplied bottom-screen HUD.
+    static constexpr int minimap_x = 40, minimap_y = 45, minimap_w = 115, minimap_h = 108;
     void map_size(unsigned tile_width, unsigned tile_height) {
         width_ = std::max(400.0f, tile_width * 32.0f);
         height_ = std::max(240.0f, tile_height * 32.0f);

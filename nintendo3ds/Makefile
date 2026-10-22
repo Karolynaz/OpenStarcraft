@@ -184,3 +184,11 @@ test-command-icons: build/command-icons-test local-data/ui-work/reference.bin
 build/source_id.h: $(HEADERS) $(wildcard source/*.cpp) tools/build_info.py Makefile arm11.specs | build
 	python3 tools/build_info.py $@
 build/main.o: build/source_id.h
+
+build/frontend-export: tools/frontend_export.cpp $(HEADERS) | build
+	$(HOST_CXX) $(COMMON) tools/frontend_export.cpp -o $@
+build/frontend-test: tests/frontend.cpp include/frontend.h | build
+	$(HOST_CXX) -std=c++14 -O1 -g -fsanitize=address -Iinclude tests/frontend.cpp -o $@
+.PHONY: test-frontend
+test-frontend: build/frontend-test
+	./build/frontend-test

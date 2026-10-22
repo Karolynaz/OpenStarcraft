@@ -414,3 +414,19 @@ Next useful user-driven work: physical test of this release, original selection
 circles/HUD/title menus, then higher-tech/research/expansion AI and mixed races.
 Current opening AI is mirror-race only; campaign missions/movies remain separate.
 Do not continue these automatically after this window.
+
+## 2026-10-22 — batched user UI work, test build complete
+
+Implemented the explicitly collected SCV alignment correction plus title /
+campaign / Custom Game frontend and supplied Figma node27:30 in-game HUD.
+See nintendo3ds/reports/TITLE_HUD_VALIDATION.md and frontend-hud-emulator.json.
+Final native src-61642441ae705794, 3dsx SHA256
+ed1de87bcc44ede195e4518a183be91a076bfaf1ba7e46fc5d4ebce0acc9afc8.
+Local private packages title-hud-2026-10-22.zip and
+ title-hud-update-2026-10-22.zip under nintendo3ds/local-data/releases.
+Emulator original-model menu flow, reboot persistence, Terran (intermediate)
+and final Zerg manual openings/catalogues validated; touch injection limitation
+remains, so physical touchscreen needs user test. SD not written this turn.
+Map/speed/type selections are currently frontend-only by user instruction;
+Play chooses mirror-race economy scenario4/13/15 from the player's race.
+No automatic continuation was created or resumed. Await test feedback.
