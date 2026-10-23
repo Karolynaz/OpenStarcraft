@@ -76,6 +76,7 @@ unit_t* hit_unit(state_functions& funcs, int x, int y, bool own_only,bool fog=fa
     }
     return best;
 }
+bool chk_path(const a_string& path){if(path.size()<4)return false;const auto n=path.size();return path[n-4]=='.' && (path[n-3]=='c' || path[n-3]=='C') && (path[n-2]=='h' || path[n-2]=='H') && (path[n-1]=='k' || path[n-1]=='K');}
 void read_file(a_vector<uint8_t>& dst, const a_string& path) {
     data_loading::file_reader<> file(path);
     dst.resize(file.size());
@@ -102,8 +103,8 @@ void validate_map(const a_vector<uint8_t>& chk, unsigned& width, unsigned& heigh
             width = d.get<uint16_t>(); height = d.get<uint16_t>();
         }
     }
-    if (dims != 1 || width < 32 || height < 32 || width > 64 || height > 64)
-        throw std::runtime_error("Use a 32..64 tile map for the original 3DS probe");
+    if (dims != 1 || width < 32 || height < 32 || width > 128 || height > 128)
+        throw std::runtime_error("Original 3DS supports maps up to 128x128 tiles");
 }
 }
 
@@ -111,7 +112,7 @@ bool Engine::preview_map(const char* data_root,const char* map_path,MapPreview& 
     out=MapPreview{};
     try {
         a_vector<uint8_t> chk;const a_string path(map_path);
-        if(path.size()>=4 && path.substr(path.size()-4)==".chk")read_file(chk,path);
+        if(chk_path(path))read_file(chk,path);
         else {data_loading::mpq_file<> archive(path);archive(chk,"staredit/scenario.chk");}
         struct Chunk{const uint8_t* p=nullptr;size_t n=0;};Chunk dim,era,owners,units,sprp,strings,strx,terrain;
         size_t at=0;while(at+8<=chk.size()){
@@ -176,13 +177,34 @@ bool Engine::load(const char* data_root, const char* map_path, Scenario scenario
     try {
         a_vector<uint8_t> chk;
         const a_string map(map_path);
-        if (map.size() >= 4 && map.substr(map.size() - 4) == ".chk") read_file(chk, map);
+        if (chk_path(map)) read_file(chk, map);
         else {
             data_loading::mpq_file<> archive(map);
             archive(chk, "staredit/scenario.chk");
         }
         unsigned width = 0, height = 0;
         validate_map(chk, width, height);
+        if(custom){
+            if(setup->races[0]<0 || setup->races[0]>2)throw std::runtime_error("Invalid player race");for(unsigned i=1;i<3;++i)if(setup->races[i]<-1 || setup->races[i]>2)throw std::runtime_error("Invalid AI race");
+            if(setup->game_type>1)throw std::runtime_error("Use Map Settings is not supported yet. Choose Melee or Free for all.");
+            // Compact sparse/native start owners into the three active UI slots.
+            // Modify start markers only; resources retain their neutral ownership.
+            std::array<int,8> remap;remap.fill(-1);unsigned starts=0;
+            size_t at=0;while(at+8<=chk.size()){
+                const auto n=data_loading::value_at<uint32_t,true>(chk.data()+at+4);auto* tag=chk.data()+at;at+=8;
+                if(n>chk.size()-at)throw std::runtime_error("Truncated map section");
+                if(!std::memcmp(tag,"UNIT",4))for(size_t j=at;j+36<=at+n;j+=36){auto* u=chk.data()+j;
+                    if(data_loading::value_at<uint16_t,true>(u+8)==214){const auto owner=u[16];
+                        if(owner>=8 || remap[owner]>=0)throw std::runtime_error("Invalid or duplicate start location");remap[owner]=int(starts++);
+                    }
+                }at+=n;
+            }
+            unsigned required=1;for(unsigned i=1;i<3;++i)if(setup->races[i]>=0)required=i+1;
+            if(starts<required)throw std::runtime_error("Map has too few start locations for these AI slots");
+            at=0;while(at+8<=chk.size()){const auto n=data_loading::value_at<uint32_t,true>(chk.data()+at+4);const bool units=!std::memcmp(chk.data()+at,"UNIT",4);at+=8;
+                if(units)for(size_t j=at;j+36<=at+n;j+=36){auto* u=chk.data()+j;if(data_loading::value_at<uint16_t,true>(u+8)==214)u[16]=uint8_t(remap[u[16]]);}at+=n;
+            }
+        }
         a_string root(data_root);
         if (!root.empty() && root.back() != '/') root += '/';
         impl_->player.reset(new game_player);
@@ -204,6 +226,7 @@ bool Engine::load(const char* data_root, const char* map_path, Scenario scenario
             const bool melee=scenario==Scenario::melee || scenario==Scenario::ai_battle || scenario==Scenario::versus_ai || scenario==Scenario::gas_battle || scenario==Scenario::protoss_ai_battle || scenario==Scenario::protoss_versus_ai || scenario==Scenario::zerg_ai_battle || scenario==Scenario::zerg_versus_ai;
             loader.setup_info.create_no_units = !melee;
             loader.setup_info.victory_condition = 0;
+            loader.setup_info.starting_units = custom?1:0;
             loader.setup_info.resource_type = 1;
             loader.setup_info.starting_minerals = 50;
             for (unsigned i = 0; i != 12; ++i) {
@@ -225,6 +248,7 @@ bool Engine::load(const char* data_root, const char* map_path, Scenario scenario
             unit_t* bases[3]={nullptr,nullptr,nullptr};
             for(unsigned p=0;p!=(custom?3u:2u);++p) for(auto* u:ptr(player.st().player_units[p]))
                 if(loader.unit_is(u,(custom?setup->races[p]:int(scenario_race(scenario)))==0?UnitTypes::Zerg_Hatchery:(custom?setup->races[p]:int(scenario_race(scenario)))==2?UnitTypes::Protoss_Nexus:UnitTypes::Terran_Command_Center)) bases[p]=u;
+            if(custom)for(unsigned p=0;p<3;++p)if(setup->races[p]>=0 && !bases[p])throw std::runtime_error("Cannot create a base at the map start location");
             if(!custom && (!bases[0] || !bases[1] || !loader.is_reachable(bases[0],bases[1])))
                 throw std::runtime_error("AI ground battle needs connected start locations");
         }
@@ -295,6 +319,34 @@ bool Engine::load(const char* data_root, const char* map_path, Scenario scenario
         return false;
     }
 }
+// A private map-local tile bank is built while audio is unloaded. GPU terrain
+// uploads then read only the viewport's tiles, independent of map variety.
+bool Engine::write_terrain(const char* data_root,const char* output){
+    if(!ready())return false;
+    FILE* out=nullptr;const std::string temporary=std::string(output)+".tmp";
+    try{
+        const auto& st=impl_->player->st();const auto& game=*st.game;
+        const char* names[]={"badlands","platform","install","ashworld","jungle","desert","ice","twilight"};
+        a_vector<uint8_t> vx4,vr4;
+        auto read=[&](a_vector<uint8_t>& dst,const a_string& name){a_string root(data_root);if(!root.empty() && root.back()!='/')root+='/';if(exists(root+"arr/units.dat"))read_file(dst,root+name);else{auto assets=data_loading::data_files_directory(root);assets(dst,name);}};
+        read(vx4,a_string("tileset/")+names[game.tileset_index]+".vx4");
+        read(vr4,a_string("tileset/")+names[game.tileset_index]+".vr4");
+        auto pixel=[&](unsigned id,unsigned x,unsigned y){const auto off=id*32+((y/8)*4+x/8)*2;if(off+2>vx4.size())throw std::runtime_error("Terrain VX4 bounds");const unsigned mini=vx4[off]|vx4[off+1]<<8,src=mini/2*64+(y%8)*8+((mini&1)?7-x%8:x%8);if(src>=vr4.size())throw std::runtime_error("Terrain VR4 bounds");return impl_->palette[vr4[src]];};
+        std::vector<unsigned short> ids(st.tiles_mega_tile_index.begin(),st.tiles_mega_tile_index.end());
+        std::sort(ids.begin(),ids.end());ids.erase(std::unique(ids.begin(),ids.end()),ids.end());
+        out=std::fopen(temporary.c_str(),"wb");if(!out)throw std::runtime_error("Cannot create map terrain cache on SD");
+        auto put=[&](unsigned v){unsigned char b[4]={uint8_t(v),uint8_t(v>>8),uint8_t(v>>16),uint8_t(v>>24)};if(std::fwrite(b,1,4,out)!=4)throw std::runtime_error("Terrain cache write failed");};
+        if(std::fwrite("OB3DTRN1",1,8,out)!=8)throw std::runtime_error("Terrain cache write failed");
+        put(game.map_tile_width);put(game.map_tile_height);put(terrain_signature());put(ids.size());
+        for(auto id:st.tiles_mega_tile_index)put(std::lower_bound(ids.begin(),ids.end(),id)-ids.begin());
+        // Minimap colors sample native map terrain, without UI start markers.
+        for(unsigned y=0;y<128;++y)for(unsigned x=0;x<128;++x){const unsigned wx=(x*2+1)*game.map_width/256,wy=(y*2+1)*game.map_height/256;const auto value=pixel(st.tiles_mega_tile_index[wy/32*game.map_tile_width+wx/32],wx%32,wy%32);unsigned char b[2]={uint8_t(value),uint8_t(value>>8)};if(std::fwrite(b,1,2,out)!=2)throw std::runtime_error("Minimap cache write failed");}
+        for(auto id:ids){uint16_t tile[1024];for(unsigned y=0;y<32;++y)for(unsigned x=0;x<32;++x)tile[y*32+x]=pixel(id,x,y);if(std::fwrite(tile,2,1024,out)!=1024)throw std::runtime_error("Terrain cache write failed");}
+        const int closed=std::fclose(out);out=nullptr;if(closed || std::rename(temporary.c_str(),output))throw std::runtime_error("Cannot finish map terrain cache");return true;
+    }catch(const std::exception& e){if(out)std::fclose(out);std::remove(temporary.c_str());std::snprintf(impl_->message,sizeof impl_->message,"%s",e.what());return false;}
+}
+
+bool Engine::surrender(){return ready() && !impl_->battle.enabled() && impl_->ai.surrender();}
 bool Engine::tick() {
     if (!impl_->loaded) return false;
     try {

@@ -14,11 +14,12 @@
 namespace port3ds {
 struct UiRect {int x,y,w,h;bool hit(int px,int py)const{return px>=x && py>=y && px<x+w && py<y+h;}};
 struct Frontend {
- enum class Screen {campaign,custom};enum class Dialog {none,version,unsupported,exit};
+ enum class Screen {campaign,custom};enum class Dialog {none,version,unsupported,exit,error};
  Screen screen=Screen::campaign;Dialog dialog=Dialog::none;
  bool brood=true,play=false,quit=false,save_failed=false;
  unsigned race=1,speed=4,game_type=0,subtype=0,scroll=0,selected_map=0;
  std::array<unsigned,2> ai{{3,3}};
+ char error[192]{};
  MapPreview preview;bool preview_dirty=true;float transition=1;
  float x=160,y=206;int hover=-1;
  std::string directory,base,settings;
@@ -29,7 +30,7 @@ struct Frontend {
  bool ai_available(unsigned i)const{return capacity()>i+1;}
  const char* ai_name(unsigned i)const{return !ai_available(i) || ai[i]==4?"Off":ai[i]==3?"Random":race_name(ai[i]);}
  std::string map_path()const{return selected_map<maps.size()?directory+"/"+maps[selected_map].name:"";}
- MatchSetup match(unsigned seed)const{MatchSetup m;m.enabled=true;m.races[0]=int(race);for(unsigned i=0;i<2;++i){seed=seed*1664525u+1013904223u;m.races[i+1]=!ai_available(i) || ai[i]==4?-1:ai[i]==3?int((seed>>16)%3):int(ai[i]);}return m;}
+ MatchSetup match(unsigned seed)const{MatchSetup m;m.enabled=true;m.game_type=game_type;m.races[0]=int(race);for(unsigned i=0;i<2;++i){seed=seed*1664525u+1013904223u;m.races[i+1]=!ai_available(i) || ai[i]==4?-1:ai[i]==3?int((seed>>16)%3):int(ai[i]);}return m;}
  float slide()const{float left=1-transition;return left*left*left;}
  void scan(){
   preview_dirty=true;
@@ -57,7 +58,7 @@ struct Frontend {
  void stick(int dx,int dy,float dt){auto axis=[](int v){return std::abs(v)<=20?0.f:std::copysign(std::min(1.f,(std::abs(v)-20)/136.f),float(v));};x=std::max(0.f,std::min(319.f,x+axis(dx)*190*dt));y=std::max(0.f,std::min(239.f,y-axis(dy)*190*dt));transition=std::min(1.f,transition+dt/.38f);hover=hit(int(x),int(y));}
  int hit(int px,int py)const{
   if(dialog==Dialog::version){if(UiRect{34,67,252,48}.hit(px,py))return 30;if(UiRect{34,128,252,48}.hit(px,py))return 31;if(UiRect{112,192,96,19}.hit(px,py))return 32;return -1;}
-  if(dialog==Dialog::unsupported)return UiRect{112,183,96,22}.hit(px,py)?32:-1;
+  if(dialog==Dialog::unsupported || dialog==Dialog::error)return UiRect{112,183,96,22}.hit(px,py)?32:-1;
   if(dialog==Dialog::exit){if(UiRect{45,174,100,23}.hit(px,py))return 33;return UiRect{175,174,100,23}.hit(px,py)?32:-1;}
   if(screen==Screen::campaign){
    if(UiRect{236,201,78,15}.hit(px,py))return 4;if(UiRect{111,201,104,15}.hit(px,py))return 3;

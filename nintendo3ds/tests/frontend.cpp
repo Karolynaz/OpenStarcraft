@@ -14,6 +14,6 @@ int main(){using namespace port3ds;
  f.preview.players=3;f.ai={{4,3}};assert(f.match(123).races[1]==-1 && f.match(123).races[2]>=0);f.ai={{4,4}};m=f.match(123);assert(m.races[1]==-1 && m.races[2]==-1);
  for(unsigned race=0;race<3;++race){f.race=race;assert(f.match(1).races[0]==int(race));f.save();Frontend again;again.init(root.c_str());assert(again.race==race);}
  f.x=200;f.y=104;f.direction(1);assert(f.race==0);f.direction(3);assert(f.race==2);f.direction(2);assert(f.y==137);
- f.activate(10);assert(f.play);f.back();assert(f.screen==Frontend::Screen::campaign);f.back();f.activate(33);assert(f.quit);
+ f.game_type=1;assert(f.match(1).game_type==1);f.dialog=Frontend::Dialog::error;assert(f.hit(160,190)==32);f.activate(32);assert(f.dialog==Frontend::Dialog::none);f.activate(10);assert(f.play);f.back();assert(f.screen==Frontend::Screen::campaign);f.back();f.activate(33);assert(f.quit);
  std::remove((root+"maps/test.scx").c_str());std::remove((root+"maps/no.txt").c_str());std::remove((root+"maps/folder/nested.scm").c_str());rmdir((root+"maps/folder").c_str());rmdir((root+"maps").c_str());std::remove((root+"player1.cfg").c_str());rmdir(root.c_str());
  puts("Version/profile + recursive maps + panel animation/input gate + bidirectional settings + random/off/2-/3-/8-slot AI cap PASS");}

@@ -204,3 +204,9 @@ build/selection-info-test: tests/selection_info.cpp source/engine.cpp $(HEADERS)
 .PHONY: test-selection-info
 test-selection-info: build/selection-info-test
 	ASAN_OPTIONS=detect_leaks=0 ./build/selection-info-test "$(ASSET_ROOT)" local-data/3ds/openbw/maps/arena.chk
+
+build/melee-test: tests/melee.cpp source/engine.cpp source/graphics.cpp $(HEADERS) | build
+	$(HOST_CXX) $(COMMON) -O1 -g -fsanitize=address -fno-omit-frame-pointer -Itests/fake3ds tests/melee.cpp source/engine.cpp source/graphics.cpp -o $@
+.PHONY: test-melee
+test-melee: build/melee-test
+	ASAN_OPTIONS=detect_leaks=0 ./build/melee-test "$(ASSET_ROOT)" local-data/3ds/openbw/maps/probe.scx

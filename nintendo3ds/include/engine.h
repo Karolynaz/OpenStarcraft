@@ -75,6 +75,8 @@ public:
     Engine();
     ~Engine();
     bool load(const char* data_root, const char* map_path, Scenario scenario,const MatchSetup* setup=nullptr);
+    bool write_terrain(const char* data_root,const char* output);
+    bool surrender();
     bool tick();
     void advance_wall_time(std::uint64_t microseconds);
     unsigned options(OptionPage page,MenuOption* output,unsigned capacity) const;

@@ -473,3 +473,23 @@ under local-data/releases; matching ELF/logs in local-data/selection-panel-2026-
 Final original-model emulator idle/active Command Center views verified; normal
 Exit and model preference restored. Physical touch still needs user check;
 wire damage colors approximate overall health. No physical SD write this stage.
+
+## 2026-10-23 — actual selected maps, results/return flow, expanded melee AI
+
+User explicitly authorized plan items2,3,4. Play now uses the selected map,
+native starts and real chosen races/Off slots. Sparse starts remapped; maps
+32..128 supported, terrain/minimap generated on-device into map-terrain.bin,
+496-slot streamed GPU terrain cache; 64/128 fog masks. UMS explicitly rejected
+with a retained-settings error, not silently replaced. Melee/FFA supported.
+Victory/Defeat and Surrender result -> Play Custom return and second-match load
+are real. AI gas/technology/upgrades and mixed ground/air production extended
+for all3 races, budget56; expansion/transport/full spells remain outside this
+stage. Full details/test results: reports/MELEE_VALIDATION.md.
+Final src-bb5cf4a33b8d25fc, 3dsx SHA256
+6e994bceb7ca2b53897ab671a451669940606f908be245b526cdf0702808a49f.
+Private melee-2026-10-23.zip and melee-update-2026-10-23.zip under local-data/
+releases, matching ELF/evidence in local-data/melee-2026-10-23. Three36k-frame
+economy tests, 600-tile cache/385560 pixel checks and selection/fog/frontend
+regressions pass. Final original-model emulator: UMS error, 128map+audio,
+Surrender/Defeat/return, second64map+pan+Exit pass. Preferences restored and
+temporary emu map removed. Physical SD not updated. No automatic continuation.

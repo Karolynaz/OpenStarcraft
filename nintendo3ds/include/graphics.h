@@ -2,6 +2,7 @@
 #include "engine.h"
 #include <citro2d.h>
 #include <vector>
+#include <cstdio>
 #include <unordered_map>
 namespace port3ds {
 class Graphics {
@@ -9,7 +10,11 @@ class Graphics {
  struct Sprite {std::uint32_t key;Rect rect;};
  struct Cached {Rect rect;std::uint64_t age=0;};
  C3D_Tex pages_[8]{},cursor_texture_[2]{},fog_texture_[2]{};
- unsigned fog_slot_=0;std::uint32_t fog_frame_=~0u;
+ FILE* terrain_file_=nullptr;long terrain_offset_=0;
+ struct TerrainSlot {unsigned tile=~0u;std::uint64_t age=0;};
+ std::array<TerrainSlot,496> terrain_slots_{};std::vector<short> terrain_lookup_;std::uint64_t terrain_age_=0;
+ Rect terrain_rect(unsigned slot)const;bool stream_terrain(unsigned x0,unsigned y0,unsigned x1,unsigned y1);
+ unsigned fog_side_=64,fog_slot_=0;std::uint32_t fog_frame_=~0u;
  bool update_fog(const Engine&);
  unsigned cursor_slot_=0;
  std::uint32_t cursor_key_=~0u;

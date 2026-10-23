@@ -64,6 +64,7 @@ inline void draw_frontend(Frontend& f,UiArt& art,C2D_TextBuf text,unsigned frame
   C2D_DrawRectSolid(0,0,0,320,240,C2D_Color32(0,0,0,150));
   C2D_DrawRectSolid(14,30,0,292,188,C2D_Color32(5,9,8,255));ui_border({14,30,292,188},C2D_Color32(105,110,103,255));ui_border({17,33,286,182},C2D_Color32(170,35,23,255));
   if(f.dialog==Frontend::Dialog::version){ui_text(text,"Select Game Type",160,43,.55f,white,true);art.draw("logo_sc",37,63);if(f.hover==30)ui_border({34,65,252,49},bright);label("Original",30,160,108,.34f);art.draw("logo_bw",37,123);if(f.hover==31)ui_border({34,126,252,51},bright);label("Expansion",31,160,173,.34f);label("Cancel",32,160,194);}
+  else if(f.dialog==Frontend::Dialog::error){ui_text(text,"Cannot start match",160,51,.50f,white,true);C2D_Text t;C2D_TextParse(&t,text,f.error);C2D_DrawText(&t,C2D_WithColor|C2D_WordWrap,29,85,0,.42f,.42f,white,260.f);label("OK",32,160,185,.45f);}
   else if(f.dialog==Frontend::Dialog::unsupported){ui_text(text,"Campaign",160,58,.55f,white,true);ui_text(text,"Campaigns are not supported",160,103,.44f,white,true);ui_text(text,"in this version.",160,121,.44f,white,true);label("OK",32,160,185,.45f);}
   else {ui_text(text,"Exit StarCraft?",160,78,.55f,white,true);label("Exit",33,95,176,.45f);label("Cancel",32,225,176,.45f);}
  }

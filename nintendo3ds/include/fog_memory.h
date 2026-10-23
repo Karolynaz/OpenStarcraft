@@ -13,7 +13,7 @@ class FogMemory {
         std::array<SpriteView,16> images;
     };
     std::array<Building,64> buildings_;
-    std::array<unsigned char,4096> creep_{};
+    std::array<unsigned char,16384> creep_{};
 public:
     static bool image(const bwgame::state_functions& f,const bwgame::sprite_t& sprite,const bwgame::image_t& img,unsigned layer,SpriteView& out) {
         using namespace bwgame;
@@ -32,7 +32,7 @@ public:
     void update(const bwgame::state_functions& f) {
         using namespace bwgame;const auto& st=f.st;
         const unsigned w=st.game->map_tile_width,h=st.game->map_tile_height;
-        for(unsigned y=0;y<h;++y)for(unsigned x=0;x<w;++x)if(!(st.tiles[y*w+x].visible&1))creep_[y*64+x]=(st.tiles[y*w+x].flags&tile_t::flag_has_creep)?1:0;
+        for(unsigned y=0;y<h;++y)for(unsigned x=0;x<w;++x)if(!(st.tiles[y*w+x].visible&1))creep_[y*128+x]=(st.tiles[y*w+x].flags&tile_t::flag_has_creep)?1:0;
         for(auto& b:buildings_)b.visible=false;
         for(const auto* u:ptr(st.visible_units)) {
             if(u->owner==0 || f.unit_dead(u) || (!f.ut_building(u) && !f.unit_is_mineral_field(u) && !f.unit_is(u,UnitTypes::Resource_Vespene_Geyser)) || f.u_flying(u) ||
@@ -52,7 +52,7 @@ public:
             if(x>=w || y>=h || !(st.tiles[y*w+x].visible&1))b.active=false;
         }
     }
-    bool creep(unsigned x,unsigned y)const{return x<64 && y<64 && creep_[y*64+x];}
+    bool creep(unsigned x,unsigned y)const{return x<128 && y<128 && creep_[y*128+x];}
     std::size_t images(SpriteView* output,std::size_t capacity,int cx,int cy,const bwgame::state_functions& f) const {
         std::size_t n=0;
         for(const auto& b:buildings_)if(b.active && !b.visible)for(unsigned i=0;i<b.count && n<capacity;++i){

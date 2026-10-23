@@ -21,20 +21,22 @@ void Graphics::clear() {
     for(auto& texture:fog_texture_){if(texture.data)C3D_TexDelete(&texture);texture={};}fog_slot_=0;fog_frame_=~0u;
     for(auto& texture:cursor_texture_){if(texture.data)C3D_TexDelete(&texture);texture={};}cursor_key_=~0u;cursor_slot_=0;
     for (unsigned i=0;i<page_count_;++i) C3D_TexDelete(&pages_[i]);
+    if(terrain_file_){std::fclose(terrain_file_);terrain_file_=nullptr;}terrain_slots_={};terrain_lookup_.clear();terrain_age_=0;
     page_count_=0; loaded_=false;
     tiles_.clear(); map_.clear(); sprites_.clear();decltype(cache_){}.swap(cache_);std::vector<uint16_t>().swap(scratch_);terrain_pages_=0;std::memset(occupied_,0,sizeof occupied_);
 }
-unsigned Graphics::texture_bytes() const { return page_count_*atlas_page_bytes+(cursor_texture_[0].data?64*64*4:0)+(fog_texture_[0].data?64*64*4:0); }
+unsigned Graphics::texture_bytes() const { return page_count_*atlas_page_bytes+(cursor_texture_[0].data?64*64*4:0)+(fog_texture_[0].data?fog_side_*fog_side_*4:0); }
 bool Graphics::load(const char* path, unsigned signature) {
     clear();
     try {
         Input in(path); char magic[8]; in.read(magic,8);
-        if (std::memcmp(magic,"OB3DGFX2",8)) throw std::runtime_error("Unsupported graphics.bin version");
+        const bool streamed=!std::memcmp(magic,"OB3DTRN1",8);
+        if (!streamed && std::memcmp(magic,"OB3DGFX2",8)) throw std::runtime_error("Unsupported graphics.bin version");
         width_=in.u32(); height_=in.u32();
         if (in.u32()!=signature) throw std::runtime_error("Graphics belongs to a different map; prepare again");
-        const unsigned pages=in.u32(), tile_count=in.u32(), sprite_count=in.u32(), cells=in.u32();
-        if (width_<32 || width_>64 || height_<32 || height_>64 || cells!=width_*height_ ||
-            !pages || pages>atlas_max_pages || !tile_count || tile_count>4096 || sprite_count!=0 || pages>3)
+        const unsigned pages=streamed?2:in.u32(), tile_count=in.u32(), sprite_count=streamed?0:in.u32(), cells=streamed?width_*height_:in.u32();
+        if (width_<32 || width_>128 || height_<32 || height_>128 || cells!=width_*height_ ||
+            !pages || pages>atlas_max_pages || !tile_count || tile_count>16384 || sprite_count!=0 || pages>3)
             throw std::runtime_error("Graphics exceeds original 3DS limits");
         auto rect = [&]() {
             Rect r{in.u16(),in.u16(),in.u16(),in.u16(),in.u16()};
@@ -42,7 +44,12 @@ bool Graphics::load(const char* path, unsigned signature) {
                 throw std::runtime_error("Atlas rectangle out of bounds");
             return r;
         };
-        minimap_=rect(); tiles_.resize(tile_count); map_.resize(cells); sprites_.resize(sprite_count);
+        tiles_.resize(tile_count); map_.resize(cells); sprites_.resize(sprite_count);
+        if(streamed){
+            terrain_lookup_.assign(tile_count,-1);
+            for(auto& t:map_){const unsigned v=in.u32();if(v>=tile_count)throw std::runtime_error("Invalid streamed tile index");t=v;}
+            minimap_={0,0,0,128,128};
+        }else {minimap_=rect();
         for(auto& r:tiles_) r=rect();
         for(auto& t:map_) { t=in.u16(); if(t>=tile_count) throw std::runtime_error("Invalid tile lookup"); }
         unsigned previous=0;
@@ -51,11 +58,13 @@ bool Graphics::load(const char* path, unsigned signature) {
             if(i && s.key<=previous) throw std::runtime_error("Unsorted sprite lookup");
             previous=s.key;
         }
+        }
         for(unsigned i=0;i<pages;++i) {
             if(!C3D_TexInit(&pages_[i],atlas_side,atlas_side,GPU_RGBA5551))
                 throw std::runtime_error("Not enough linear RAM for graphics atlas");
             ++page_count_;
-            in.read(pages_[i].data,atlas_page_bytes);
+            std::memset(pages_[i].data,0,atlas_page_bytes);
+            if(!streamed)in.read(pages_[i].data,atlas_page_bytes);
             C3D_TexSetFilter(&pages_[i],GPU_NEAREST,GPU_NEAREST);
             C3D_TexSetWrap(&pages_[i],GPU_CLAMP_TO_EDGE,GPU_CLAMP_TO_EDGE);
             C3D_TexFlush(&pages_[i]);
@@ -64,13 +73,19 @@ bool Graphics::load(const char* path, unsigned signature) {
         while(page_count_<8 && linearSpaceFree()>atlas_page_bytes+256*1024){if(!C3D_TexInit(&pages_[page_count_],atlas_side,atlas_side,GPU_RGBA5551))throw std::runtime_error("Not enough RAM for sprite cache");++page_count_;}
         if(page_count_<terrain_pages_+3)throw std::runtime_error("Not enough linear RAM for sprite working set");
         cache_.reserve(2048);scratch_.resize(512*512);frame_=0;cache_misses_=cache_overflows_=upload_pixels_=0;
-        if(std::fgetc(in.file)!=EOF) throw std::runtime_error("Unexpected graphics data after atlas pages");
+        if(streamed){
+            auto* dst=static_cast<uint16_t*>(pages_[0].data);for(unsigned y=0;y<128;++y)for(unsigned x=0;x<128;++x){const unsigned v=in.u16(),m=(x&1)|((y&1)<<1)|((x&2)<<1)|((y&2)<<2)|((x&4)<<2)|((y&4)<<3);dst[((y/8)*64+x/8)*64+m]=v;}
+            C3D_TexFlush(&pages_[0]);terrain_offset_=std::ftell(in.file);
+            if(std::fseek(in.file,0,SEEK_END) || std::ftell(in.file)!=terrain_offset_+long(tile_count)*2048)throw std::runtime_error("Truncated terrain tile bank");
+            terrain_file_=std::fopen(path,"rb");if(!terrain_file_)throw std::runtime_error("Cannot open terrain tile bank");
+        }else if(std::fgetc(in.file)!=EOF) throw std::runtime_error("Unexpected graphics data after atlas pages");
         for(auto& texture:cursor_texture_){
             if(!C3D_TexInit(&texture,64,64,GPU_RGBA5551))throw std::runtime_error("Not enough linear RAM for original cursor");
             C3D_TexSetFilter(&texture,GPU_NEAREST,GPU_NEAREST);C3D_TexSetWrap(&texture,GPU_CLAMP_TO_EDGE,GPU_CLAMP_TO_EDGE);
         }
+        fog_side_=(width_>64 || height_>64)?128:64;
         for(auto& texture:fog_texture_){
-            if(!C3D_TexInit(&texture,64,64,GPU_RGBA4))throw std::runtime_error("Not enough linear RAM for fog mask");
+            if(!C3D_TexInit(&texture,fog_side_,fog_side_,GPU_RGBA4))throw std::runtime_error("Not enough linear RAM for fog mask");
             // Tile-center samples interpolate on the GPU, softening the vision
             // boundary without a larger texture or a per-screen CPU mask.
             C3D_TexSetFilter(&texture,GPU_LINEAR,GPU_LINEAR);C3D_TexSetWrap(&texture,GPU_CLAMP_TO_EDGE,GPU_CLAMP_TO_EDGE);
@@ -94,11 +109,37 @@ void Graphics::draw(const Rect& r, float x, float y, float sx, float sy, bool fl
     // Citro2D flips UVs and uses abs(width); x remains the left edge.
     C2D_DrawImageAt(img,x,y,depth,(shadow || opacity<255)?&tint:nullptr,flip?-sx:sx,sy);
 }
+Graphics::Rect Graphics::terrain_rect(unsigned slot)const {
+    // First page reserves its top-left 4x4 cells for the 128px minimap.
+    unsigned cell=slot;
+    if(slot<240){for(unsigned i=0;i<256;++i)if(i%16>=4 || i/16>=4){if(!cell)return {0,(i%16)*32,(i/16)*32,32,32};--cell;}}
+    cell=slot-240;return {1,(cell%16)*32,(cell/16)*32,32,32};
+}
+bool Graphics::stream_terrain(unsigned x0,unsigned y0,unsigned x1,unsigned y1){
+    ++terrain_age_;
+    // Pin all already-resident viewport tiles before evicting old locations.
+    for(unsigned y=y0;y<y1;++y)for(unsigned x=x0;x<x1;++x){const unsigned id=map_[y*width_+x];const int slot=terrain_lookup_[id];if(slot>=0)terrain_slots_[slot].age=terrain_age_;}
+    bool dirty[2]{};uint16_t pixels[1024];
+    for(unsigned y=y0;y<y1;++y)for(unsigned x=x0;x<x1;++x){const unsigned id=map_[y*width_+x];int slot=terrain_lookup_[id];
+        if(slot<0){
+            slot=0;for(unsigned i=1;i<terrain_slots_.size();++i)if(terrain_slots_[i].age<terrain_slots_[slot].age)slot=i;
+            if(terrain_slots_[slot].age==terrain_age_ || std::fseek(terrain_file_,terrain_offset_+long(id)*2048,SEEK_SET) || std::fread(pixels,2,1024,terrain_file_)!=1024){std::snprintf(error_,sizeof error_,"Cannot stream terrain tile from SD");loaded_=false;return false;}
+            if(!dirty[0] && !dirty[1])C3D_FrameSync();
+            const auto r=terrain_rect(slot);auto* out=static_cast<uint16_t*>(pages_[r.page].data);
+            for(unsigned row=0;row<32;++row)for(unsigned col=0;col<32;++col){const unsigned px=r.x+col,py=r.y+row,m=(px&1)|((py&1)<<1)|((px&2)<<1)|((py&2)<<2)|((px&4)<<2)|((py&4)<<3);out[((py/8)*64+px/8)*64+m]=pixels[row*32+col];}
+            const auto old=terrain_slots_[slot].tile;if(old<terrain_lookup_.size())terrain_lookup_[old]=-1;
+            terrain_slots_[slot].tile=id;terrain_lookup_[id]=short(slot);dirty[r.page]=true;
+        }
+        terrain_slots_[slot].age=terrain_age_;tiles_[id]=terrain_rect(slot);
+    }
+    for(unsigned i=0;i<2;++i)if(dirty[i])C3D_TexFlush(&pages_[i]);return true;
+}
 void Graphics::terrain(int cx,int cy) {
     if(!ready()) return;
     const unsigned x0=std::max(0,cx/32), y0=std::max(0,cy/32);
     const unsigned x1=std::min(width_,static_cast<unsigned>((cx+431)/32));
     const unsigned y1=std::min(height_,static_cast<unsigned>((cy+271)/32));
+    if(terrain_file_ && !stream_terrain(x0,y0,x1,y1))return;
     // Terrain quads do not overlap; group by texture for bounded draw batches.
     for(unsigned page=0;page<terrain_pages_;++page)
         for(unsigned y=y0;y<y1;++y) for(unsigned x=x0;x<x1;++x) {
@@ -205,21 +246,22 @@ bool Graphics::update_fog(const Engine& engine) {
     if(!ready() || !engine.fog_enabled())return false;
     const auto frame=engine.frame();if(frame==fog_frame_)return true;
     C2D_Flush();fog_slot_^=1;auto* out=static_cast<uint16_t*>(fog_texture_[fog_slot_].data);
-    for(unsigned y=0;y<64;++y)for(unsigned x=0;x<64;++x){
+    for(unsigned y=0;y<fog_side_;++y)for(unsigned x=0;x<fog_side_;++x){
         const auto cell=engine.fog_cell(x,y);const uint16_t alpha=cell==FogCell::visible?0:cell==FogCell::explored?10:15;
         const unsigned morton=(x&1)|((y&1)<<1)|((x&2)<<1)|((y&2)<<2)|((x&4)<<2)|((y&4)<<3);
-        out[((y/8)*8+x/8)*64+morton]=alpha;
+        out[((y/8)*(fog_side_/8)+x/8)*64+morton]=alpha;
     }
     C3D_TexFlush(&fog_texture_[fog_slot_]);fog_frame_=frame;return true;
 }
 void Graphics::fog(const Engine& engine,int cx,int cy){
     if(!update_fog(engine))return;
-    Tex3DS_SubTexture sub={400,240,cx/2048.f,1-cy/2048.f,(cx+400)/2048.f,1-(cy+240)/2048.f};
+    const float extent=fog_side_*32.f;
+    Tex3DS_SubTexture sub={400,240,cx/extent,1-cy/extent,(cx+400)/extent,1-(cy+240)/extent};
     C2D_DrawImageAt({&fog_texture_[fog_slot_],&sub},0,0,0,nullptr,1,1);
 }
 void Graphics::fog_minimap(const Engine& engine,float x,float y,float w,float h){
     if(!update_fog(engine))return;
-    Tex3DS_SubTexture sub={static_cast<u16>(width_),static_cast<u16>(height_),0,1,width_/64.f,1-height_/64.f};
+    Tex3DS_SubTexture sub={static_cast<u16>(width_),static_cast<u16>(height_),0,1,width_/float(fog_side_),1-height_/float(fog_side_)};
     C2D_DrawImageAt({&fog_texture_[fog_slot_],&sub},x,y,0,nullptr,w/width_,h/height_);
 }
 bool Graphics::ui_image(const SpriteView& view,float x,float y,float scale,const Engine& engine){

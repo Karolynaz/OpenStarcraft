@@ -35,7 +35,7 @@ inline void battle_test(const char* data,const char* map,
         if(observe) observe(engine);
         if(frame%24) continue;
         const auto s=engine.snapshot();
-        for(const auto& p:s.players) if(p.live>40) throw std::runtime_error("AI exceeds controller unit budget");
+        for(const auto& p:s.players) if(p.live>ai_unit_budget) throw std::runtime_error("AI exceeds controller unit budget");
         if(s.units>peak) peak=s.units;
         if(protoss || zerg)for(unsigned p=0;p<2;++p){gas[p]=gas[p] || s.players[p].gas>0;dragoons[p]=dragoons[p] || engine.count_units(p,unsigned(zerg?bwgame::UnitTypes::Zerg_Hydralisk:bwgame::UnitTypes::Protoss_Dragoon))>0;}
         UnitView units[128];const auto n=engine.visible_units(units,128);
