@@ -192,3 +192,9 @@ build/frontend-test: tests/frontend.cpp include/frontend.h | build
 .PHONY: test-frontend
 test-frontend: build/frontend-test
 	./build/frontend-test
+
+build/custom-match-test: tests/custom_match.cpp source/engine.cpp $(HEADERS) | build
+	$(HOST_CXX) $(COMMON) -O1 -g -fsanitize=address -fno-omit-frame-pointer tests/custom_match.cpp source/engine.cpp -o $@
+.PHONY: test-custom-match
+test-custom-match: build/custom-match-test
+	ASAN_OPTIONS=detect_leaks=0 ./build/custom-match-test "$(ASSET_ROOT)" local-data/3ds/openbw/maps/probe.scx

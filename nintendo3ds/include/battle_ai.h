@@ -14,7 +14,8 @@ class BattleAI {
         unsigned lost = 0;
         static_vector<unit_id_32,64> previous;
     };
-    std::array<Side,2> sides_{};
+    std::array<Side,3> sides_{};
+    std::array<bool,3> active_{{true,true,false}};bool custom_=false;
     int winner_ = -1;
     bool gas_economy_ = false,protoss_=false,zerg_=false;
     static bool idle(const unit_t* u) {
@@ -31,6 +32,14 @@ class BattleAI {
         case 2: return {-d,d-k};
         default:return {-d+k,-d};
         }
+    }
+    unsigned opponent(game_player& player,unsigned owner)const {
+        if(!custom_)return 1-owner;
+        unsigned best=owner;int distance=0x7fffffff;
+        const auto origin=player.st().game->start_locations[owner];
+        for(unsigned p=0;p<3;++p)if(p!=owner && active_[p])for(auto* u:ptr(player.st().player_units[p]))if(!player.funcs().unit_dead(u)){
+            const auto d=u->sprite->position-origin;const int score=d.x*d.x+d.y*d.y;if(score<distance){distance=score;best=p;}
+        }return best;
     }
     void update_zerg(game_player& player,unsigned owner) {
         auto& side=sides_[owner];if(!side.enabled)return;
@@ -140,7 +149,7 @@ class BattleAI {
         }
         if(st.current_frame>=side.attack_frame && army.size()>=8) {
             unit_t* target=nullptr;
-            for(auto* e:ptr(st.player_units[1-owner]))if(!f.unit_dead(e)){
+            for(auto* e:ptr(st.player_units[opponent(player,owner)]))if(!f.unit_dead(e)){
                 if(!target || f.ut_building(e))target=e;
                 if(f.unit_is(e,UnitTypes::Zerg_Hatchery))break;
             }
@@ -151,6 +160,7 @@ class BattleAI {
         }
     }
     void update(game_player& player, unsigned owner) {
+        const bool zerg_=player.st().players[owner].race==race_t::zerg,protoss_=player.st().players[owner].race==race_t::protoss;
         if(zerg_){update_zerg(player,owner);return;}
         const auto base_type=protoss_?UnitTypes::Protoss_Nexus:UnitTypes::Terran_Command_Center;
         const auto worker_type=protoss_?UnitTypes::Protoss_Probe:UnitTypes::Terran_SCV;
@@ -296,7 +306,7 @@ class BattleAI {
         }
         if(st.current_frame>=side.attack_frame && marines.size()>=4) {
             unit_t* target=nullptr;
-            for(auto* e:ptr(st.player_units[1-owner])) if(!f.unit_dead(e)) {
+            for(auto* e:ptr(st.player_units[opponent(player,owner)])) if(!f.unit_dead(e)) {
                 if(!target || f.ut_building(e)) target=e;
                 if(f.unit_is(e,base_type)) break;
             }
@@ -313,8 +323,9 @@ class BattleAI {
     }
 public:
     static constexpr unsigned unit_budget=40;
-    void reset(bool red,bool blue,bool gas=false,bool protoss=false,bool zerg=false) { gas_economy_=gas;protoss_=protoss;zerg_=zerg; sides_={}; sides_[0].enabled=red; sides_[1].enabled=blue; winner_=-1; }
-    bool enabled(unsigned p) const { return p<2 && sides_[p].enabled; }
+    void reset(bool red,bool blue,bool gas=false,bool protoss=false,bool zerg=false) { custom_=false;active_={{true,true,false}};gas_economy_=gas;protoss_=protoss;zerg_=zerg; sides_={}; sides_[0].enabled=red; sides_[1].enabled=blue; winner_=-1; }
+    void configure(const MatchSetup& setup){custom_=true;gas_economy_=true;sides_={};winner_=-1;for(unsigned p=0;p<3;++p){active_[p]=setup.races[p]>=0;sides_[p].enabled=p!=0 && active_[p];}}
+    bool enabled(unsigned p) const { return p<3 && sides_[p].enabled; }
     bool observer() const { return enabled(0) && enabled(1); }
     int winner() const { return winner_; }
     unsigned trained(unsigned p) const { return sides_[p].trained; }
@@ -322,10 +333,10 @@ public:
     unsigned waves(unsigned p) const { return sides_[p].waves; }
     unsigned lost(unsigned p) const { return sides_[p].lost; }
     void step(game_player& player) {
-        if(winner_>=0 || (!enabled(0) && !enabled(1))) return;
+        if(winner_>=0 || (!enabled(0) && !enabled(1) && !enabled(2))) return;
         if(player.st().current_frame%12) return;
-        bool buildings[2]={false,false};
-        for(unsigned p=0;p!=2;++p) {
+        bool buildings[3]={false,false,false};
+        for(unsigned p=0;p!=3;++p) {
             auto& side=sides_[p];
             for(auto id:side.previous) {
                 auto* u=player.funcs().get_unit(id);
@@ -335,8 +346,14 @@ public:
             for(auto* u:ptr(player.st().player_units[p])) if(!player.funcs().unit_dead(u) && side.previous.size()<64)
                 side.previous.push_back(player.funcs().get_unit_id_32(u));
         }
-        for(unsigned p=0;p!=2;++p) for(auto* u:ptr(player.st().player_units[p]))
+        for(unsigned p=0;p!=3;++p) for(auto* u:ptr(player.st().player_units[p]))
             if(!player.funcs().unit_dead(u) && player.funcs().ut_building(u)) buildings[p]=true;
+        if(custom_){
+            const bool opponents=(active_[1] && buildings[1]) || (active_[2] && buildings[2]);
+            if(!buildings[0]){winner_=buildings[1]?1:buildings[2]?2:3;return;}
+            if((active_[1] || active_[2]) && !opponents){winner_=0;return;}
+            for(unsigned p=0;p<3;++p)update(player,p);return;
+        }
         if(!buildings[0] || !buildings[1]) { winner_=buildings[0]?0:buildings[1]?1:2; return; }
         update(player,0); update(player,1);
     }

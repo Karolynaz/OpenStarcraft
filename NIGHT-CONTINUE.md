@@ -430,3 +430,19 @@ remains, so physical touchscreen needs user test. SD not written this turn.
 Map/speed/type selections are currently frontend-only by user instruction;
 Play chooses mirror-race economy scenario4/13/15 from the player's race.
 No automatic continuation was created or resumed. Await test feedback.
+
+## 2026-10-23 — Custom settings layout and real two-computer opening
+
+User collected changes, then explicitly said 'viskas padaryk'; implemented all
+and the follow-up separate Cancel/OK panels + slide-in animation. Backgrounds
+are private user PNGs. Native selected-map metadata/preview (up to256 tiles)
+on top; five-row settings + separate buttons below. Random/Off for two AIs,
+selected-map slot cap, all higher slots closed. Native three-side mixed-race
+opening controller is real; actual selected-map/type simulation is still the
+previously agreed test-scenario placeholder. Mixed enemy-specific audio banks
+are not combined yet. See CUSTOM_SETTINGS_VALIDATION.md for tests/limitations.
+Final src-5c4330564beb133b, executable SHA256
+3d92656211bdfd545c23c3e61c497e73c5c2597e43e9ccdbb0d6087e37fad6d7.
+Packages custom-settings-2026-10-23.zip and custom-settings-update-2026-10-23.zip
+in local-data/releases. Exact ELF and raw emulator evidence in
+local-data/custom-settings-2026-10-23. No physical SD write this stage.

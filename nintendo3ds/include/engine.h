@@ -4,6 +4,8 @@
 #include <memory>
 #include <array>
 #include "cursor.h"
+#include "skirmish.h"
+#include "map_preview.h"
 
 namespace port3ds {
 enum class Scenario { empty, two_units, melee, ai_battle, versus_ai, gas_battle, terran_battle, terran_lab, protoss_battle, protoss_lab, zerg_battle, zerg_lab, protoss_ai_battle, protoss_versus_ai, zerg_ai_battle, zerg_versus_ai };
@@ -39,7 +41,7 @@ struct Snapshot {
     int selected_energy=0,selected_max_energy=0,work_frames=0;
     bool selected_building=false,selected_larva=false;
     SelectionKind selection = SelectionKind::none;
-    std::array<PlayerView,2> players{};
+    std::array<PlayerView,3> players{};
     int winner = -1;
     bool observer = false, benchmark = false;
     unsigned battle_seconds=0,end_reason=0,score[2]{};
@@ -68,9 +70,10 @@ struct SpriteView {
 // The platform UI never includes the engine's large implementation headers.
 class Engine {
 public:
+    static bool preview_map(const char* data_root,const char* map_path,MapPreview& output);
     Engine();
     ~Engine();
-    bool load(const char* data_root, const char* map_path, Scenario scenario);
+    bool load(const char* data_root, const char* map_path, Scenario scenario,const MatchSetup* setup=nullptr);
     bool tick();
     void advance_wall_time(std::uint64_t microseconds);
     unsigned options(OptionPage page,MenuOption* output,unsigned capacity) const;

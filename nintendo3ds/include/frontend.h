@@ -1,5 +1,6 @@
 #pragma once
 #include <algorithm>
+#include <functional>
 #include <cctype>
 #include <cmath>
 #include <string>
@@ -8,6 +9,8 @@
 #include <cstring>
 #include <dirent.h>
 #include <sys/stat.h>
+#include "map_preview.h"
+#include "skirmish.h"
 namespace port3ds {
 struct UiRect {int x,y,w,h;bool hit(int px,int py)const{return px>=x && py>=y && px<x+w && py<y+h;}};
 struct Frontend {
@@ -15,18 +18,32 @@ struct Frontend {
  Screen screen=Screen::campaign;Dialog dialog=Dialog::none;
  bool brood=true,play=false,quit=false,save_failed=false;
  unsigned race=1,speed=4,game_type=0,subtype=0,scroll=0,selected_map=0;
+ std::array<unsigned,2> ai{{3,3}};
+ MapPreview preview;bool preview_dirty=true;float transition=1;
  float x=160,y=206;int hover=-1;
  std::string directory,base,settings;
  struct Map{std::string name;bool folder;};std::vector<Map> maps;
  static const char* race_name(unsigned r){return r==0?"Zerg":r==2?"Protoss":"Terran";}
  unsigned scenario()const{return race==0?15:race==2?13:4;}
+ unsigned capacity()const{return preview.valid?std::min(3u,preview.players):0;}
+ bool ai_available(unsigned i)const{return capacity()>i+1;}
+ const char* ai_name(unsigned i)const{return !ai_available(i) || ai[i]==4?"Off":ai[i]==3?"Random":race_name(ai[i]);}
+ std::string map_path()const{return selected_map<maps.size()?directory+"/"+maps[selected_map].name:"";}
+ MatchSetup match(unsigned seed)const{MatchSetup m;m.enabled=true;m.races[0]=int(race);for(unsigned i=0;i<2;++i){seed=seed*1664525u+1013904223u;m.races[i+1]=!ai_available(i) || ai[i]==4?-1:ai[i]==3?int((seed>>16)%3):int(ai[i]);}return m;}
+ float slide()const{float left=1-transition;return left*left*left;}
  void scan(){
-  maps.clear();scroll=selected_map=0;if(directory!=base)maps.push_back({"..",true});
-  if(auto* d=opendir(directory.c_str())){while(auto* e=readdir(d)){
-   std::string n=e->d_name;if(n.empty() || n[0]=='.')continue;struct stat s{};if(stat((directory+"/"+n).c_str(),&s))continue;
-   const auto dot=n.find_last_of('.');std::string ext=dot==std::string::npos?"":n.substr(dot);for(auto& c:ext)c=char(std::tolower(c));
-   if(S_ISDIR(s.st_mode) || ext==".scx" || ext==".scm" || ext==".chk")maps.push_back({n,bool(S_ISDIR(s.st_mode))});
-  }closedir(d);}
+  preview_dirty=true;
+  maps.clear();scroll=selected_map=0;
+  std::function<void(const std::string&,unsigned)> visit=[&](const std::string& prefix,unsigned depth){
+   if(depth>8 || maps.size()>=256)return;
+   if(auto* d=opendir((base+"/"+prefix).c_str())){while(auto* e=readdir(d)){
+    std::string n=e->d_name;if(n.empty() || n[0]=='.')continue;struct stat st{};const auto relative=prefix+n;
+    if(stat((base+"/"+relative).c_str(),&st))continue;
+    if(S_ISDIR(st.st_mode)){visit(relative+"/",depth+1);continue;}
+    const auto dot=n.find_last_of('.');std::string ext=dot==std::string::npos?"":n.substr(dot);for(auto& c:ext)c=char(std::tolower(static_cast<unsigned char>(c)));
+    if((ext==".scx" || ext==".scm" || ext==".chk") && maps.size()<256)maps.push_back({relative,false});
+   }closedir(d);}
+  };visit("",0);
   std::sort(maps.begin(),maps.end(),[](const Map& a,const Map& b){return a.folder!=b.folder?a.folder>b.folder:a.name<b.name;});
  }
  void init(const char* root){base=std::string(root)+"maps";directory=base;settings=std::string(root)+"player1.cfg";
@@ -37,7 +54,7 @@ struct Frontend {
   const bool ok=std::fprintf(f,"OPENBW_PROFILE1\nversion=%u\nrace=%u\nname=Player1\n",brood?1:0,race)>0;
   const bool closed=std::fclose(f)==0;save_failed=!ok || !closed || std::rename(temp.c_str(),settings.c_str())!=0;
  }
- void stick(int dx,int dy,float dt){auto axis=[](int v){return std::abs(v)<=20?0.f:std::copysign(std::min(1.f,(std::abs(v)-20)/136.f),float(v));};x=std::max(0.f,std::min(319.f,x+axis(dx)*190*dt));y=std::max(0.f,std::min(239.f,y-axis(dy)*190*dt));hover=hit(int(x),int(y));}
+ void stick(int dx,int dy,float dt){auto axis=[](int v){return std::abs(v)<=20?0.f:std::copysign(std::min(1.f,(std::abs(v)-20)/136.f),float(v));};x=std::max(0.f,std::min(319.f,x+axis(dx)*190*dt));y=std::max(0.f,std::min(239.f,y-axis(dy)*190*dt));transition=std::min(1.f,transition+dt/.38f);hover=hit(int(x),int(y));}
  int hit(int px,int py)const{
   if(dialog==Dialog::version){if(UiRect{34,67,252,48}.hit(px,py))return 30;if(UiRect{34,128,252,48}.hit(px,py))return 31;if(UiRect{112,192,96,19}.hit(px,py))return 32;return -1;}
   if(dialog==Dialog::unsupported)return UiRect{112,183,96,22}.hit(px,py)?32:-1;
@@ -47,19 +64,41 @@ struct Frontend {
    if(UiRect{121,181,94,15}.hit(px,py) || UiRect{119,220,97,15}.hit(px,py))return 5;
    if(UiRect{5,25,103,157}.hit(px,py))return 0;if(UiRect{112,10,99,140}.hit(px,py))return 1;if(UiRect{218,25,96,157}.hit(px,py))return 2;
   }else{
-   for(unsigned i=0;i<6;++i)if(UiRect{30,65+int(i)*10,143,10}.hit(px,py) && scroll+i<maps.size())return 100+int(scroll+i);
-   if(UiRect{174,65,10,29}.hit(px,py))return 11;if(UiRect{174,95,10,30}.hit(px,py))return 12;
-   if(UiRect{95,155,76,12}.hit(px,py))return 6;
-   if(UiRect{90,130,85,11}.hit(px,py))return 7;if(UiRect{90,142,85,11}.hit(px,py))return 8;
-   if(UiRect{209,141,85,13}.hit(px,py))return 9;if(UiRect{221,188,78,17}.hit(px,py))return 10;if(UiRect{238,208,66,15}.hit(px,py))return 13;
+   if(transition<1)return -1;
+   constexpr int rows[]={54,79,104,137,162};
+   for(unsigned row=0;row<5;++row){if(row>=3 && !ai_available(row-3))continue;
+    if(UiRect{112,rows[row]-3,23,20}.hit(px,py))return 40+row*2;
+    if(UiRect{277,rows[row]-3,23,20}.hit(px,py))return 41+row*2;
+    if(UiRect{139,rows[row]-3,135,20}.hit(px,py))return 41+row*2;
+   }
+   if(UiRect{18,205,124,28}.hit(px,py))return 13;
+   if(UiRect{178,205,124,28}.hit(px,py))return 10;
   }return -1;
  }
  void activate(int id){
   if(id<0)return;
   if(dialog!=Dialog::none){if(dialog==Dialog::version && (id==30 || id==31)){brood=id==31;save();dialog=Dialog::none;}else if(id==33 && dialog==Dialog::exit)quit=true;else if(id==32)dialog=Dialog::none;return;}
-  if(screen==Screen::campaign){if(id<3 || id==5)dialog=Dialog::unsupported;else if(id==3){screen=Screen::custom;scan();}else if(id==4)dialog=Dialog::version;}
-  else if(id>=100){selected_map=unsigned(id-100);if(selected_map<maps.size() && maps[selected_map].folder){if(maps[selected_map].name=="..")directory=directory.substr(0,directory.find_last_of('/'));else directory+="/"+maps[selected_map].name;scan();}}
-  else if(id==6){race=(race+1)%3;save();}else if(id==7)game_type=(game_type+1)%3;else if(id==8)subtype=(subtype+1)%2;else if(id==9)speed=(speed+1)%7;else if(id==10 && selected_map<maps.size() && !maps[selected_map].folder){save();play=true;}else if(id==11 && scroll) --scroll;else if(id==12 && scroll+6<maps.size())++scroll;else if(id==13)screen=Screen::campaign;
+  if(screen==Screen::campaign){if(id<3 || id==5)dialog=Dialog::unsupported;else if(id==3){screen=Screen::custom;transition=0;scan();}else if(id==4)dialog=Dialog::version;}
+  else if(id>=40 && id<50)adjust(unsigned(id-40)/2,id%2?1:-1);
+  else if(id==10 && preview.valid && selected_map<maps.size() && !maps[selected_map].folder){save();play=true;}
+  else if(id==13)screen=Screen::campaign;
+
+ }
+ void adjust(unsigned row,int direction){
+  auto cycle=[&](unsigned value,unsigned count){return (value+count+direction)%count;};
+  if(row==0)game_type=cycle(game_type,3);
+  else if(row==1){
+   if(maps.empty())return;unsigned index=selected_map;
+   for(unsigned n=0;n<maps.size();++n){index=cycle(index,unsigned(maps.size()));if(!maps[index].folder){selected_map=index;preview_dirty=true;break;}}
+  }else if(row==2){race=cycle(race,3);save();}
+  else if(row<5 && ai_available(row-3))ai[row-3]=cycle(ai[row-3],5);
+ }
+ void direction(unsigned direction){
+  if(screen!=Screen::custom || dialog!=Dialog::none || transition<1)return;
+  constexpr int rows[]={54,79,104,137,162};unsigned row=0;float distance=999;
+  for(unsigned i=0;i<5;++i)if(std::abs(y-rows[i])<distance){distance=std::abs(y-rows[i]);row=i;}
+  if(direction==1 || direction==3)adjust(row,direction==1?1:-1);
+  else {row=(row+5+(direction==0?-1:1))%5;x=208;y=rows[row];}hover=hit(int(x),int(y));
  }
  void back(){if(dialog!=Dialog::none)dialog=Dialog::none;else if(screen==Screen::custom)screen=Screen::campaign;else dialog=Dialog::exit;}
 };

@@ -1,0 +1,22 @@
+{
+  "source_id": "src-5c4330564beb133b",
+  "executable_sha256": "3d92656211bdfd545c23c3e61c497e73c5c2597e43e9ccdbb0d6087e37fad6d7",
+  "human_race": 1,
+  "ai_races": [
+    2,
+    2
+  ],
+  "samples": 121,
+  "active_samples": 121,
+  "mean_fps": 59.83710743801653,
+  "mean_tps": 23.99603305785124,
+  "peak_heap": 33763336,
+  "peak_linear": 8084480,
+  "max_backlog": 0,
+  "max_cache_overflows": 0,
+  "max_missing_images": 0,
+  "max_music_underruns": 0,
+  "max_audio_io_errors": 0,
+  "max_csv_errors": 0,
+  "max_sfx_missing": 0
+}

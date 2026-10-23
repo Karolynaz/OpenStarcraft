@@ -6,7 +6,7 @@ No original images are committed to the repository.
 from pathlib import Path
 import argparse, struct, subprocess, json, hashlib, shutil
 from PIL import Image
-p=argparse.ArgumentParser();p.add_argument('work',type=Path);p.add_argument('output',type=Path);p.add_argument('--ffmpeg',default=shutil.which('ffmpeg') or '/opt/homebrew/bin/ffmpeg');p.add_argument('--title',type=Path,required=True);a=p.parse_args();r=a.work
+p=argparse.ArgumentParser();p.add_argument('work',type=Path);p.add_argument('output',type=Path);p.add_argument('--ffmpeg',default=shutil.which('ffmpeg') or '/opt/homebrew/bin/ffmpeg');p.add_argument('--custom-top',type=Path,required=True);p.add_argument('--custom-bottom',type=Path,required=True);p.add_argument('--title',type=Path,required=True);a=p.parse_args();r=a.work
 images=[]
 def add(name,im):
  im=im.convert('RGBA');images.append((name,im));return im
@@ -32,6 +32,11 @@ custom=bg.copy()
 for name,xy in [('glue_create_pListMap2',(0,0)),('glue_create_pInfo',(200,0)),('glue_create_pSlots',(0,142)),('glue_PalNl_pCancel',(236,178)),('glue_PalNl_pOk',(218,168))]:
  im=pcx(name);over(custom,im.resize((im.width//2,im.height//2),Image.Resampling.LANCZOS),xy)
 add('custom',custom)
+add('custom_top',Image.open(a.custom_top))
+add('custom_bottom',Image.open(a.custom_bottom))
+frame=bg.copy();frame.putalpha(Image.eval(frame.convert('L'),lambda v:255 if v else 0))
+add('frame_bottom',frame)
+add('frame_top',frame.resize((400,240),Image.Resampling.LANCZOS))
 add('title',Image.open(a.title))
 logo=pcx('logo-bw')
 add('logo_sc',logo.crop((20,40,235,83)).resize((245,49),Image.Resampling.LANCZOS))

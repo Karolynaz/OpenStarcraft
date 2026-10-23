@@ -9,6 +9,6 @@ inline std::uint32_t terrain_hash_step(std::uint32_t hash, unsigned value) {
     return (hash ^ ((value >> 8) & 255)) * 16777619u;
 }
 inline std::uint32_t sprite_key(unsigned image, unsigned frame, unsigned owner) {
-    return (image << 16) | (frame << 2) | (owner < 2 ? owner : 2);
+    return (image << 16) | (frame << 2) | (owner < 3 ? owner : 3);
 }
 }

@@ -48,7 +48,7 @@ struct Engine::Impl {
     std::array<grp_t,cursor_count> cursors;
     std::array<uint16_t,256> palette{};
     std::array<uint8_t,128> team{};
-    std::array<std::array<uint16_t,256>,3> team_palette;
+    std::array<std::array<uint16_t,256>,4> team_palette;
     std::array<std::array<uint16_t,256>,7> lights;
     unit_t* first_selected() const {
         if (!loaded) return nullptr;
@@ -107,9 +107,57 @@ void validate_map(const a_vector<uint8_t>& chk, unsigned& width, unsigned& heigh
 }
 }
 
+bool Engine::preview_map(const char* data_root,const char* map_path,MapPreview& out) {
+    out=MapPreview{};
+    try {
+        a_vector<uint8_t> chk;const a_string path(map_path);
+        if(path.size()>=4 && path.substr(path.size()-4)==".chk")read_file(chk,path);
+        else {data_loading::mpq_file<> archive(path);archive(chk,"staredit/scenario.chk");}
+        struct Chunk{const uint8_t* p=nullptr;size_t n=0;};Chunk dim,era,owners,units,sprp,strings,strx,terrain;
+        size_t at=0;while(at+8<=chk.size()){
+            const auto* tag=chk.data()+at;const size_t n=data_loading::value_at<uint32_t,true>(tag+4);at+=8;if(n>chk.size()-at)throw std::runtime_error("Truncated map chunk");
+            auto keep=[&](const char* name,Chunk& dst){if(!std::memcmp(tag,name,4))dst={chk.data()+at,n};};
+            keep("DIM ",dim);keep("ERA ",era);keep("OWNR",owners);keep("UNIT",units);keep("SPRP",sprp);keep("STR ",strings);keep("STRx",strx);keep("MTXM",terrain);at+=n;
+        }
+        auto word=[](const uint8_t* p){return unsigned(p[0]|(p[1]<<8));};
+        if(dim.n!=4 || era.n<2)throw std::runtime_error("Missing map dimensions/tileset");
+        out.width=word(dim.p);out.height=word(dim.p+2);out.tileset=word(era.p)&7;
+        if(!out.width || !out.height || out.width>256 || out.height>256 || terrain.n<size_t(out.width)*out.height*2)throw std::runtime_error("Invalid preview dimensions");
+        bool starts[8]{};for(size_t i=0;i+36<=units.n;i+=36)if(word(units.p+i+8)==214 && units.p[i+16]<8)starts[units.p[i+16]]=true;
+        for(auto v:starts)out.players+=v;if(!out.players)for(size_t i=0;i<std::min<size_t>(8,owners.n);++i)if(owners.p[i]==5 || owners.p[i]==6)++out.players;
+        auto string=[&](unsigned id,char* dst,size_t capacity){
+            const auto c=strx.p?strx:strings;const size_t step=strx.p?4:2;if(!c.p || c.n<step || !id)return;
+            const unsigned count=step==4?data_loading::value_at<uint32_t,true>(c.p):word(c.p);
+            if(id>count || size_t(id)*step+step>c.n)return;
+            const size_t off=step==4?data_loading::value_at<uint32_t,true>(c.p+id*step):word(c.p+id*step);size_t n=0;
+            for(size_t i=off;i<c.n && c.p[i] && n+1<capacity;++i){const auto ch=c.p[i];if(ch=='\n' || ch>=32)dst[n++]=ch<127?char(ch):'?';}dst[n]=0;
+        };
+        if(sprp.n>=4){string(word(sprp.p),out.title,sizeof out.title);string(word(sprp.p+2),out.description,sizeof out.description);}
+        if(!out.title[0]){const auto slash=path.find_last_of("/\\");std::snprintf(out.title,sizeof out.title,"%s",path.c_str()+(slash==a_string::npos?0:slash+1));}
+        auto assets=data_loading::data_files_directory(data_root);a_vector<uint8_t> cv5,vx4,vr4,wpe;
+        const char* names[]={"badlands","platform","install","ashworld","jungle","desert","ice","twilight"};const a_string name=a_string("tileset/")+names[out.tileset];
+        assets(cv5,name+".cv5");assets(vx4,name+".vx4");assets(vr4,name+".vr4");assets(wpe,name+".wpe");if(wpe.size()!=1024)throw std::runtime_error("Invalid preview palette");
+        for(unsigned y=0;y<128;++y)for(unsigned x=0;x<128;++x){
+            const unsigned wx=(x*2+1)*out.width*32/256,wy=(y*2+1)*out.height*32/256;
+            const unsigned tile=word(terrain.p+((wy/32)*out.width+wx/32)*2),entry=(tile>>4)*52+20+(tile&15)*2;
+            if(entry+2>cv5.size())throw std::runtime_error("Preview CV5 bounds");const unsigned mega=word(cv5.data()+entry),off=mega*32+((wy%32/8)*4+(wx%32/8))*2;
+            if(off+2>vx4.size())throw std::runtime_error("Preview VX4 bounds");const unsigned mini=word(vx4.data()+off),pixel=(mini/2)*64+(wy%8)*8+((mini&1)?7-wx%8:wx%8);
+            if(pixel>=vr4.size())throw std::runtime_error("Preview VR4 bounds");const unsigned c=vr4[pixel]*4;
+            out.pixels[y*128+x]=((wpe[c]>>3)<<11)|((wpe[c+1]>>3)<<6)|((wpe[c+2]>>3)<<1)|1;
+        }
+        // Resource/start markers remain useful on small terrain previews.
+        for(size_t i=0;i+36<=units.n;i+=36){unsigned type=word(units.p+i+8),owner=units.p[i+16];if(type!=214 && type!=176 && type!=177 && type!=178 && type!=188)continue;
+            unsigned x=word(units.p+i+4)*128/(out.width*32),y=word(units.p+i+6)*128/(out.height*32);const uint16_t color=type==214?(owner==0?0xf801:owner==1?0x003f:0x07c1):0x07ff;
+            for(unsigned dy=0;dy<2;++dy)for(unsigned dx=0;dx<2;++dx)if(x+dx<128 && y+dy<128)out.pixels[(y+dy)*128+x+dx]=color;
+        }
+        out.valid=true;return true;
+    }catch(const std::exception& e){std::snprintf(out.error,sizeof out.error,"%s",e.what());return false;}
+}
+
 Engine::Engine() : impl_(new Impl) {}
 Engine::~Engine() = default;
-bool Engine::load(const char* data_root, const char* map_path, Scenario scenario) {
+bool Engine::load(const char* data_root, const char* map_path, Scenario scenario,const MatchSetup* setup) {
+    const bool custom=setup && setup->enabled;
     impl_->loaded = false;
     impl_->fog=scenario==Scenario::melee || scenario==Scenario::versus_ai || scenario==Scenario::protoss_versus_ai || scenario==Scenario::zerg_versus_ai;
     impl_->battle.reset(scenario==Scenario::terran_battle || scenario==Scenario::protoss_battle || scenario==Scenario::zerg_battle,scenario_race(scenario));
@@ -119,6 +167,7 @@ bool Engine::load(const char* data_root, const char* map_path, Scenario scenario
     impl_->ai.reset(scenario==Scenario::ai_battle || scenario==Scenario::gas_battle || scenario==Scenario::protoss_ai_battle || scenario==Scenario::zerg_ai_battle,
         scenario==Scenario::ai_battle || scenario==Scenario::versus_ai || scenario==Scenario::gas_battle || scenario==Scenario::protoss_ai_battle || scenario==Scenario::protoss_versus_ai || scenario==Scenario::zerg_ai_battle || scenario==Scenario::zerg_versus_ai,
         scenario==Scenario::gas_battle || scenario==Scenario::protoss_ai_battle || scenario==Scenario::protoss_versus_ai || scenario==Scenario::zerg_ai_battle || scenario==Scenario::zerg_versus_ai,scenario_race(scenario)==2,scenario_race(scenario)==0);
+    if(custom)impl_->ai.configure(*setup);
     impl_->sound.reset();
     impl_->creep.reset();
     impl_->icons.reset();
@@ -159,9 +208,10 @@ bool Engine::load(const char* data_root, const char* map_path, Scenario scenario
             loader.setup_info.starting_minerals = 50;
             for (unsigned i = 0; i != 12; ++i) {
                 auto& p = player.st().players[i];
-                p.controller = i < 2 ? player_t::controller_occupied : player_t::controller_inactive;
-                p.race = static_cast<race_t>(scenario_race(scenario));
-                loader.setup_info.create_melee_units_for_player[i] = i < 2 && melee;
+                const bool active=custom?i<3 && setup->races[i]>=0:i<2;
+                p.controller = active ? player_t::controller_occupied : player_t::controller_inactive;
+                p.race = static_cast<race_t>(custom && i<3 && setup->races[i]>=0?setup->races[i]:int(scenario_race(scenario)));
+                loader.setup_info.create_melee_units_for_player[i] = active && melee;
             }
         });
         // The deterministic controller runs after loading; native player slots stay human.
@@ -172,10 +222,10 @@ bool Engine::load(const char* data_root, const char* map_path, Scenario scenario
                 throw std::runtime_error("Could not place the two probe units");
         }
         if(scenario==Scenario::ai_battle || scenario==Scenario::versus_ai || scenario==Scenario::gas_battle || scenario==Scenario::protoss_ai_battle || scenario==Scenario::protoss_versus_ai || scenario==Scenario::zerg_ai_battle || scenario==Scenario::zerg_versus_ai) {
-            unit_t* bases[2]={nullptr,nullptr};
-            for(unsigned p=0;p!=2;++p) for(auto* u:ptr(player.st().player_units[p]))
-                if(loader.unit_is(u,scenario_race(scenario)==0?UnitTypes::Zerg_Hatchery:scenario_race(scenario)==2?UnitTypes::Protoss_Nexus:UnitTypes::Terran_Command_Center)) bases[p]=u;
-            if(!bases[0] || !bases[1] || !loader.is_reachable(bases[0],bases[1]))
+            unit_t* bases[3]={nullptr,nullptr,nullptr};
+            for(unsigned p=0;p!=(custom?3u:2u);++p) for(auto* u:ptr(player.st().player_units[p]))
+                if(loader.unit_is(u,(custom?setup->races[p]:int(scenario_race(scenario)))==0?UnitTypes::Zerg_Hatchery:(custom?setup->races[p]:int(scenario_race(scenario)))==2?UnitTypes::Protoss_Nexus:UnitTypes::Terran_Command_Center)) bases[p]=u;
+            if(!custom && (!bases[0] || !bases[1] || !loader.is_reachable(bases[0],bases[1])))
                 throw std::runtime_error("AI ground battle needs connected start locations");
         }
         if(arena_scenario(scenario))impl_->battle.setup(loader,scenario==Scenario::terran_lab || scenario==Scenario::protoss_lab || scenario==Scenario::zerg_lab);
@@ -203,9 +253,9 @@ bool Engine::load(const char* data_root, const char* map_path, Scenario scenario
         for(unsigned i=0;i<256;++i)impl_->palette[i]=((wpe[i*4]>>3)<<11)|((wpe[i*4+1]>>3)<<6)|((wpe[i*4+2]>>3)<<1)|1;
         auto team=pcx("game/tunit.pcx");if(team.size()<128)throw std::runtime_error("Team palette bounds");std::copy_n(team.begin(),128,impl_->team.begin());
         const char* light_names[]={"ofire","gfire","bfire","bexpl","trans50","red","green"};
-        for(unsigned owner=0;owner<3;++owner) {
+        for(unsigned owner=0;owner<4;++owner) {
             impl_->team_palette[owner]=impl_->palette;
-            const unsigned team=owner<2?owner:11;
+            const unsigned team=owner<3?owner:11;
             for(unsigned c=8;c<16;++c)impl_->team_palette[owner][c]=impl_->palette[impl_->team[team*8+c-8]];
         }
         // The renderer samples one fixed column of these remap tables. Resolve
@@ -229,7 +279,7 @@ bool Engine::load(const char* data_root, const char* map_path, Scenario scenario
         }};
         if(exists(root+"arr/units.dat"))load_cursors(load_asset);
         else {auto files=data_loading::data_files_directory(root);load_cursors(files);}
-        if(scenario_race(scenario)==0){impl_->creep.reset(new detail::CreepGraphics);impl_->creep->load(player.st(),terrain,impl_->palette,load_asset);}
+        if(scenario_race(scenario)==0 || (custom && (setup->races[1]==0 || setup->races[2]==0))){impl_->creep.reset(new detail::CreepGraphics);impl_->creep->load(player.st(),terrain,impl_->palette,load_asset);}
         // UI art is optional for loose-asset installations; core gameplay can
         // retain its text menu if the original command assets were not supplied.
         try {impl_->icons.reset(new detail::CommandIcons);impl_->icons->load(load_asset,pcx,scenario_race(scenario));}
@@ -293,12 +343,12 @@ Snapshot Engine::snapshot() const {
     s.observer=impl_->ai.observer() || impl_->battle.enabled(); s.winner=impl_->battle.enabled()?impl_->battle.winner():impl_->ai.winner();
     s.benchmark=impl_->battle.enabled();s.battle_seconds=impl_->battle.seconds();s.end_reason=impl_->battle.reason();
     s.score[0]=impl_->battle.score(0);s.score[1]=impl_->battle.score(1);
-    for(unsigned p=0;p!=2;++p) {
+    for(unsigned p=0;p!=3;++p) {
         auto& v=s.players[p];
         v.minerals=st.current_minerals[p]; v.gas=st.current_gas[p];
         const auto player_race=static_cast<unsigned>(st.players[p].race);
         v.supply=st.supply_used[p][player_race].integer_part(); v.supply_max=std::min(200,st.supply_available[p][player_race].integer_part());
-        v.ai=impl_->ai.enabled(p) || impl_->battle.enabled(); v.trained=impl_->ai.trained(p); v.built=impl_->ai.built(p); v.waves=impl_->ai.waves(p); v.lost=impl_->battle.enabled()?impl_->battle.lost(p):impl_->ai.lost(p);
+        v.ai=impl_->ai.enabled(p) || (p<2 && impl_->battle.enabled()); v.trained=impl_->ai.trained(p); v.built=impl_->ai.built(p); v.waves=impl_->ai.waves(p); v.lost=p<2 && impl_->battle.enabled()?impl_->battle.lost(p):impl_->ai.lost(p);
         for(const auto& u:st.player_units[p]) if(!funcs.unit_dead(&u) && !funcs.ut_turret(&u)) {
             ++v.live;
             if(funcs.ut_worker(&u)) ++v.workers;
@@ -494,7 +544,7 @@ bool Engine::command(Command command, int x, int y) {
         if (command == Command::context) {
             message = target && funcs.unit_is_mineral_field(target) ? "Gather minerals" :
                 target && funcs.unit_is_refinery(target) && target->owner==0 ? "Gather gas" :
-                target && target->owner == 1 ? "Attack target" : "Move / interact / rally";
+                target && target->owner > 0 && target->owner < 3 ? "Attack target" : "Move / interact / rally";
         } else message=command==Command::stop ? "Stop" : command==Command::primary ? "Siege mode toggled" : "Attack-move to cursor";
         break;
     }
@@ -799,7 +849,7 @@ CursorKind Engine::cursor_kind(int x,int y,bool targeting) const {
     const auto* unit=hit_unit(impl_->player->funcs(),x,y,false,impl_->fog);
     if(!unit)return targeting?CursorKind::target:CursorKind::arrow;
     if(unit->owner==0)return targeting?CursorKind::target:CursorKind::own;
-    if(unit->owner==1)return targeting?CursorKind::target_enemy:CursorKind::enemy;
+    if(unit->owner>0 && unit->owner<3)return targeting?CursorKind::target_enemy:CursorKind::enemy;
     return targeting?CursorKind::target_neutral:CursorKind::neutral;
 }
 SpriteView Engine::command_icon(unsigned icon,bool enabled)const {return ready() && impl_->icons?impl_->icons->view(icon,enabled):SpriteView{};}
@@ -832,7 +882,7 @@ bool Engine::sprite_pixels(unsigned image,unsigned frame,unsigned owner,uint16_t
     const bool edge=image==detail::creep_edge_image;
     const bool ordinary=!edge && !cursor;
     const auto& type=st.global->image_types.vec[ordinary?image:0];
-    const uint16_t* colors=(edge || cursor)?impl_->palette.data():impl_->team_palette[owner<2?owner:2].data();
+    const uint16_t* colors=(edge || cursor)?impl_->palette.data():impl_->team_palette[owner<3?owner:3].data();
     if(ordinary && type.modifier==9 && type.color_shift!=5 && type.color_shift>=1 && type.color_shift<=7)colors=impl_->lights[type.color_shift-1].data();
     for(unsigned y=0;y<info.height;++y) {
         const auto* p=source.data_container.data()+source.line_data_offset[y];unsigned x=0;

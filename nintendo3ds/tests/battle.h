@@ -50,7 +50,7 @@ inline void battle_test(const char* data,const char* map,
     const auto s=engine.snapshot();
     if(s.winner<0) throw std::runtime_error("AI battle did not finish");
     if(s.winner<2 && engine.recall_group(1-s.winner)) throw std::runtime_error("Dead bookmark must not select a recycled unit");
-    for(const auto& p:s.players) if(!p.ai || p.trained<6 || p.built<2 || !p.waves)
+    for(unsigned i=0;i<2;++i) if(!s.players[i].ai || s.players[i].trained<6 || s.players[i].built<2 || !s.players[i].waves)
         throw std::runtime_error("Both AIs must gather, construct, train and launch waves");
     if(scenario==Scenario::gas_battle && (!s.players[0].gas || !s.players[1].gas)) throw std::runtime_error("Both AIs must harvest real gas");
     if(protoss || zerg)std::printf("Economy gas observed %u/%u, completed ranged unit observed %u/%u\n",gas[0],gas[1],dragoons[0],dragoons[1]);

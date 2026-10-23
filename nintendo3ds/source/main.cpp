@@ -68,7 +68,7 @@ int main() {
     const bool self_test = port3ds::core_self_test();
     const Result audio = ndspInit();
     if (R_SUCCEEDED(audio)) ndspSetOutputMode(NDSP_OUTPUT_STEREO);
-    int launch_scenario=-1;
+    int launch_scenario=-1;port3ds::MatchSetup match_setup;
     {
         port3ds::Frontend front;front.init(root);
         port3ds::UiArt art;const bool art_ok=art.load("sdmc:/3ds/openbw/ui/menu.bin");
@@ -80,10 +80,12 @@ int main() {
             if(down&KEY_A)front.activate(front.hit(int(front.x),int(front.y)));
             if(down&KEY_B)front.back();
             if(front.quit)break;
-            if(front.play){launch_scenario=int(front.scenario());break;}
+            if(front.screen==port3ds::Frontend::Screen::custom && front.preview_dirty){front.preview_dirty=false;port3ds::Engine::preview_map(root,front.map_path().c_str(),front.preview);if(front.preview.valid)art.preview(front.preview.pixels.data());last=now_us();}
+            if(down&KEY_DUP)front.direction(0);if(down&KEY_DRIGHT)front.direction(1);if(down&KEY_DDOWN)front.direction(2);if(down&KEY_DLEFT)front.direction(3);
+            if(front.play){launch_scenario=int(front.scenario());match_setup=front.match(unsigned(now));break;}
             C3D_FrameBegin(C3D_FRAME_SYNCDRAW);C2D_TextBufClear(text_buf);
             C2D_TargetClear(top,C2D_Color32(0,0,0,255));C2D_SceneBegin(top);C3D_DepthTest(false,GPU_ALWAYS,GPU_WRITE_COLOR);
-            art.draw("title",0,0);
+            port3ds::draw_frontend_top(front,art,text_buf);
             C2D_TargetClear(bottom,C2D_Color32(0,0,0,255));C2D_SceneBegin(bottom);
             if(art_ok)port3ds::draw_frontend(front,art,text_buf,unsigned(now/125000));
             else {port3ds::ui_text(text_buf,"Missing ui/menu.bin",160,90,.55f,C2D_Color32(255,200,180,255),true);port3ds::ui_text(text_buf,"Install the complete SD package.",160,120,.40f,C2D_Color32(255,255,255,255),true);if(down&KEY_START)break;}
@@ -158,7 +160,8 @@ int main() {
                 const bool arena_mode=port3ds::arena_scenario(mode);
                 const unsigned next_race=port3ds::scenario_race(mode);
                 loaded_scenario = scenario;
-                paused = !engine.load(root, arena_mode?arena:map, static_cast<port3ds::Scenario>(scenario));
+                if(scenario==unsigned(launch_scenario)){char setup_info[80];std::snprintf(setup_info,sizeof setup_info,"human=%d ai1=%d ai2=%d",match_setup.races[0],match_setup.races[1],match_setup.races[2]);load_stage(scenario,"match-setup",setup_info);}
+                paused = !engine.load(root, arena_mode?arena:map, static_cast<port3ds::Scenario>(scenario),scenario==unsigned(launch_scenario)?&match_setup:nullptr);
                 load_stage(scenario,engine.ready()?"core-ready":"core-failed",engine.ready()?"":engine.error());
                 // Reserve the contiguous sprite scratch before segmented PCM
                 // fills smaller holes left by the native core initialization.
@@ -319,7 +322,7 @@ int main() {
                 int x=0,y=0; if(engine.observer_focus(x,y)) controls.follow(x,y,ui_seconds);
             }
             if(state.winner>=0 && !paused) {
-                paused=true;scheduler.reset();action=state.winner==0?"Red wins / START to restart":state.winner==1?"Blue wins / START to restart":"Draw / START to restart";
+                paused=true;scheduler.reset();action=state.winner==0?"Red wins / START to restart":state.winner==1?"Blue wins / START to restart":state.winner==2 && match_setup.enabled && loaded_scenario==unsigned(launch_scenario)?"AI2 wins / START to restart":"Draw / START to restart";
             }
             port3ds::SoundEvent sound_events[256];
             const auto sound_count=engine.drain_sounds(sound_events,256);
@@ -490,7 +493,7 @@ int main() {
             for (std::size_t i = 0; i != count; ++i) {
                 const u32 color=units[i].selected?green:units[i].owner==0?
                     (state.observer?C2D_Color32(240,110,100,255):green):units[i].owner==1?
-                    C2D_Color32(100,150,255,255):C2D_Color32(155,170,180,255);
+                    C2D_Color32(100,150,255,255):units[i].owner==2?C2D_Color32(90,220,80,255):C2D_Color32(155,170,180,255);
                 C2D_DrawRectSolid(C::minimap_x + units[i].x * sx, C::minimap_y + units[i].y * sy, 0, 2, 2,color);
             }
             port3ds::UnitView memories[64];const auto remembered=engine.remembered_units(memories,64);
