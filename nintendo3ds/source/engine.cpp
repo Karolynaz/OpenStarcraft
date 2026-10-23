@@ -360,6 +360,49 @@ Snapshot Engine::snapshot() const {
         for (const auto& u : st.player_units[p]) { (void)u; ++s.units; }
     return s;
 }
+SelectionInfo Engine::selection_info()const {
+    SelectionInfo out;if(!ready())return out;const auto* u=impl_->first_selected();if(!u)return out;
+    const auto& f=impl_->player->funcs();const auto* t=u->unit_type;const auto snap=snapshot();
+    out.valid=true;out.count=snap.selected;out.own=u->owner==0;out.type=unsigned(t->id);out.name=unit_name(u);
+    out.building=f.ut_building(u);out.completed=f.u_completed(u);out.hp=snap.selected_hp;out.max_hp=snap.selected_max_hp;
+    out.shields=snap.selected_shields;out.max_shields=snap.selected_max_shields;out.energy=snap.selected_energy;out.max_energy=snap.selected_max_energy;
+    out.armor=f.unit_armor(u).integer_part();out.kills=u->kill_count;
+    if(const auto* w=f.unit_or_subunit_ground_weapon(u))out.ground_damage=f.weapon_damage_amount(w,u->owner).integer_part();
+    if(const auto* w=f.unit_or_subunit_air_weapon(u))out.air_damage=f.weapon_damage_amount(w,u->owner).integer_part();
+    out.supply_used=snap.players[u->owner<3?u->owner:0].supply;out.supply_total=snap.players[u->owner<3?u->owner:0].supply_max;out.supply_provided=t->supply_provided.integer_part();
+    out.queue_count=std::min<unsigned>(5,u->build_queue.size());for(unsigned i=0;i<out.queue_count;++i)out.queue[i]=unsigned(u->build_queue[i]->id);
+    auto unit_work=[&](WorkKind kind,const unit_type_t* type,int remaining){out.work=kind;out.work_icon=unsigned(type->id);out.work_name=zerg::name(type->id);if(!out.work_name)out.work_name=protoss::name(type->id);if(!out.work_name)out.work_name=terran::name(type->id);out.total=type->build_time;out.remaining=remaining;};
+    if(f.unit_is_morphing_building(u) || (!out.completed && f.unit_race(u)==race_t::zerg && !out.building)){
+        unit_work(WorkKind::morph,u->build_queue.empty()?t:u->build_queue.front(),u->remaining_build_time);
+    }else if(!out.completed){unit_work(WorkKind::construction,t,u->remaining_build_time);}
+    else if(out.building && f.unit_is_researching(u)){const auto* tech=u->building.researching_type;out.work=WorkKind::research;out.work_icon=tech->icon;out.work_name="Researching";catalogue::techs([&](const terran::Research& entry){if(entry.type==tech->id)out.work_name=entry.name;});out.total=tech->research_time;out.remaining=u->building.upgrade_research_time;}
+    else if(out.building && f.unit_is_upgrading(u)){const auto* upgrade=u->building.upgrading_type;out.work=WorkKind::upgrade;out.work_icon=upgrade->icon;out.work_name="Upgrading";catalogue::upgrades([&](const terran::Upgrade& entry){if(entry.type==upgrade->id)out.work_name=entry.name;});out.total=f.upgrade_time_cost(u->owner,upgrade);out.remaining=u->building.upgrade_research_time;}
+    else if(f.unit_is_building_addon(u) && u->current_build_unit){unit_work(WorkKind::addon,u->current_build_unit->unit_type,u->current_build_unit->remaining_build_time);}
+    else if(out.queue_count){const auto* type=u->build_queue.front();unit_work(WorkKind::training,type,u->current_build_unit && !f.unit_dying(u->current_build_unit)?u->current_build_unit->remaining_build_time:type->build_time);}
+    return out;
+}
+bool Engine::cancel_selected_work(unsigned slot){
+    const auto info=selection_info();if(!info.valid || info.count!=1 || !info.own || info.work==WorkKind::none || slot>=5)return false;
+    auto* u=impl_->first_selected();action_state state;action_functions a(impl_->player->st(),state);a.action_select(0,u);bool ok=false;
+    if(info.work==WorkKind::training){if(slot>=info.queue_count)return false;
+        // Native training clears a cancelled head's current_build_unit on the
+        // next simulation tick. A second head cancellation before that tick
+        // must not erase another paid item without refunding it.
+        if(slot==0 && u->current_build_unit && impl_->player->funcs().unit_dying(u->current_build_unit)){impl_->command_message="Cancellation pending next simulation tick";return false;}
+        ok=a.action_cancel_build_queue(0,slot);}
+    else if(slot)return false;
+    else if(info.work==WorkKind::research)ok=a.action_cancel_research(0);
+    else if(info.work==WorkKind::upgrade)ok=a.action_cancel_upgrade(0);
+    else if(info.work==WorkKind::morph)ok=a.action_cancel_morph(0);
+    else if(info.work==WorkKind::addon)ok=a.action_cancel_addon(0);
+    else if(info.work==WorkKind::construction)ok=a.action_cancel_building_unit(0);
+    impl_->command_message=ok?"Production cancelled":"Cannot cancel this production";return ok;
+}
+SpriteView Engine::selection_wireframe()const {
+    const auto info=selection_info();if(!info.valid || !impl_->icons || !impl_->icons->has_wireframes)return {};
+    const unsigned damage=info.hp>=info.max_hp?0:info.hp>info.max_hp/3?1:2,shield=info.shields>0?1:0;
+    return {0,0,detail::wireframe_image,info.type+228*(damage+3*shield),11,false,false,0,255};
+}
 const char* Engine::error() const { return impl_->message; }
 bool Engine::ready() const { return impl_->loaded; }
 unsigned Engine::count_units(unsigned owner,unsigned type,bool completed) const {
@@ -869,6 +912,7 @@ SpriteView Engine::cursor_image(CursorKind kind,std::uint64_t elapsed_us) const 
 }
 SpriteInfo Engine::sprite_info(unsigned image,unsigned frame) const {
     if(!ready())return {};
+    if(image==detail::wireframe_image)return impl_->icons && impl_->icons->has_wireframes && frame<228*6?SpriteInfo{64,64,true}:SpriteInfo{};
     if(image==detail::resource_icon_image)return impl_->icons && impl_->icons->has_resources && frame<7?SpriteInfo{14,14,true}:SpriteInfo{};
     if(image==detail::command_icon_image)return impl_->icons?impl_->icons->info(frame):SpriteInfo{};
     if(image==detail::command_button_image)return impl_->icons && frame==0?SpriteInfo{48,40,true}:SpriteInfo{};
@@ -881,6 +925,7 @@ SpriteInfo Engine::sprite_info(unsigned image,unsigned frame) const {
 }
 bool Engine::sprite_pixels(unsigned image,unsigned frame,unsigned owner,uint16_t* out,std::size_t capacity) const {
     const auto info=sprite_info(image,frame);if(!info.valid || info.width>512 || info.height>512 || size_t(info.width)*info.height>capacity)return false;
+    if(image==detail::wireframe_image)return impl_->icons && impl_->icons->wire_pixels(frame,out,capacity);
     if(image==detail::resource_icon_image){std::copy(impl_->icons->resources[frame].begin(),impl_->icons->resources[frame].end(),out);return true;}
     if(image==detail::command_icon_image)return impl_->icons && impl_->icons->pixels(frame,owner==0,out,capacity);
     if(image==detail::command_button_image){std::copy(impl_->icons->button.begin(),impl_->icons->button.end(),out);return true;}

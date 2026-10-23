@@ -198,3 +198,9 @@ build/custom-match-test: tests/custom_match.cpp source/engine.cpp $(HEADERS) | b
 .PHONY: test-custom-match
 test-custom-match: build/custom-match-test
 	ASAN_OPTIONS=detect_leaks=0 ./build/custom-match-test "$(ASSET_ROOT)" local-data/3ds/openbw/maps/probe.scx
+
+build/selection-info-test: tests/selection_info.cpp source/engine.cpp $(HEADERS) | build
+	$(HOST_CXX) $(COMMON) -O1 -g -fsanitize=address -fno-omit-frame-pointer tests/selection_info.cpp source/engine.cpp -o $@
+.PHONY: test-selection-info
+test-selection-info: build/selection-info-test
+	ASAN_OPTIONS=detect_leaks=0 ./build/selection-info-test "$(ASSET_ROOT)" local-data/3ds/openbw/maps/arena.chk

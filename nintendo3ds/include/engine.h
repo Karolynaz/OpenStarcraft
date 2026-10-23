@@ -6,6 +6,7 @@
 #include "cursor.h"
 #include "skirmish.h"
 #include "map_preview.h"
+#include "selection_info.h"
 
 namespace port3ds {
 enum class Scenario { empty, two_units, melee, ai_battle, versus_ai, gas_battle, terran_battle, terran_lab, protoss_battle, protoss_lab, zerg_battle, zerg_lab, protoss_ai_battle, protoss_versus_ai, zerg_ai_battle, zerg_versus_ai };
@@ -82,6 +83,9 @@ public:
     std::size_t drain_sounds(SoundEvent* output, std::size_t capacity);
     unsigned dropped_sounds() const;
     Snapshot snapshot() const;
+    SelectionInfo selection_info() const;
+    bool cancel_selected_work(unsigned slot);
+    SpriteView selection_wireframe() const;
     const char* error() const;
     bool ready() const;
     unsigned count_units(unsigned owner,unsigned type,bool completed=true) const;

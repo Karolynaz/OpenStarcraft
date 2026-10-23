@@ -9,6 +9,7 @@
 #include "ability_controls.h"
 #include "command_grid.h"
 #include "frontend_draw.h"
+#include "selection_draw.h"
 #include "source_id.h"
 #include "audio.h"
 #include "csv_log.h"
@@ -297,10 +298,14 @@ int main() {
                         const bool worker=engine.snapshot().selection==port3ds::SelectionKind::workers;
                         open_options(worker?(option_page==port3ds::OptionPage::basic?port3ds::OptionPage::advanced:port3ds::OptionPage::basic):(option_page==port3ds::OptionPage::primary?port3ds::OptionPage::secondary:port3ds::OptionPage::primary));
                     }else {
+                        const auto info=engine.selection_info();const int production=port3ds::ProductionPanel::hit(t.px,t.py,info);
+                        if(production>=0){engine.cancel_selected_work(unsigned(production));action=engine.command_status();}
+                        else if(info.count>1){
                         unsigned slot=0;const auto selectable=engine.visible_units(units,unit_view_capacity);
                         for(std::size_t i=0;i<selectable && slot<12;++i)if(units[i].selected){
                             const auto rect=port3ds::UiRect{15+int(slot%6)*34,166+int(slot/6)*34,32,32};
                             if(rect.hit(t.px,t.py)){engine.select(units[i].x,units[i].y);break;}++slot;
+                        }
                         }
                     }
                 }else if(t.px>=164 && t.px<306 && t.py>=46 && t.py<46+menu_count()*17){choice=(t.py-46)/17;activate_menu();}
@@ -487,11 +492,13 @@ int main() {
                 if(menu==Menu::catalogue && choice<option_count)port3ds::ui_text(hud_buf,option_rows[choice].label,220,32,.28f,white,true);
                 else if(state.selected)port3ds::ui_text(hud_buf,state.selected_name,220,32,.32f,white,true);
             }
+            const auto selected_info=engine.selection_info();
+            if(selected_info.count==1)port3ds::draw_selection_info(selected_info,graphics,engine,hud_buf);
             unsigned selected_slot=0;
             for(std::size_t i=0;i<count && selected_slot<12;++i)if(units[i].selected){const auto& u=units[i];
                 const int x=15+int(selected_slot%6)*34,y=166+int(selected_slot/6)*34;
-                graphics.ui_image(engine.command_icon(u.type),x+1,y+1,.82f,engine);
-                if(u.max_hp>0)C2D_DrawRectSolid(x,y+29,0,32.f*u.hp/u.max_hp,2,green);
+                if(selected_info.count>1)graphics.ui_image(engine.command_icon(u.type),x+1,y+1,.82f,engine);
+                if(selected_info.count>1 && u.max_hp>0)C2D_DrawRectSolid(x,y+29,0,32.f*u.hp/u.max_hp,2,green);
                 if(selected_slot==0)graphics.ui_image(engine.command_icon(u.type),255,193,1.1f,engine);
                 ++selected_slot;
             }

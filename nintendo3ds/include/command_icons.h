@@ -2,12 +2,12 @@
 #include "bwgame.h"
 #include "engine.h"
 namespace port3ds {namespace detail {
-constexpr unsigned command_icon_image=65380,command_button_image=65381,resource_icon_image=65382;
+constexpr unsigned command_icon_image=65380,command_button_image=65381,resource_icon_image=65382,wireframe_image=65383;
 // Original GRP command art uses 16 ink indices. ticon.pcx contains remap rows,
 // not the display palette: its PCX palette deliberately has placeholder colors.
 class CommandIcons {
 public:
-    bwgame::grp_t grp;
+    bwgame::grp_t grp,wireframes;bool has_wireframes=false;
     std::array<std::array<uint16_t,14*14>,7> resources{};bool has_resources=false;
     std::array<std::array<uint16_t,256>,2> colors;
     std::array<uint16_t,48*40> button;
@@ -25,6 +25,11 @@ public:
         for(unsigned state=0;state<2;++state){colors[state]=palette;for(unsigned i=0;i<16;++i)colors[state][i]=palette[remap[state*16+i]];}
         const auto console=pcx(name);if(console.size()!=640*480)throw std::runtime_error("Console dimensions");
         for(unsigned y=0;y<40;++y)for(unsigned x=0;x<48;++x)button[y*48+x]=palette[console[(354+y)*640+490+x]];
+        has_wireframes=false;
+        try{bytes.clear();read(bytes,"unit/wirefram/wirefram.grp");wireframes=read_grp(data_loading::data_reader_le(bytes.data(),bytes.data()+bytes.size()));
+            if(wireframes.width!=64 || wireframes.height!=64 || wireframes.frames.size()!=228)throw std::runtime_error("Wireframe GRP bounds");
+            for(const auto& f:wireframes.frames)if(f.offset.x+f.size.x>64 || f.offset.y+f.size.y>64)throw std::runtime_error("Wireframe crop bounds");has_wireframes=true;
+        }catch(const std::exception&){wireframes=grp_t{};}
         // game/icons.grp uses raw palette indices, unlike command GRP RLE.
         // Keep command art available in loose installations missing this file.
         has_resources=false;
@@ -39,6 +44,20 @@ public:
             has_resources=true;
         }catch(const std::exception&){}
 
+    }
+    bool wire_pixels(unsigned frame,uint16_t* out,size_t capacity)const {
+        if(!has_wireframes || frame>=228*6 || capacity<4096)return false;std::fill_n(out,4096,0);
+        const unsigned state=frame/228,damage=state%3;const bool shield=state>=3;const auto& f=wireframes.frames[frame%228];
+        auto rgb=[](unsigned r,unsigned g,unsigned b){return uint16_t((r>>3)<<11|(g>>3)<<6|(b>>3)<<1|1);};
+        auto color=[&](unsigned c)->uint16_t{
+            if(!c)return 0;if(c==192 || c==193)return shield?(c==192?rgb(72,136,255):rgb(48,92,190)):0;
+            if(c>=216 && c<=219){static const unsigned gradient[8][3]={{64,240,64},{150,220,40},{232,140,20},{228,50,24},{200,70,170},{110,60,190},{50,50,160},{28,28,100}};const auto& g=gradient[std::min(7u,c-216+2*damage)];return rgb(g[0],g[1],g[2]);}
+            return damage==0?rgb(44,228,52):damage==1?rgb(232,208,16):rgb(216,24,24);
+        };
+        for(unsigned y=0;y<f.size.y;++y){const auto* p=f.data_container.data()+f.line_data_offset[y];unsigned x=0;
+            while(x<f.size.x){unsigned token=*p++,n=token&127;if(token&128){x+=n;continue;}if(token&64){n=std::min(token&63,unsigned(f.size.x)-x);const auto c=color(*p++);while(n--)out[(y+f.offset.y)*64+f.offset.x+x++]=c;}
+            else {n=std::min(n,unsigned(f.size.x)-x);while(n--)out[(y+f.offset.y)*64+f.offset.x+x++]=color(*p++);}}
+        }return true;
     }
     SpriteInfo info(unsigned frame)const {if(frame>=grp.frames.size())return {};const auto& f=grp.frames[frame];return {unsigned(f.size.x),unsigned(f.size.y),true};}
     SpriteView view(unsigned frame,bool enabled)const {

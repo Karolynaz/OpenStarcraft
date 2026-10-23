@@ -458,3 +458,18 @@ local-data/releases. No new loose asset required. All three race mappings and
 4116 original resource pixels tested; extended command/GPU tests pass; original
 model emulator opening and10000-resource laboratory checked, normal exit and
 config restore. No physical SD write this stage.
+
+## 2026-10-23 — selected-unit information and native production queue
+
+Implemented the user's bottom selection information panel, original wireframes,
+five queue places/progress and exact touch cancellation through native actions.
+Includes research/upgrade/morph/add-on/construction information and cancellation.
+Rapid head-cancel guard prevents a native pre-tick unrefunded queue removal.
+See SELECTION_PANEL_VALIDATION.md for final host/native tests and limitations.
+Final src-867dc906d2e0277e, 3dsx SHA256
+820ddedd45b3eb5a5be1d655703f094bcd3399a11f94fdb4a3f297d3adffb3f5.
+Private selection-panel-2026-10-23.zip and selection-panel-update-2026-10-23.zip
+under local-data/releases; matching ELF/logs in local-data/selection-panel-2026-10-23.
+Final original-model emulator idle/active Command Center views verified; normal
+Exit and model preference restored. Physical touch still needs user check;
+wire damage colors approximate overall health. No physical SD write this stage.
