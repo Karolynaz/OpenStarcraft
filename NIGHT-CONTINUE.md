@@ -446,3 +446,15 @@ Final src-5c4330564beb133b, executable SHA256
 Packages custom-settings-2026-10-23.zip and custom-settings-update-2026-10-23.zip
 in local-data/releases. Exact ELF and raw emulator evidence in
 local-data/custom-settings-2026-10-23. No physical SD write this stage.
+
+## 2026-10-23 — original resource HUD icons
+
+Top-right resource text replaced by original14x14 game/icons.grp art and green
+counts, racial gas/supply variants, single measured/right-aligned row. See
+RESOURCE_HUD_VALIDATION.md. Source src-361f99ef011a0937, 3dsx SHA256
+4c8965b888df236e7b47fa8bd1191d33269c177d5b44545d5ddfa2aed84e55df.
+Packages resource-hud-2026-10-23.zip / resource-hud-update-2026-10-23.zip under
+local-data/releases. No new loose asset required. All three race mappings and
+4116 original resource pixels tested; extended command/GPU tests pass; original
+model emulator opening and10000-resource laboratory checked, normal exit and
+config restore. No physical SD write this stage.

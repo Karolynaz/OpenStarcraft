@@ -852,6 +852,13 @@ CursorKind Engine::cursor_kind(int x,int y,bool targeting) const {
     if(unit->owner>0 && unit->owner<3)return targeting?CursorKind::target_enemy:CursorKind::enemy;
     return targeting?CursorKind::target_neutral:CursorKind::neutral;
 }
+SpriteView Engine::resource_icon(unsigned kind)const {
+    if(!ready() || !impl_->icons || !impl_->icons->has_resources || kind>2)return {};
+    const unsigned race=unsigned(impl_->player->st().players[0].race);
+    if(race>2)return {};
+    const unsigned frame=kind==0?0:kind==1?1+race:4+race;
+    return {0,0,detail::resource_icon_image,frame,11,false,false,0,255};
+}
 SpriteView Engine::command_icon(unsigned icon,bool enabled)const {return ready() && impl_->icons?impl_->icons->view(icon,enabled):SpriteView{};}
 SpriteView Engine::command_button()const {return ready() && impl_->icons?SpriteView{0,0,detail::command_button_image,0,11,false,false,0,255}:SpriteView{};}
 SpriteView Engine::cursor_image(CursorKind kind,std::uint64_t elapsed_us) const {
@@ -862,6 +869,7 @@ SpriteView Engine::cursor_image(CursorKind kind,std::uint64_t elapsed_us) const 
 }
 SpriteInfo Engine::sprite_info(unsigned image,unsigned frame) const {
     if(!ready())return {};
+    if(image==detail::resource_icon_image)return impl_->icons && impl_->icons->has_resources && frame<7?SpriteInfo{14,14,true}:SpriteInfo{};
     if(image==detail::command_icon_image)return impl_->icons?impl_->icons->info(frame):SpriteInfo{};
     if(image==detail::command_button_image)return impl_->icons && frame==0?SpriteInfo{48,40,true}:SpriteInfo{};
     if(image>=cursor_image_base && image<cursor_image_base+cursor_count){const auto& grp=impl_->cursors[image-cursor_image_base];if(frame>=grp.frames.size())return {};const auto& f=grp.frames[frame];return {unsigned(f.size.x),unsigned(f.size.y),true};}
@@ -873,6 +881,7 @@ SpriteInfo Engine::sprite_info(unsigned image,unsigned frame) const {
 }
 bool Engine::sprite_pixels(unsigned image,unsigned frame,unsigned owner,uint16_t* out,std::size_t capacity) const {
     const auto info=sprite_info(image,frame);if(!info.valid || info.width>512 || info.height>512 || size_t(info.width)*info.height>capacity)return false;
+    if(image==detail::resource_icon_image){std::copy(impl_->icons->resources[frame].begin(),impl_->icons->resources[frame].end(),out);return true;}
     if(image==detail::command_icon_image)return impl_->icons && impl_->icons->pixels(frame,owner==0,out,capacity);
     if(image==detail::command_button_image){std::copy(impl_->icons->button.begin(),impl_->icons->button.end(),out);return true;}
     if(image==detail::creep_tile_image){std::copy(impl_->creep->tiles[frame].begin(),impl_->creep->tiles[frame].end(),out);return true;}

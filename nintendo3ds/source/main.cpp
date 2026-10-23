@@ -123,8 +123,8 @@ int main() {
         bool audio_paused_last=true;
         u64 last_log_flush_us=0;
         const char* action = "Loading player vs AI...";
-        C2D_Text diagnostics{}, commands{}, message{}, resources{}, option_hint{};
-        C2D_Text menu_rows[8]{};
+        C2D_Text diagnostics{}, commands{}, message{}, option_hint{};
+        C2D_Text menu_rows[8]{},resource_values[3]{};
         // 40 controlled units per side plus the map's neutral resources.
         constexpr unsigned unit_view_capacity=512;
         port3ds::UnitView units[unit_view_capacity];
@@ -354,7 +354,7 @@ int main() {
             if(flush_pending && log)log.flush();
             last_log_flush_us=log.stats().flush_us;
             if (sample_time >= next_text || down) {
-                char status[900], help[800], error[220], hud[200];
+                char status[900], help[800], error[220];
                 std::snprintf(status, sizeof status,
                     "OpenBW / ORIGINAL 3DS\n%s  Core: %s   DSP: %s\n"
                     "%s  Frame %lu  Units %u\nFPS %.1f   TPS %.1f / 24\n"
@@ -379,7 +379,7 @@ int main() {
                     unsigned used=0;
                     for(unsigned i=0;i<menu_count();++i)used+=std::snprintf(help+used,sizeof help-used,"%s %s\n",menu==Menu::catalogue?"":i==choice?">":" ",menu==Menu::system?system[i]:menu==Menu::scenarios?modes[i]:menu==Menu::legacy?legacy[i]:option_rows[i].label);
                 }
-                std::snprintf(hud,sizeof hud,"Minerals %d   Gas %d   Supply %d/%d",state.minerals,state.gas,state.supply,state.supply_max);
+
                 std::snprintf(error, sizeof error, "%s\n%.100s", action, !engine.ready()?engine.error():!sound_stats.ready ? sound.error() : graphics.ready() ? engine.error() : graphics.error());
                 C2D_TextBufClear(text_buf);
                 C2D_TextParse(&diagnostics, text_buf, status); C2D_TextOptimize(&diagnostics);
@@ -393,7 +393,11 @@ int main() {
                     }
                 }
                 C2D_TextParse(&message, text_buf, error); C2D_TextOptimize(&message);
-                C2D_TextParse(&resources, text_buf, hud); C2D_TextOptimize(&resources);
+                char values[3][32];
+                std::snprintf(values[0],sizeof values[0],"%d",state.minerals);
+                std::snprintf(values[1],sizeof values[1],"%d",state.gas);
+                std::snprintf(values[2],sizeof values[2],"%d/%d",state.supply,state.supply_max);
+                for(unsigned i=0;i<3;++i){C2D_TextParse(&resource_values[i],text_buf,values[i]);C2D_TextOptimize(&resource_values[i]);}
                 C2D_TextParse(&option_hint,text_buf,menu==Menu::catalogue && option_count?option_rows[choice].label:"");C2D_TextOptimize(&option_hint);
                 next_text = sample_time + 250000;
             }
@@ -447,9 +451,15 @@ int main() {
                 if(units[i].max_shields)C2D_DrawRectSolid(x-w/2,y-units[i].height/2-9,0,w*units[i].shields/units[i].max_shields,3,C2D_Color32(80,140,255,255));
             }
             const float cx = controls.cursor_x, cy = controls.cursor_y;
-            float resource_width=0,resource_height=0;C2D_TextGetDimensions(&resources,.36f,.36f,&resource_width,&resource_height);
-            C2D_DrawRectSolid(394-resource_width,0,0,resource_width+6,14,C2D_Color32(8,16,24,210));
-            C2D_DrawText(&resources,C2D_WithColor,397-resource_width,1,0,.36f,.36f,white);
+            float widths[3]{},resource_width=20; // two ten-pixel group gaps
+            for(unsigned i=0;i<3;++i){float height;C2D_TextGetDimensions(&resource_values[i],.42f,.42f,&widths[i],&height);resource_width+=17+widths[i];}
+            float resource_x=396-resource_width;
+            C2D_DrawRectSolid(resource_x-3,0,0,resource_width+7,18,C2D_Color32(8,16,24,210));
+            for(unsigned i=0;i<3;++i){
+                graphics.ui_image(engine.resource_icon(i),resource_x,2,1,engine);
+                C2D_DrawText(&resource_values[i],C2D_WithColor,resource_x+17,2,0,.42f,.42f,C2D_Color32(40,245,48,255));
+                resource_x+=17+widths[i]+10;
+            }
             if(placing || attacking || pending_load || !engine.ready())C2D_DrawText(&message,C2D_WithColor|C2D_WordWrap,8,211,0,.34f,.34f,white,384.f);
             auto cursor=engine.cursor_kind(controls.world_x(),controls.world_y(),attacking);
             if(menu!=Menu::none)cursor=port3ds::CursorKind::arrow;

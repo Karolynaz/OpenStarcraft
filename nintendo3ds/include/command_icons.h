@@ -2,12 +2,13 @@
 #include "bwgame.h"
 #include "engine.h"
 namespace port3ds {namespace detail {
-constexpr unsigned command_icon_image=65380,command_button_image=65381;
+constexpr unsigned command_icon_image=65380,command_button_image=65381,resource_icon_image=65382;
 // Original GRP command art uses 16 ink indices. ticon.pcx contains remap rows,
 // not the display palette: its PCX palette deliberately has placeholder colors.
 class CommandIcons {
 public:
     bwgame::grp_t grp;
+    std::array<std::array<uint16_t,14*14>,7> resources{};bool has_resources=false;
     std::array<std::array<uint16_t,256>,2> colors;
     std::array<uint16_t,48*40> button;
     template<class Load,class Decode>void load(Load read,Decode pcx,unsigned race){
@@ -24,6 +25,20 @@ public:
         for(unsigned state=0;state<2;++state){colors[state]=palette;for(unsigned i=0;i<16;++i)colors[state][i]=palette[remap[state*16+i]];}
         const auto console=pcx(name);if(console.size()!=640*480)throw std::runtime_error("Console dimensions");
         for(unsigned y=0;y<40;++y)for(unsigned x=0;x<48;++x)button[y*48+x]=palette[console[(354+y)*640+490+x]];
+        // game/icons.grp uses raw palette indices, unlike command GRP RLE.
+        // Keep command art available in loose installations missing this file.
+        has_resources=false;
+        try {
+            bytes.clear();read(bytes,"game/icons.grp");
+            if(bytes.size()<6 || data_loading::value_at<uint16_t,true>(bytes.data())<7 || bytes.size()<6+7*8)throw std::runtime_error("Resource icon header");
+            for(unsigned frame=0;frame<7;++frame){const auto* p=bytes.data()+6+frame*8;
+                const unsigned offset=data_loading::value_at<uint32_t,true>(p+4);
+                if(p[2]!=14 || p[3]!=14 || offset>bytes.size() || bytes.size()-offset<196)throw std::runtime_error("Resource icon bounds");
+                for(unsigned i=0;i<196;++i)resources[frame][i]=palette[bytes[offset+i]];
+            }
+            has_resources=true;
+        }catch(const std::exception&){}
+
     }
     SpriteInfo info(unsigned frame)const {if(frame>=grp.frames.size())return {};const auto& f=grp.frames[frame];return {unsigned(f.size.x),unsigned(f.size.y),true};}
     SpriteView view(unsigned frame,bool enabled)const {

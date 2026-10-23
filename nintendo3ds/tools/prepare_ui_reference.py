@@ -41,3 +41,17 @@ with (root/'reference.bin').open('wb') as out:
         values=[rgba(screen[(354+y)*stride+490+x]) for y in range(40) for x in range(48)]
         out.write(struct.pack('<'+'H'*len(values),*values))
 print(f'Independent PCX/GRP palette/coverage oracle: {count} frames, three races, enabled/disabled')
+
+# Resource HUD GRP frames are uncompressed 14x14 palette-index rectangles.
+resource=(root/'icons.grp').read_bytes()
+assert struct.unpack_from('<H',resource)[0]>=7
+with (root/'resources.bin').open('wb') as out:
+    for name in ['zconsole.pcx','tconsole.pcx','pconsole.pcx']:
+        *_,palette=pcx(name)
+        for frame in range(7):
+            x,y,w,h,offset=struct.unpack_from('<4BI',resource,6+frame*8)
+            assert (w,h)==(14,14) and offset+196<=len(resource)
+            for index in resource[offset:offset+196]:
+                r,g,b=palette[index*3:index*3+3]
+                out.write(struct.pack('<H',(r>>3)<<11|(g>>3)<<6|(b>>3)<<1|1))
+print('Independent raw-GRP HUD oracle: 4116 pixels, minerals + race-specific gas/supply')

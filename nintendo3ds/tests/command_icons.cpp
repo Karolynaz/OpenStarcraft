@@ -19,6 +19,7 @@ int main(int argc,char** argv){
  std::ifstream reference(argv[4],std::ios::binary);char magic[8];reference.read(magic,8);assert(std::string(magic,7)=="OBWUI02");assert(u32(reference)==3);const auto frames=u32(reference);assert(frames==390);
  const Scenario labs[]={Scenario::zerg_lab,Scenario::terran_lab,Scenario::protoss_lab},battles[]={Scenario::zerg_battle,Scenario::terran_battle,Scenario::protoss_battle};
  auto files=data_loading::data_files_directory(argv[1]);a_vector<uint8_t> bytes;files(bytes,"arr/techdata.dat");const auto techs=data_loading::load_techdata_dat(bytes);files(bytes,"arr/upgrades.dat");const auto upgrades=data_loading::load_upgrades_dat(bytes);
+ std::string base=argv[4];base=base.substr(0,base.find_last_of('/')+1);std::ifstream hud_reference(base+"resources.bin",std::ios::binary);assert(hud_reference);
  unsigned compared=0,options_checked=0,viewports=0,ui_draws=0;
  for(unsigned race=0;race<3;++race){
   Engine engine;assert(engine.load(argv[1],argv[2],labs[race]));for(unsigned i=0;i<24;++i)assert(engine.tick());
@@ -31,6 +32,13 @@ int main(int argc,char** argv){
     assert(engine.sprite_pixels(icon.image,icon.frame,icon.owner,actual.data(),actual.size()));for(unsigned p=0;p<w*h;++p)assert(actual[p]==expected[p]);compared+=w*h;
    }
   }
+  const unsigned resource_frames[3][3]={{0,1,4},{0,2,5},{0,3,6}};
+  for(unsigned frame=0;frame<7;++frame){const auto expected=pixels(hud_reference,196);auto view=engine.resource_icon(0);assert(view.image);view.frame=frame;
+   const auto info=engine.sprite_info(view.image,frame);assert(info.valid && info.width==14 && info.height==14);
+   assert(engine.sprite_pixels(view.image,frame,view.owner,actual.data(),actual.size()));assert(std::equal(expected.begin(),expected.end(),actual.begin()));compared+=196;
+  }
+  for(unsigned kind=0;kind<3;++kind)assert(engine.resource_icon(kind).frame==resource_frames[race][kind]);
+  assert(!engine.resource_icon(3).image);
   const auto expected_button=pixels(reference,48*40);const auto button=engine.command_button();assert(engine.sprite_pixels(button.image,0,11,actual.data(),actual.size()) && actual==expected_button);compared+=48*40;
   assert(engine.command_icon(frames).image==0 && !engine.sprite_pixels(button.image,0,11,actual.data(),10));
   assert(engine.snapshot().minerals==resources.minerals && engine.snapshot().gas==resources.gas && engine.snapshot().frame==resources.frame);
@@ -51,6 +59,7 @@ int main(int argc,char** argv){
    const auto world=fake::draws;std::vector<std::vector<uint16_t>> before;for(const auto& d:world)before.push_back(capture(d));
    fake::binding().check=true;
    for(unsigned i=0;i<8;++i){assert(graphics.ui_image(engine.command_button(),136+i%2*92,144+i/2*24,0.55f,engine));assert(graphics.ui_image(engine.command_icon((view*8+i)%frames,i%2==0),140+i%2*92,147+i/2*24,0.55f,engine));ui_draws+=2;}
+   for(unsigned kind=0;kind<3;++kind){const auto icon=engine.resource_icon(kind);assert(graphics.ui_image(icon,250+kind*48,2,1,engine));const auto& d=fake::draws.back();assert(d.x==250+kind*48 && d.y==2 && d.sub.width==14 && d.sub.height==14 && d.sx==1);++ui_draws;}
    assert(fake::binding().stale==0);fake::binding().check=false;
    for(unsigned i=0;i<world.size();++i)assert(capture(world[i])==before[i]);++viewports;
   }
@@ -62,6 +71,6 @@ int main(int argc,char** argv){
   assert(icon_pages.size()>=2 && fake::binding().stale==0);fake::binding().check=false;
  }
  std::printf("UI coverage: %u mapped menu options, allocations %u, EOF %d\n",options_checked,fake::allocations.load(),reference.peek()==std::char_traits<char>::eof());
- assert(reference.peek()==std::char_traits<char>::eof() && fake::allocations==0 && options_checked>150);
+ assert(hud_reference.peek()==std::char_traits<char>::eof() && reference.peek()==std::char_traits<char>::eof() && fake::allocations==0 && options_checked>150);
  std::printf("Original UI GRP/PCX/remap/coverage: %u RGBA pixels, %u native catalogue icons, %u battle viewports / %u UI draws preserve queued world textures; all allocations freed PASS\n",compared,options_checked,viewports,ui_draws);
 }

@@ -107,6 +107,7 @@ public:
     void set_fog_enabled(bool enabled);
     FogCell fog_cell(unsigned tile_x,unsigned tile_y) const;
     CursorKind cursor_kind(int world_x,int world_y,bool targeting=false) const;
+    SpriteView resource_icon(unsigned kind) const;
     SpriteView command_icon(unsigned icon,bool enabled=true) const;
     SpriteView command_button() const;
     SpriteView cursor_image(CursorKind kind,std::uint64_t elapsed_us) const;

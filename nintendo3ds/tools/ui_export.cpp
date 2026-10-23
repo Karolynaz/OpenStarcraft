@@ -24,7 +24,7 @@ int main(int argc,char** argv){
    for(auto value:indices){out.put(value&255);out.put(value>>8);}
   }
   if(!out)throw std::runtime_error("UI reference write failed");
-  const char* names[]={"unit/cmdbtns/ticon.pcx","game/tconsole.pcx","game/pconsole.pcx","game/zconsole.pcx"};
+  const char* names[]={"unit/cmdbtns/ticon.pcx","game/tconsole.pcx","game/pconsole.pcx","game/zconsole.pcx","game/icons.grp"};
   for(auto name:names){data.clear();files(data,name);a_string base=name;base=base.substr(base.find_last_of('/')+1);std::ofstream pcx(a_string(argv[2])+"/"+base,std::ios::binary);pcx.write((const char*)data.data(),data.size());if(!pcx)throw std::runtime_error("UI PCX write failed");}
   std::printf("Original command GRP index/coverage reference: %zu frames\n",grp.frames.size());
  }catch(const std::exception& e){std::fprintf(stderr,"UI export: %s\n",e.what());return 1;}
