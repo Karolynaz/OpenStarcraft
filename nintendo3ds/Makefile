@@ -210,3 +210,9 @@ build/melee-test: tests/melee.cpp source/engine.cpp source/graphics.cpp $(HEADER
 .PHONY: test-melee
 test-melee: build/melee-test
 	ASAN_OPTIONS=detect_leaks=0 ./build/melee-test "$(ASSET_ROOT)" local-data/3ds/openbw/maps/probe.scx
+
+build/menu-animation-test: tests/menu_animation.cpp include/menu_animation.h tests/fake3ds/citro2d.h | build
+	$(HOST_CXX) -std=c++14 -O1 -g -fsanitize=address -Itests/fake3ds -Iinclude tests/menu_animation.cpp -o $@
+.PHONY: test-menu-animation
+test-menu-animation: build/menu-animation-test
+	ASAN_OPTIONS=detect_leaks=0 ./build/menu-animation-test local-data/3ds/openbw/ui/animations.bin

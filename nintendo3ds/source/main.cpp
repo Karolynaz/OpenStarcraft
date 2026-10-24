@@ -76,7 +76,7 @@ int main() {
     front.play=false;
 
     {
-        port3ds::UiArt art;const bool art_ok=art.load("sdmc:/3ds/openbw/ui/menu.bin");
+        port3ds::UiArt art;port3ds::MenuAnimation animation;const bool art_ok=art.load("sdmc:/3ds/openbw/ui/menu.bin") && animation.load("sdmc:/3ds/openbw/ui/animations.bin");
         C2D_Prepare();u64 last=now_us();
         while(aptMainLoop()){
             hidScanInput();const u32 down=hidKeysDown();circlePosition stick{};hidCircleRead(&stick);
@@ -92,8 +92,8 @@ int main() {
             C2D_TargetClear(top,C2D_Color32(0,0,0,255));C2D_SceneBegin(top);C3D_DepthTest(false,GPU_ALWAYS,GPU_WRITE_COLOR);
             port3ds::draw_frontend_top(front,art,text_buf);
             C2D_TargetClear(bottom,C2D_Color32(0,0,0,255));C2D_SceneBegin(bottom);
-            if(art_ok)port3ds::draw_frontend(front,art,text_buf,unsigned(now/125000));
-            else {port3ds::ui_text(text_buf,"Missing ui/menu.bin",160,90,.55f,C2D_Color32(255,200,180,255),true);port3ds::ui_text(text_buf,"Install the complete SD package.",160,120,.40f,C2D_Color32(255,255,255,255),true);if(down&KEY_START)break;}
+            if(art_ok)port3ds::draw_frontend(front,art,animation,text_buf,unsigned(now/125000));
+            else {port3ds::ui_text(text_buf,"Missing menu art / animations",160,90,.55f,C2D_Color32(255,200,180,255),true);port3ds::ui_text(text_buf,"Install the complete SD package.",160,120,.40f,C2D_Color32(255,255,255,255),true);if(down&KEY_START)break;}
             C3D_FrameEnd(0);
         }
     }

@@ -8,26 +8,32 @@ import argparse, struct, subprocess, json, hashlib, shutil
 from PIL import Image
 p=argparse.ArgumentParser();p.add_argument('work',type=Path);p.add_argument('output',type=Path);p.add_argument('--ffmpeg',default=shutil.which('ffmpeg') or '/opt/homebrew/bin/ffmpeg');p.add_argument('--custom-top',type=Path,required=True);p.add_argument('--custom-bottom',type=Path,required=True);p.add_argument('--title',type=Path,required=True);a=p.parse_args();r=a.work
 images=[]
+animations=[]
 def add(name,im):
  im=im.convert('RGBA');images.append((name,im));return im
 
 def pcx(name):return Image.open(r/(name+'.pcx')).convert('RGBA')
 def over(dst,im,xy):
  im=im.copy();im.putalpha(Image.eval(im.convert('L'),lambda v:255 if v else 0));dst.alpha_composite(im,xy)
-def frames(name,count=4):
- out=r/(name+'-%02d.png')
- subprocess.run([a.ffmpeg,'-v','error','-i',str(r/(name+'.smk')),'-vf','fps=8,scale=iw/2:ih/2:flags=area','-frames:v',str(count),'-y',str(out)],check=True)
- files=sorted(r.glob(name+'-[0-9][0-9].png'))
- result=[]
- for f in files:
-  im=Image.open(f).convert('RGBA');im.putalpha(Image.eval(im.convert('L'),lambda v:255 if v else 0));result.append(im)
- return result
+def animation(name,key,scale=.325):
+ # Decode the complete source cycle, not an initial still segment.
+ source=r/(name+'.smk')
+ probe=subprocess.run([str(Path(a.ffmpeg).with_name('ffprobe')),'-v','error','-show_entries','stream=width,height','-of','json',str(source)],capture_output=True,text=True,check=True)
+ stream=json.loads(probe.stdout)['streams'][0];w=max(1,round(stream['width']*scale));h=max(1,round(stream['height']*scale))
+ assert w<=128 and h<=128
+ raw=subprocess.run([a.ffmpeg,'-v','error','-i',str(source),'-vf',f'fps=8,scale={w}:{h}:flags=area','-f','rawvideo','-pix_fmt','rgba','-'],capture_output=True,check=True).stdout
+ frames=[]
+ for at in range(0,len(raw),w*h*4):
+  im=Image.frombytes('RGBA',(w,h),raw[at:at+w*h*4]);im.putalpha(Image.eval(im.convert('L'),lambda v:255 if v else 0));frames.append(im)
+ assert 1<len(frames)<=256
+ animations.append((key,w,h,frames))
+
 # Original 640x480 backgrounds, with their native BIN image positions halved.
 bg=pcx('glue_PalCs_backgnd').resize((320,240),Image.Resampling.LANCZOS)
-campaign=bg.copy()
-for name,xy in [('glue_campaign_pBotR',(108,185)),('glue_campaign_pBotL',(0,176))]:
- im=pcx(name);over(campaign,im.resize((im.width//2,im.height//2),Image.Resampling.LANCZOS),xy)
-add('campaign',campaign)
+add('campaign_left',bg.crop((0,0,160,240)))
+add('campaign_right',bg.crop((160,0,320,240)))
+button=pcx('glue_PalNl_pCancel').crop((0,58,168,91)).resize((146,28),Image.Resampling.LANCZOS)
+add('menu_button',button)
 custom=bg.copy()
 for name,xy in [('glue_create_pListMap2',(0,0)),('glue_create_pInfo',(200,0)),('glue_create_pSlots',(0,142)),('glue_PalNl_pCancel',(236,178)),('glue_PalNl_pOk',(218,168))]:
  im=pcx(name);over(custom,im.resize((im.width//2,im.height//2),Image.Resampling.LANCZOS),xy)
@@ -41,14 +47,11 @@ add('title',Image.open(a.title))
 logo=pcx('logo-bw')
 add('logo_sc',logo.crop((20,40,235,83)).resize((245,49),Image.Resampling.LANCZOS))
 add('logo_bw',logo.crop((129,114,340,160)).resize((245,53),Image.Resampling.LANCZOS))
-# Original portrait idle/on animations. Keep four small frames per state;
-# the hardware draws these over the static campaign backdrop.
+# Full native idle and hover cycles, streamed through four bounded surfaces.
 for version,folder,prefix in [(0,'campaign',''),(1,'Expcampaign','X')]:
  for race in ['Terr','Prot','Zerg']:
-  for state in ['', 'On']:
-   fs=frames(f'glue_{folder}_{prefix}{race}{state}')
-   for i in range(4):add(f'v{version}_{race}{state}{i}',fs[i%len(fs)])
-for i,im in enumerate(frames('glue_campaign_disk')):add(f'disk{i}',im)
+  for state in ['', 'On']:animation(f'glue_{folder}_{prefix}{race}{state}',f'v{version}_{race}{state}')
+animation('glue_campaign_disk','disk',.40)
 # Native menu cursor GRP (first frame); palette from the matching menu PCX.
 b=(r/'cursor.grp').read_bytes();n,w,h=struct.unpack_from('<HHH',b);ox,oy,cw,ch,offset=struct.unpack_from('<BBBBI',b,6)
 im=Image.new('RGBA',(cw,ch));pal=Image.open(r/'glue_PalCs_backgnd.pcx').getpalette()
@@ -60,6 +63,10 @@ for y in range(ch):
   count=t&63 if t&64 else t
   values=[b[at]]*count if t&64 else list(b[at:at+count]);at+=1 if t&64 else count
   for c in values:im.putpixel((x,y),tuple(pal[c*3:c*3+3])+(255,));x+=1
+for yy in range(im.height):
+ for xx in range(im.width):
+  red,g,blue,alpha=im.getpixel((xx,yy));light=max(red,g,blue)
+  if alpha and light:im.putpixel((xx,yy),(light//4,max(64,light),light//5,alpha))
 add('cursor',im.resize((max(1,cw//2),max(1,ch//2)),Image.Resampling.NEAREST))
 
 def pack(path,items,side=512,height=512):
@@ -83,5 +90,17 @@ def pack(path,items,side=512,height=512):
    f.write(out)
  for i,page in enumerate(pages):page.save(r/(path.stem+f'-atlas{i}.png'))
  return {'pages':len(pages),'sprites':len(entries),'bytes':path.stat().st_size,'sha256':hashlib.sha256(path.read_bytes()).hexdigest()}
-manifest={'menu':pack(a.output/'menu.bin',images),'hud':pack(a.output/'hud.bin',[('hud',Image.open(r/'hud.png'))],height=256)}
+def pack_animations(path):
+ entries=[];offset=12+len(animations)*56
+ with path.open('wb') as f:
+  f.write(b'OB3AN001');f.write(struct.pack('<I',len(animations)))
+  for key,w,h,frames in animations:
+   entries.append((key,w,h,len(frames),offset));f.write(key.encode().ljust(40,b'\0'));f.write(struct.pack('<4I',w,h,len(frames),offset));offset+=w*h*len(frames)*2
+  for key,w,h,frames in animations:
+   for im in frames:
+    pixels=bytearray(w*h*2)
+    for i,(red,g,blue,alpha) in enumerate(im.getdata()):struct.pack_into('<H',pixels,i*2,(red>>3)<<11|(g>>3)<<6|(blue>>3)<<1|(alpha>=128))
+    f.write(pixels)
+ return {'sequences':len(entries),'frames':sum(e[3] for e in entries),'bytes':path.stat().st_size,'sha256':hashlib.sha256(path.read_bytes()).hexdigest(),'entries':entries}
+manifest={'menu':pack(a.output/'menu.bin',images),'hud':pack(a.output/'hud.bin',[('hud',Image.open(r/'hud.png'))],height=256),'animations':pack_animations(a.output/'animations.bin')}
 (a.output/'manifest.json').write_text(json.dumps(manifest,indent=2)+'\n');print(json.dumps(manifest))

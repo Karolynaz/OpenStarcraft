@@ -12,7 +12,7 @@ p.add_argument('output', type=Path)
 a = p.parse_args()
 required = ['openbw-3ds.3dsx', 'StarDat.mpq', 'BrooDat.mpq', 'Patch_rt.mpq',
             'graphics.bin', 'graphics-arena.bin', 'maps/probe.scx', 'maps/arena.chk',
-            'README.txt', 'ui/menu.bin', 'ui/hud.bin', 'ui/manifest.json']
+            'README.txt', 'ui/menu.bin', 'ui/hud.bin', 'ui/manifest.json', 'ui/animations.bin']
 for race in ('terran', 'protoss', 'zerg'):
     folder = 'audio' if race == 'terran' else f'audio/{race}'
     required += [f'{folder}/effects.bin', f'{folder}/manifest.json']
@@ -30,7 +30,7 @@ if manifest_path.is_file():
                 p.error(f'Changed owned input: {name}')
     required.append('assets-manifest.json')
 ui_manifest=json.loads((a.source/'ui/manifest.json').read_text())
-for name in ('menu','hud'):
+for name in ('menu','hud','animations'):
     if hashlib.sha256((a.source/f'ui/{name}.bin').read_bytes()).hexdigest()!=ui_manifest[name]['sha256']:
         p.error(f'Changed UI asset: {name}')
 a.output.parent.mkdir(parents=True, exist_ok=True)

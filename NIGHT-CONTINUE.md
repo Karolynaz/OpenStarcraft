@@ -493,3 +493,20 @@ economy tests, 600-tile cache/385560 pixel checks and selection/fog/frontend
 regressions pass. Final original-model emulator: UMS error, 128map+audio,
 Surrender/Defeat/return, second64map+pan+Exit pass. Preferences restored and
 temporary emu map removed. Physical SD not updated. No automatic continuation.
+
+## 2026-10-24 — campaign cursor/animations/motion/readability
+
+Combined both user messages: green menu cursor, smaller original animated
+figures, larger race/episode labels and4 large146x28 buttons in2 rows. Complete
+13 SMK cycles/319 frames now stream through seven double-buffered128 surfaces;
+new required ui/animations.bin,448KiB linear; static menu reduced8->4 pages.
+Idle+hover overlays preserved. Campaign/custom menus animate out/in380ms per
+phase, gated input; Cancel/B reverses, keeps custom selections. Read
+reports/MENU_MOTION_VALIDATION.md for test details and physical-test limits.
+Final src-248f76a3f5e2d2be, 3dsx SHA256
+e1de4471761fb3df334f7aaf747b8370c9346ec85ed69c18b3b334a5a3bf6856.
+ASan full-cycle/GPU-texel and frontend tests pass, native original-model menu
+roundtrip and subsequent game+audio+Exit checked. Private menu-motion-2026-10-24
+full/update ZIPs in local-data/releases, matchingELF/evidence in local-data/
+menu-motion-2026-10-24. Update now has6 files: MUST include animations.bin and
+matching menu/manifest. Emulator model/profile restored. No physical SD write.

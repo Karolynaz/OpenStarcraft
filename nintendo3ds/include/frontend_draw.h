@@ -1,6 +1,7 @@
 #pragma once
 #include "frontend.h"
 #include "ui_art.h"
+#include "menu_animation.h"
 namespace port3ds {
 inline void ui_text(C2D_TextBuf buf,const char* text,float x,float y,float size,unsigned color,bool center=false){C2D_Text t;C2D_TextParse(&t,buf,text);C2D_TextOptimize(&t);if(center){float w,h;C2D_TextGetDimensions(&t,size,size,&w,&h);x-=w/2;}C2D_DrawText(&t,C2D_WithColor,x,y,0,size,size,color);}
 inline void ui_border(UiRect r,unsigned color){C2D_DrawLine(r.x,r.y,color,r.x+r.w,r.y,color,1,0);C2D_DrawLine(r.x,r.y+r.h,color,r.x+r.w,r.y+r.h,color,1,0);C2D_DrawLine(r.x,r.y,color,r.x,r.y+r.h,color,1,0);C2D_DrawLine(r.x+r.w,r.y,color,r.x+r.w,r.y+r.h,color,1,0);}
@@ -21,24 +22,33 @@ inline void draw_frontend_top(const Frontend& f,UiArt& art,C2D_TextBuf text){
   art.draw_preview(x,y,w,h);ui_border({int(x)-1,int(y)-1,int(w)+2,int(h)+2},C2D_Color32(150,35,24,255));
  }
 }
-inline void draw_frontend(Frontend& f,UiArt& art,C2D_TextBuf text,unsigned frame){
+inline void draw_frontend(Frontend& f,UiArt& art,MenuAnimation& animation,C2D_TextBuf text,unsigned frame){
  const auto green=C2D_Color32(104,180,68,255),bright=C2D_Color32(195,255,146,255),white=C2D_Color32(183,185,241,255),dim=C2D_Color32(76,88,69,255);
  auto label=[&](const char* text_,int id,float x,float y,float size=.40f){ui_text(text,text_,x,y,size,f.hover==id?bright:green,true);};
  const bool campaign=f.screen==Frontend::Screen::campaign;
- art.draw(campaign?"campaign":"custom_bottom",0,0);
  if(campaign){
+  const float shift=340*f.slide();art.draw("campaign_left",-shift,0);art.draw("campaign_right",160+shift,0);
   const char* races[3]={f.brood?"Terr":"Zerg",f.brood?"Prot":"Terr",f.brood?"Zerg":"Prot"};
   const char* names[3]={f.brood?"Terran":"Zerg",f.brood?"Protoss":"Terran",f.brood?"Zerg":"Protoss"};
   const char* episodes[3]={f.brood?"Episode V":"Episode II",f.brood?"Episode IV":"Episode I",f.brood?"Episode VI":"Episode III"};
-  for(int i=0;i<3;++i){const float cx=i==0?56:i==1?164:264,feet=i==1?127:151;char key[64];unsigned w=0,h=0;
-   std::snprintf(key,sizeof key,"disk%u",frame%4);art.draw(key,cx-37,feet-6);
-   std::snprintf(key,sizeof key,"v%u_%s%u",f.brood?1:0,races[i],frame%4);if(art.size(key,w,h))art.draw(key,cx-w/2.f,feet-h,1,1,f.hover==i?1.f:.30f);
-   if(f.hover==i && f.dialog==Frontend::Dialog::none){std::snprintf(key,sizeof key,"v%u_%sOn%u",f.brood?1:0,races[i],frame%4);if(art.size(key,w,h))art.draw(key,cx-w/2.f,feet-h);}
-   label(names[i],i,cx,feet+11);ui_text(text,episodes[i],cx,feet+23,.36f,white,true);
+  for(int i=0;i<3;++i){const float cx=56+i*104+(i==2?shift:-shift),feet=113;char key[64];unsigned w=0,h=0;
+   // One disk slot is shared: every actor draws the same immutable frame.
+   if(animation.size("disk",w,h))animation.draw("disk",3,frame,cx-w/2.f,feet-4);
+   const bool hover=f.hover==i && f.dialog==Frontend::Dialog::none;
+   std::snprintf(key,sizeof key,"v%u_%s%s",f.brood?1:0,races[i],"");
+   if(animation.size(key,w,h))animation.draw(key,unsigned(i),frame,cx-w/2.f,feet-h,hover?1.f:.64f);
+   if(hover){std::snprintf(key,sizeof key,"v%u_%sOn",f.brood?1:0,races[i]);if(animation.size(key,w,h))animation.draw(key,4+unsigned(i),frame,cx-w/2.f,feet-h);}
+   label(names[i],i,cx,130,.57f);ui_text(text,episodes[i],cx,149,.42f,white,true);
   }
-  ui_text(text,"Load Saved",168,182,.37f,dim,true);ui_text(text,"Load Replay",168,221,.37f,dim,true);
-  label("Play Custom",3,165,202);label("Game type",4,274,202,.37f);
+  const char* button_names[]={"Load Saved","Load Replay","Play Custom","Game Type"};static const int ids[]={5,5,3,4};
+  for(unsigned i=0;i<4;++i){auto r=Frontend::campaign_button(i);r.x+=int(i%2?shift:-shift);
+   C2D_DrawRectSolid(r.x,r.y,0,r.w,r.h,C2D_Color32(2,5,5,255));art.draw("menu_button",r.x,r.y);
+   const bool hovered=!f.leaving && f.transition==1 && f.dialog==Frontend::Dialog::none && Frontend::campaign_button(i).hit(int(f.x),int(f.y));
+   const auto color=hovered?bright:i<2?C2D_Color32(117,143,117,255):green;
+   ui_text(text,button_names[i],r.x+r.w/2,r.y+5,.55f,color,true);
+  }
  }else{
+  art.draw("custom_bottom",0,0);
   const float shift=340*f.slide();
   const int panel_x=14-int(shift);
   C2D_DrawRectSolid(panel_x,35,0,292,158,C2D_Color32(8,10,19,235));art.draw("frame_bottom",panel_x,35,292.f/320,158.f/240);
