@@ -12,7 +12,7 @@ p.add_argument('output', type=Path)
 a = p.parse_args()
 required = ['openbw-3ds.3dsx', 'StarDat.mpq', 'BrooDat.mpq', 'Patch_rt.mpq',
             'graphics.bin', 'graphics-arena.bin', 'maps/probe.scx', 'maps/arena.chk',
-            'README.txt', 'ui/menu.bin', 'ui/hud.bin', 'ui/manifest.json', 'ui/animations.bin']
+            'README.txt', 'ui/menu.bin', 'ui/hud.bin', 'ui/manifest.json', 'ui/animations.bin', 'audio/effects-all.bin', 'audio/effects-all.json']
 for race in ('terran', 'protoss', 'zerg'):
     folder = 'audio' if race == 'terran' else f'audio/{race}'
     required += [f'{folder}/effects.bin', f'{folder}/manifest.json']
@@ -29,6 +29,19 @@ if manifest_path.is_file():
             if hashlib.file_digest(f, 'sha256').hexdigest() != expected['sha256']:
                 p.error(f'Changed owned input: {name}')
     required.append('assets-manifest.json')
+# Include the complete bounded private map catalogue, not just the test map.
+required += [p.relative_to(a.source).as_posix() for p in sorted((a.source/'maps').rglob('*'))
+             if p.is_file() and p.suffix.lower() in ('.scm','.scx','.chk')
+             and p.relative_to(a.source).as_posix() not in required]
+if (a.source/'map-catalogue.json').is_file():
+    catalogue=json.loads((a.source/'map-catalogue.json').read_text())
+    for name, expected in catalogue['maps'].items():
+        if hashlib.sha256((a.source/name).read_bytes()).hexdigest()!=expected['sha256']:
+            p.error(f'Changed owned map: {name}')
+    required.append('map-catalogue.json')
+audio_manifest=json.loads((a.source/'audio/effects-all.json').read_text())
+if hashlib.sha256((a.source/'audio/effects-all.bin').read_bytes()).hexdigest()!=audio_manifest['sha256']:
+    p.error('Changed combined private audio bank')
 ui_manifest=json.loads((a.source/'ui/manifest.json').read_text())
 for name in ('menu','hud','animations'):
     if hashlib.sha256((a.source/f'ui/{name}.bin').read_bytes()).hexdigest()!=ui_manifest[name]['sha256']:

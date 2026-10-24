@@ -544,3 +544,35 @@ rich Protoss lab/Nexus shields and Exit checked; preference restored.
 Standard opening audio ready, but mid-process Protoss lab reload audio-off
 with heap-memory guard. Recorded, not attributed to this font-only change;
 see reports/INGAME_FONTS_VALIDATION.md. No physical SD write this stage.
+
+## 2026-10-24 — console AI difficulty, owned map catalogue and bounded audio
+
+User authorized Easy/Medium, more maps and useful further work. Original AI
+script files exist in owned data, but this checkout has no interpreter; BWAPI
+PC DLLs cannot be directly loaded on3DS. Extended existing native-action AI,
+no external bot code imported. Easy8workers/14army/6min grace; Medium14/24/3min,
+persistent sixth menu row. Medium second base, stable main anchor, refinery
+spacing deadlock fix, incomplete-worker accounting, Zerg air roster room,
+detector follow, last-seen building memory and ground sweep. New five-entry
+map browser;87 owned original ground-connected maps32..128 (27SC/60BW), all
+87 mixed-race load/terrain/240-tick ASan tests pass. All-race shared577-effect
+bank NEW audio/effects-all.bin (22MB disk), bounded4MiB16KiB cache + background
+SFX IO after music refills fixes whole-bank reload pressure. PCM byte tests for
+all3 banks+merged bank, zero-cache allocation fallback/reset/unload/read-failure
+and nine36k native economy/expansion fixtures pass. Three-race/two-AI native
+match ends at11833 frames, peak147units, zero sound-event drops. Read report
+AI_MAP_AUDIO_VALIDATION.md for exact native results/limitations and packages.
+Final src-35e9cceb44d81d8f, 3dsx SHA256
+be0596b848d32eac3910dd209f4e5d1e236228cb7ee9dbcd582a5af4561ceeb1.
+Private easy-medium-maps-2026-10-24.zip and easy-medium-maps-update-2026-10-24.zip
+in local-data/releases; update includes96 files, ALL87maps, UI and NEW shared
+audio bank. Matching ELF/source/logs/screenshots/receipts in local-data/
+ai-map-stage-2026-10-24. No physical SD write or scheduled continuation.
+Final emulator CPU100/original model: seven audio-ready initializations with
+4MiB cache; no missing sprites/sounds, music gaps or audio IO errors. Mixed
+match median59.83FPS/23.93TPS; all-unit Zerg/Protoss/Terran stress medians near60,
+but Zerg min39.41FPS and Terran min20.89FPS under heavy CPU/upload work. These
+dips remain; not a claimed physical performance improvement. Stress results,
+B return retaining settings, normal Exit, model/profile restore verified.
+Exact source35e9cceb and all package entries/hashes rechecked. User should test
+Easy/Medium balance and physical SD/audio/frame timing next. No automation.

@@ -20,28 +20,48 @@ static a_vector<uint8_t> fixture(const char* path,unsigned size,bool sparse){
   append(tag,bytes);
  }return result;
 }
-static void ai_test(const char* root,const char* map,unsigned race){
+static void ai_test(const char* root,const char* map,unsigned race,AiDifficulty difficulty,bool require_expansion=false){
  auto assets=data_loading::data_files_directory(root);game_player player(assets);game_load_functions loader(player.st());a_vector<uint8_t> chk;data_loading::mpq_file<> archive(map);archive(chk,"staredit/scenario.chk");
  loader.load_map_data(chk.data(),chk.size(),[&]{loader.setup_info.starting_units=1;loader.setup_info.resource_type=1;loader.setup_info.starting_minerals=50;for(unsigned p=0;p<12;++p){player.st().players[p].controller=p<2?player_t::controller_occupied:player_t::controller_inactive;player.st().players[p].race=race_t(race);loader.setup_info.create_melee_units_for_player[p]=p<2;}});
- detail::BattleAI ai;MatchSetup setup;setup.enabled=true;setup.races={{int(race),int(race),-1}};ai.configure(setup);
+ detail::BattleAI ai;MatchSetup setup;setup.enabled=true;setup.difficulty=difficulty;setup.races={{int(race),int(race),-1}};ai.configure(setup);
  // A non-fighting, invulnerable human base keeps this long economy fixture
  // alive, so the AI must fund its technology through actual native harvesting.
  for(auto* u:ptr(player.st().player_units[0]))u->status_flags|=unit_t::status_flag_invincible;
- std::set<unsigned> seen;unsigned max_army=0;
- for(unsigned frame=0;frame<36000;++frame){player.next_frame();ai.step(player);assert(ai.winner()<0);if(frame%24)continue;
-  unsigned live=0;for(auto* u:ptr(player.st().player_units[1]))if(!loader.unit_dying(u)){++live;seen.insert(unsigned(u->unit_type->id));}max_army=std::max(max_army,live);
+ std::set<unsigned> seen;unsigned max_army=0,first_wave=0,max_workers=0,max_bases=0;const auto profile=ai_profile(difficulty);
+ for(unsigned frame=0;frame<36000;++frame){player.next_frame();ai.step(player);assert(ai.winner()<0);if(ai.waves(1) && !first_wave)first_wave=player.st().current_frame;assert(!first_wave || first_wave>=profile.first_attack);if(frame%24)continue;
+  unsigned live=0,workers=0,bases=0;for(auto* u:ptr(player.st().player_units[1]))if(!loader.unit_dying(u)){++live;if(loader.ut_resource_depot(u))++bases;if(loader.ut_worker(u))++workers;seen.insert(unsigned(u->unit_type->id));}max_army=std::max(max_army,live);max_workers=std::max(max_workers,workers);max_bases=std::max(max_bases,bases);
  }
  unsigned upgrades=0;for(const auto level:player.st().upgrade_levels[1])upgrades+=level;
- std::printf("race %u trained=%u built=%u waves=%u upgrades=%u maxlive=%u types:",race,ai.trained(1),ai.built(1),ai.waves(1),upgrades,max_army);for(auto t:seen)std::printf(" %u",t);puts("");fflush(stdout);
- assert(ai.trained(1)>8 && ai.built(1)>=5 && upgrades>0 && max_army<=detail::BattleAI::unit_budget+5);
+ std::printf("difficulty=%u firstwave=%u workers=%u bases=%u race %u trained=%u built=%u waves=%u upgrades=%u maxlive=%u types:",unsigned(difficulty),first_wave,max_workers,max_bases,race,ai.trained(1),ai.built(1),ai.waves(1),upgrades,max_army);for(auto t:seen)std::printf(" %u",t);puts("");fflush(stdout);
+ assert(ai.trained(1)>6 && ai.built(1)>=3 && max_army<=profile.budget+5 && max_workers<=profile.workers && first_wave>=profile.first_attack && first_wave<profile.first_attack+24*60*3);
+ if(require_expansion)assert(max_bases>=2);
+ if(difficulty==AiDifficulty::medium){assert(upgrades>0);
  if(race==1){assert(seen.count(unsigned(UnitTypes::Terran_Factory)));assert(seen.count(unsigned(UnitTypes::Terran_Siege_Tank_Tank_Mode)));}
  if(race==2){assert(seen.count(unsigned(UnitTypes::Protoss_Dragoon)));assert(seen.count(unsigned(UnitTypes::Protoss_Stargate)));}
  if(race==0){assert(seen.count(unsigned(UnitTypes::Zerg_Lair)));assert(seen.count(unsigned(UnitTypes::Zerg_Mutalisk)));}
+ }
  // All active enemy buildings destroyed => victory. A killed human base =>
  // defeat; remaining workers or army cannot keep a building-less side alive.
  for(auto* u:ptr(player.st().player_units[1]))if(loader.ut_building(u))loader.kill_unit(u);
  for(unsigned i=0;i<24;++i){player.next_frame();ai.step(player);}assert(ai.winner()==0);
- ai.configure(setup);for(auto* u:ptr(player.st().player_units[0]))if(loader.ut_building(u)){u->status_flags&=~unit_t::status_flag_invincible;loader.kill_unit(u);}for(unsigned i=0;i<24;++i){player.next_frame();ai.step(player);}assert(ai.winner()==3);
+ ai.configure(setup);for(auto* u:ptr(player.st().player_units[0]))if(loader.ut_building(u)){u->status_flags&=~unit_t::status_flag_invincible;loader.kill_unit(u);}for(unsigned i=0;i<24;++i){player.next_frame();ai.step(player);}assert(ai.winner()==1 || ai.winner()==3);
+}
+static void knowledge_test(const char* root,const char* map){
+ auto assets=data_loading::data_files_directory(root);game_player player(assets);game_load_functions f(player.st());a_vector<uint8_t> chk;data_loading::mpq_file<> archive(map);archive(chk,"staredit/scenario.chk");
+ f.load_map_data(chk.data(),chk.size(),[&]{f.setup_info.starting_units=1;for(unsigned p=0;p<12;++p){player.st().players[p].controller=p<2?player_t::controller_occupied:player_t::controller_inactive;player.st().players[p].race=race_t::terran;f.setup_info.create_melee_units_for_player[p]=p<2;}});
+ MatchSetup setup;setup.enabled=true;setup.difficulty=AiDifficulty::medium;detail::BattleAI ai;ai.configure(setup);
+ unit_t* enemy=nullptr;for(auto* u:ptr(player.st().player_units[0])){u->sprite->visibility_flags&=~2;if(f.ut_resource_depot(u))enemy=u;}assert(enemy);auto* spare=f.create_initial_unit(f.get_unit_type(UnitTypes::Terran_Supply_Depot),enemy->sprite->position+xy{0,-256},0);assert(spare);spare->sprite->visibility_flags&=~2;
+ const auto pos=enemy->sprite->position;auto& tile=player.st().tiles[f.tile_index(pos)];tile.visible|=2;
+ ai.step(player);assert(ai.remembered(1)==0);
+ enemy->sprite->visibility_flags|=2;tile.visible&=~2;ai.step(player);assert(ai.remembered(1)==1);
+ enemy->sprite->visibility_flags&=~2;tile.visible|=2;f.kill_unit(enemy);ai.step(player);assert(ai.remembered(1)==1); // hidden death cannot erase memory
+ tile.visible&=~2;ai.step(player);assert(ai.remembered(1)==0); // scout confirms empty location
+ // Grace protects against early offensive waves, but does not disable defence.
+ unit_t* base=nullptr;for(auto* u:ptr(player.st().player_units[1]))if(f.ut_resource_depot(u))base=u;assert(base);
+ for(unsigned n=0;n<6;++n)assert(f.create_initial_unit(f.get_unit_type(UnitTypes::Terran_Marine),base->sprite->position+xy{int(n)*16,96},1));
+ auto* invader=f.create_initial_unit(f.get_unit_type(UnitTypes::Terran_Marine),base->sprite->position+xy{192,-96},0);assert(invader);invader->sprite->visibility_flags|=2;
+ setup.difficulty=AiDifficulty::easy;ai.configure(setup);ai.step(player);assert(ai.waves(1)>0 && ai.target(1)==invader->sprite->position);
+ puts("AI sight / retained building memory / hidden death / scouted empty location / Easy pre-grace defence PASS");
 }
 static void eviction_test(const std::string& path,std::vector<unsigned char> bytes,unsigned signature){
  const unsigned offset=24+128*128*4+128*128*2;bytes.resize(offset+600*2048);
@@ -62,7 +82,14 @@ static void eviction_test(const std::string& path,std::vector<unsigned char> byt
  }
  printf("600-tile bank / 496 resident slots / repeated eviction and minimap protection: %u pixel checks PASS\n",checked);
 }
-int main(int argc,char** argv){assert(argc==3);const std::string folder="/tmp/sc3ds-melee-"+std::to_string(getpid());assert(!mkdir(folder.c_str(),0700));
+static void three_side_test(const char* root,const char* map){
+ Engine engine;MatchSetup setup;setup.enabled=true;setup.difficulty=AiDifficulty::medium;setup.races={{1,0,2}};
+ assert(engine.load(root,map,Scenario::versus_ai,&setup));unsigned peak=0;Snapshot last;
+ for(unsigned frame=0;frame<36000;++frame){assert(engine.tick());SoundEvent sounds[256];engine.drain_sounds(sounds,256);assert(engine.dropped_sounds()==0);if(frame%24)continue;last=engine.snapshot();peak=std::max(peak,last.units);assert(last.players[1].live<=ai_unit_budget+6 && last.players[2].live<=ai_unit_budget+6);if(last.winner>=0)break;}
+ assert(last.players[1].trained>6 && last.players[2].trained>6 && last.players[1].built>=3 && last.players[2].built>=3);
+ printf("Three-race/two-AI native match frame=%u peak=%u winner=%d Zerg trained=%u built=%u Protoss trained=%u built=%u zero sound-event drops PASS\n",last.frame,peak,last.winner,last.players[1].trained,last.players[1].built,last.players[2].trained,last.players[2].built);
+}
+int main(int argc,char** argv){assert(argc>=3 && argc<=5);const std::string folder="/tmp/sc3ds-melee-"+std::to_string(getpid());assert(!mkdir(folder.c_str(),0700));
  const auto path=folder+"/sparse.chk",cache=folder+"/terrain.bin";save(path,fixture(argv[2],128,true));Engine e;MatchSetup setup;setup.enabled=true;setup.races={{1,2,-1}};
  assert(e.load(argv[1],path.c_str(),Scenario::versus_ai,&setup));auto s=e.snapshot();assert(s.width==128 && s.height==128 && s.players[0].workers==4 && s.players[1].workers==4 && !s.players[2].live);assert(e.write_terrain(argv[1],cache.c_str()));assert(e.surrender() && e.snapshot().winner==1 && !e.surrender());
  std::ifstream bank(cache,std::ios::binary);std::vector<unsigned char> encoded((std::istreambuf_iterator<char>(bank)),{});
@@ -72,6 +99,9 @@ int main(int argc,char** argv){assert(argc==3);const std::string folder="/tmp/sc
  }}g.fog(e,3500,3500);g.fog_minimap(e,0,0,115,108);}
  assert(fake::allocations==0);eviction_test(cache,encoded,e.terrain_signature());assert(fake::allocations==0);setup.game_type=2;assert(!e.load(argv[1],path.c_str(),Scenario::versus_ai,&setup));assert(std::strstr(e.error(),"Map Settings"));setup.game_type=0;
  save(path,fixture(argv[2],256,false));assert(!e.load(argv[1],path.c_str(),Scenario::versus_ai,&setup));assert(std::strstr(e.error(),"128"));
- for(unsigned race: {1u,2u,0u})ai_test(argv[1],argv[2],race);
+ knowledge_test(argv[1],argv[2]);
+ for(auto difficulty: {AiDifficulty::easy,AiDifficulty::medium})for(unsigned race: {1u,2u,0u})ai_test(argv[1],argv[2],race,difficulty);
+ if(argc>=4)for(unsigned race: {1u,2u,0u})ai_test(argv[1],argv[3],race,AiDifficulty::medium,true);
+ if(argc==5)three_side_test(argv[1],argv[4]);
  std::remove(path.c_str());std::remove(cache.c_str());rmdir(folder.c_str());puts("Actual 128x128/sparse-start loading + streamed terrain/fog + native economy/technology + victory/defeat PASS");
 }

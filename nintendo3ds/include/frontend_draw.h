@@ -66,15 +66,15 @@ inline void draw_frontend(Frontend& f,UiArt& art,MenuAnimation& animation,C2D_Te
   const int panel_x=14-int(shift);
   C2D_DrawRectSolid(panel_x+8,48,0,276,140,C2D_Color32(8,10,19,235));art.draw("custom_panel",panel_x,24);
   ui_text(text,"Create settings",160-shift,3,.60f,white,true);
-  const char* labels[]={"Game Type","Map","Player","AI1","AI2"};const char* types[]={"Melee","Free for all","Use Map Settings"};
-  constexpr int rows[]={60,85,110,141,167};
+  const char* labels[]={"Game Type","Map","Player","AI1","AI2","Difficulty"};const char* types[]={"Melee","Free for all","Use Map Settings"};
+
   char map_name[38]{};std::snprintf(map_name,sizeof map_name,"%.27s",f.preview.title[0]?f.preview.title:f.selected_map<f.maps.size()?f.maps[f.selected_map].name.c_str():"No maps");
-  const char* values[]={types[f.game_type],map_name,Frontend::race_name(f.race),f.ai_name(0),f.ai_name(1)};
-  for(unsigned i=0;i<5;++i){const bool enabled=i<3 || f.ai_available(i-3);const auto color=enabled?green:dim;
-   ui_text(text,labels[i],25-shift,rows[i],.50f,white);
-   ui_text(text,"<",123-shift,rows[i]-1,.58f,f.hover==int(40+i*2)?bright:color,true);
-   ui_limited(text,values[i],141-shift,rows[i],.52f,132,1,color);
-   ui_text(text,">",288-shift,rows[i]-1,.58f,f.hover==int(41+i*2)?bright:color,true);
+  const char* values[]={types[f.game_type],map_name,Frontend::race_name(f.race),f.ai_name(0),f.ai_name(1),f.difficulty?"Medium":"Easy"};
+  for(unsigned i=0;i<Frontend::row_count;++i){const bool enabled=i<3 || i==5 || f.ai_available(i-3);const auto color=enabled?green:dim;
+   ui_text(text,labels[i],25-shift,Frontend::row_y(i),.50f,white);
+   ui_text(text,"<",123-shift,Frontend::row_y(i)-1,.58f,f.hover==int(40+i*2)?bright:color,true);
+   ui_limited(text,values[i],141-shift,Frontend::row_y(i),.52f,132,1,color);
+   ui_text(text,">",288-shift,Frontend::row_y(i)-1,.58f,f.hover==int(41+i*2)?bright:color,true);
   }
   for(unsigned i=0;i<2;++i){const float x=(i?178:18)+(i?shift:-shift);
    C2D_DrawRectSolid(x,196,0,124,28,C2D_Color32(4,8,15,230));
@@ -87,7 +87,16 @@ inline void draw_frontend(Frontend& f,UiArt& art,MenuAnimation& animation,C2D_Te
  if(f.dialog!=Frontend::Dialog::none){
   C2D_DrawRectSolid(0,0,0,320,240,C2D_Color32(0,0,0,150));
   C2D_DrawRectSolid(14,30,0,292,188,C2D_Color32(5,9,8,255));ui_border({14,30,292,188},C2D_Color32(105,110,103,255));ui_border({17,33,286,182},C2D_Color32(170,35,23,255));
-  if(f.dialog==Frontend::Dialog::version){ui_text(text,"Select Game Type",160,43,.55f,white,true);art.draw("logo_sc",37,63);if(f.hover==30)ui_border({34,65,252,49},bright);label("Original",30,160,108,.34f);art.draw("logo_bw",37,123);if(f.hover==31)ui_border({34,126,252,51},bright);label("Expansion",31,160,173,.34f);label("Cancel",32,160,194);}
+  if(f.dialog==Frontend::Dialog::map_list){
+   ui_text(text,"Select map",160,40,.58f,white,true);
+   for(unsigned i=0;i<5 && f.scroll+i<f.maps.size();++i){const auto index=f.scroll+i;const auto& name=f.maps[index].name;auto slash=name.find_last_of('/');const auto title=name.substr(slash==std::string::npos?0:slash+1);
+    const bool selected=index==f.selected_map;const auto color=f.hover==int(70+i)?bright:selected?white:green;
+    if(selected)C2D_DrawRectSolid(24,66+i*24,0,272,23,C2D_Color32(28,42,29,255));
+    ui_limited(text,title.c_str(),30,69+i*24,.49f,258,1,color);
+   }
+   label("<",90,50,195,.52f);label("Cancel",32,160,195,.47f);label(">",91,270,195,.52f);
+  }
+  else if(f.dialog==Frontend::Dialog::version){ui_text(text,"Select Game Type",160,43,.55f,white,true);art.draw("logo_sc",37,63);if(f.hover==30)ui_border({34,65,252,49},bright);label("Original",30,160,108,.34f);art.draw("logo_bw",37,123);if(f.hover==31)ui_border({34,126,252,51},bright);label("Expansion",31,160,173,.34f);label("Cancel",32,160,194);}
   else if(f.dialog==Frontend::Dialog::error){ui_text(text,"Cannot start match",160,51,.50f,white,true);C2D_Text t;C2D_TextParse(&t,text,f.error);C2D_DrawText(&t,C2D_WithColor|C2D_WordWrap,29,85,0,.42f,.42f,white,260.f);label("OK",32,160,185,.45f);}
   else if(f.dialog==Frontend::Dialog::unsupported){ui_text(text,"Campaign",160,58,.55f,white,true);ui_text(text,"Campaigns are not supported",160,103,.44f,white,true);ui_text(text,"in this version.",160,121,.44f,white,true);label("OK",32,160,185,.45f);}
   else {ui_text(text,"Exit StarCraft?",160,78,.55f,white,true);label("Exit",33,95,176,.45f);label("Cancel",32,225,176,.45f);}

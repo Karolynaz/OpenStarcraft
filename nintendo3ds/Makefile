@@ -185,7 +185,7 @@ build/source_id.h: $(HEADERS) $(wildcard source/*.cpp) tools/build_info.py Makef
 	python3 tools/build_info.py $@
 build/main.o: build/source_id.h
 
-build/frontend-export: tools/frontend_export.cpp $(HEADERS) | build
+build/frontend-export: tools/frontend_export.cpp tools/original_archive.h $(HEADERS) | build
 	$(HOST_CXX) $(COMMON) tools/frontend_export.cpp -o $@
 build/frontend-test: tests/frontend.cpp include/frontend.h | build
 	$(HOST_CXX) -std=c++14 -O1 -g -fsanitize=address -Iinclude tests/frontend.cpp -o $@
@@ -216,3 +216,16 @@ build/menu-animation-test: tests/menu_animation.cpp include/menu_animation.h tes
 .PHONY: test-menu-animation
 test-menu-animation: build/menu-animation-test
 	ASAN_OPTIONS=detect_leaks=0 ./build/menu-animation-test local-data/3ds/openbw/ui/animations.bin
+
+build/maps-export: tools/maps_export.cpp tools/original_archive.h source/engine.cpp $(HEADERS) | build
+	$(HOST_CXX) $(COMMON) tools/maps_export.cpp source/engine.cpp -o $@
+
+build/map-catalogue-test: tests/map_catalogue.cpp source/engine.cpp $(HEADERS) | build
+	$(HOST_CXX) $(COMMON) -O1 -g -fsanitize=address -fno-omit-frame-pointer tests/map_catalogue.cpp source/engine.cpp -o $@
+
+build/audio-stream-test: tests/audio_stream.cpp source/audio.cpp include/audio.h tests/fake3ds/3ds.h | build
+	$(HOST_CXX) -std=c++14 -O1 -g -fsanitize=address -fno-omit-frame-pointer -pthread -Itests/fake3ds -Iinclude tests/audio_stream.cpp source/audio.cpp -o $@
+
+.PHONY: prepare-all-audio
+prepare-all-audio:
+	python3 tools/merge_audio.py local-data/3ds/openbw/audio
