@@ -526,3 +526,21 @@ under local-data/releases; matching ELF/evidence in local-data/custom-metal-
 2026-10-24. ASan frontend/ARM checks pass; original-model emulator normal and
 long-title/description previews, Cancel/B return and Exit checked. Test map
 removed/model restored. No physical SD write. No gameplay/AI change.
+
+## 2026-10-24 — in-game larger-font physical-test build
+
+User asked to enlarge game fonts now and refine fit later after their review.
+Changed only main/selection drawing: larger resources/clock/menu/captions,
+selected unit titles/stats/HP/shields/production/queue numbers. Removed title
+auto-shrink; work names keep one-line ellipsis. Minor baselines/portrait HP
+backing adjusted; HUD layout/touch targets/game logic retained. Some long
+system rows reach right edge, intentionally left for fit feedback.
+Final src-0e959a2c62a058b2, 3dsx SHA256
+5a50edc938fa71a3d0b7161e6e0e4992faccbe74040e63709dbd5c792dae1e23.
+Private ingame-fonts-2026-10-24.zip and ingame-fonts-update-2026-10-24.zip
+under local-data/releases; matching ELF/evidence in local-data/ingame-fonts-
+2026-10-24. ARM check passes. Original-model emulator CC idle/training, menu,
+rich Protoss lab/Nexus shields and Exit checked; preference restored.
+Standard opening audio ready, but mid-process Protoss lab reload audio-off
+with heap-memory guard. Recorded, not attributed to this font-only change;
+see reports/INGAME_FONTS_VALIDATION.md. No physical SD write this stage.

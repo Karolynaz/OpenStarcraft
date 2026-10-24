@@ -472,15 +472,15 @@ int main() {
             }
             const float cx = controls.cursor_x, cy = controls.cursor_y;
             float widths[3]{},resource_width=20; // two ten-pixel group gaps
-            for(unsigned i=0;i<3;++i){float height;C2D_TextGetDimensions(&resource_values[i],.42f,.42f,&widths[i],&height);resource_width+=17+widths[i];}
+            for(unsigned i=0;i<3;++i){float height;C2D_TextGetDimensions(&resource_values[i],.56f,.56f,&widths[i],&height);resource_width+=17+widths[i];}
             float resource_x=396-resource_width;
-            C2D_DrawRectSolid(resource_x-3,0,0,resource_width+7,18,C2D_Color32(8,16,24,210));
+            C2D_DrawRectSolid(resource_x-3,0,0,resource_width+7,21,C2D_Color32(8,16,24,210));
             for(unsigned i=0;i<3;++i){
                 graphics.ui_image(engine.resource_icon(i),resource_x,2,1,engine);
-                C2D_DrawText(&resource_values[i],C2D_WithColor,resource_x+17,2,0,.42f,.42f,C2D_Color32(40,245,48,255));
+                C2D_DrawText(&resource_values[i],C2D_WithColor,resource_x+17,2,0,.56f,.56f,C2D_Color32(40,245,48,255));
                 resource_x+=17+widths[i]+10;
             }
-            if(placing || attacking || pending_load || !engine.ready())C2D_DrawText(&message,C2D_WithColor|C2D_WordWrap,8,211,0,.34f,.34f,white,384.f);
+            if(placing || attacking || pending_load || !engine.ready())C2D_DrawText(&message,C2D_WithColor|C2D_WordWrap,8,204,0,.46f,.46f,white,384.f);
             auto cursor=engine.cursor_kind(controls.world_x(),controls.world_y(),attacking);
             if(menu!=Menu::none)cursor=port3ds::CursorKind::arrow;
             else if(placing){const auto site=engine.placement_unit(placing_code&65535,controls.world_x(),controls.world_y());cursor=site.valid?port3ds::CursorKind::target:port3ds::CursorKind::target_enemy;}
@@ -493,8 +493,8 @@ int main() {
             hud_art.draw("hud",0,0);
             C2D_TextBufClear(hud_buf);
             char clock[20];std::snprintf(clock,sizeof clock,"%02lu:%02lu",static_cast<unsigned long>(state.frame/24/60),static_cast<unsigned long>(state.frame/24%60));
-            port3ds::ui_text(hud_buf,clock,69,25,.34f,white,true);
-            port3ds::ui_text(hud_buf,"Meniu",279,163,.38f,white,true);
+            port3ds::ui_text(hud_buf,clock,69,25,.48f,white,true);
+            port3ds::ui_text(hud_buf,"Meniu",279,163,.52f,white,true);
             if(menu==Menu::none){option_page=port3ds::OptionPage::primary;option_count=engine.options(option_page,option_rows,8);}
             if(menu==Menu::none || menu==Menu::catalogue){
                 using G=port3ds::CommandGrid;
@@ -503,9 +503,9 @@ int main() {
                     graphics.ui_image(engine.command_icon(option_rows[i].icon,option_rows[i].enabled),x+1,y+1,.82f,engine);
                     if(menu==Menu::catalogue && i==choice)port3ds::ui_border({int(x),int(y),32,32},green);
                 }
-                port3ds::ui_text(hud_buf,"...",262,125,.48f,green,true);
-                if(menu==Menu::catalogue && choice<option_count)port3ds::ui_text(hud_buf,option_rows[choice].label,220,32,.28f,white,true);
-                else if(state.selected)port3ds::ui_text(hud_buf,state.selected_name,220,32,.32f,white,true);
+                port3ds::ui_text(hud_buf,"...",262,125,.60f,green,true);
+                if(menu==Menu::catalogue && choice<option_count)port3ds::ui_text(hud_buf,option_rows[choice].label,220,32,.44f,white,true);
+                else if(state.selected)port3ds::ui_text(hud_buf,state.selected_name,220,32,.46f,white,true);
             }
             const auto selected_info=engine.selection_info();
             if(selected_info.count==1)port3ds::draw_selection_info(selected_info,graphics,engine,hud_buf);
@@ -517,7 +517,7 @@ int main() {
                 if(selected_slot==0)graphics.ui_image(engine.command_icon(u.type),255,193,1.1f,engine);
                 ++selected_slot;
             }
-            if(selected_slot){char hp[40];std::snprintf(hp,sizeof hp,"%d/%d",state.selected_hp,state.selected_max_hp);port3ds::ui_text(hud_buf,hp,275,230,.25f,green,true);}
+            if(selected_slot){C2D_DrawRectSolid(250,223,0,51,14,C2D_Color32(0,0,0,210));char hp[40];std::snprintf(hp,sizeof hp,"%d/%d",state.selected_hp,state.selected_max_hp);port3ds::ui_text(hud_buf,hp,275,224,.38f,green,true);}
             using C = port3ds::Controls;
             C2D_DrawRectSolid(C::minimap_x, C::minimap_y, 0, C::minimap_w, C::minimap_h, grid);
             graphics.minimap(C::minimap_x,C::minimap_y,C::minimap_w,C::minimap_h);
@@ -536,10 +536,10 @@ int main() {
             C2D_DrawLine(mx, my, green, mx, my + 240 * sy, green, 1, 0);
             C2D_DrawLine(mx + 400 * sx, my, green, mx + 400 * sx, my + 240 * sy, green, 1, 0);
             C2D_DrawLine(mx, my + 240 * sy, green, mx + 400 * sx, my + 240 * sy, green, 1, 0);
-            if(menu==Menu::result)port3ds::ui_text(hud_buf,action,237,23,.48f,white,true);
+            if(menu==Menu::result)port3ds::ui_text(hud_buf,action,237,23,.60f,white,true);
             if(menu!=Menu::none && menu!=Menu::catalogue){
                 C2D_DrawRectSolid(161,40,0,151,12+menu_count()*17,C2D_Color32(4,12,16,245));
-                for(unsigned i=0;i<menu_count();++i){if(i==choice)C2D_DrawRectSolid(164,46+i*17,0,142,16,C2D_Color32(25,65,55,255));C2D_DrawText(&menu_rows[i],C2D_WithColor,167,47+i*17,0,.32f,.32f,white);}
+                for(unsigned i=0;i<menu_count();++i){if(i==choice)C2D_DrawRectSolid(164,46+i*17,0,142,16,C2D_Color32(25,65,55,255));C2D_DrawText(&menu_rows[i],C2D_WithColor,167,47+i*17,0,.46f,.46f,white);}
             }
             const u64 end_begin=now_us();
             C3D_FrameEnd(0);
