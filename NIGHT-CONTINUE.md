@@ -576,3 +576,23 @@ dips remain; not a claimed physical performance improvement. Stress results,
 B return retaining settings, normal Exit, model/profile restore verified.
 Exact source35e9cceb and all package entries/hashes rechecked. User should test
 Easy/Medium balance and physical SD/audio/frame timing next. No automation.
+
+## 2026-10-24 — accumulated title/custom/pause feedback
+
+User said "padaryk atnaujinimus": implemented Game + Play Custom/Load Saved
+three-button title, metal supports, text-only version hover; padded continuous
+custom top backing/map/text, Players below name, complete bottom backing and
+removed Create settings heading. New bottom Game Menu pauses/dims BOTH screens,
+Circle Pad/D-pad/A/B and shared touch rectangles; Options holds test scenarios,
+camera/CSV/reload/fog/exit. End Game confirms/returns to custom. Save/Load are
+explicit unsupported notices, no fake serialization. World input/camera gated,
+scheduler reset; B nested keeps pause/root resumes. Read nintendo3ds/reports/
+MENU_PAUSE_VALIDATION.md. ASan frontend/pause navigation/layout and native ARM
+checks PASS. Original-model emulator title/custom/hover/pause/Options/B/resume/
+EndGame checked; frozen top image unchanged after X/Y/CirclePad; CSV TPS0 with
+zero paused backlog, resumed23.93TPS. Final build src-795c51f4f52748fa separately
+loaded/resumed/paused/exited, no sprite misses or audio IO errors. 3DSX SHA256
+6b68f1f70b76d120a867b1ffdcc1b99b8da841fc1b7a88e91410775318907610.
+Private menu-pause-{update-,}2026-10-24.zip in local-data/releases; evidence/
+ELF under local-data/menu-pause-stage-2026-10-24. Emulator model/profile restored;
+no physical SD write, publication or automation. Existing battle dips remain.

@@ -187,7 +187,7 @@ build/main.o: build/source_id.h
 
 build/frontend-export: tools/frontend_export.cpp tools/original_archive.h $(HEADERS) | build
 	$(HOST_CXX) $(COMMON) tools/frontend_export.cpp -o $@
-build/frontend-test: tests/frontend.cpp include/frontend.h | build
+build/frontend-test: tests/frontend.cpp include/frontend.h include/pause_menu.h | build
 	$(HOST_CXX) -std=c++14 -O1 -g -fsanitize=address -Iinclude tests/frontend.cpp -o $@
 .PHONY: test-frontend
 test-frontend: build/frontend-test

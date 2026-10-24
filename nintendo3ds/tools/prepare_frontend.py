@@ -32,8 +32,6 @@ def animation(name,key,scale=.325):
 bg=pcx('glue_PalCs_backgnd').resize((320,240),Image.Resampling.LANCZOS)
 add('campaign_left',bg.crop((0,0,160,240)))
 add('campaign_right',bg.crop((160,0,320,240)))
-button=pcx('glue_PalNl_pCancel').crop((0,58,168,91)).resize((146,28),Image.Resampling.LANCZOS)
-add('menu_button',button)
 custom=bg.copy()
 for name,xy in [('glue_create_pListMap2',(0,0)),('glue_create_pInfo',(200,0)),('glue_create_pSlots',(0,142)),('glue_PalNl_pCancel',(236,178)),('glue_PalNl_pOk',(218,168))]:
  im=pcx(name);over(custom,im.resize((im.width//2,im.height//2),Image.Resampling.LANCZOS),xy)
@@ -58,6 +56,7 @@ for key,operation in [('custom_cancel',Image.Transpose.ROTATE_180),('custom_ok',
  mount.alpha_composite(native.crop((0,0,168,33)).resize((142,28),Image.Resampling.LANCZOS),(0,0))
  mount.alpha_composite(native.crop((0,33,168,91)).resize((142,16),Image.Resampling.LANCZOS),(0,28))
  add(key,mount)
+ if key=='custom_ok':add('menu_button',mount.resize((146,34),Image.Resampling.LANCZOS))
 
 add('title',Image.open(a.title))
 logo=pcx('logo-bw')

@@ -17,6 +17,7 @@ struct Frontend {
  enum class Screen {campaign,custom};enum class Dialog {none,version,unsupported,exit,error,map_list};
  Screen screen=Screen::campaign;Dialog dialog=Dialog::none;
  bool brood=true,play=false,quit=false,save_failed=false;
+ bool saved_notice=false;
  unsigned race=1,speed=4,game_type=0,subtype=0,scroll=0,selected_map=0;
  std::array<unsigned,2> ai{{3,3}};
  unsigned difficulty=0;
@@ -25,7 +26,7 @@ struct Frontend {
  char error[192]{};
  bool leaving=false;Screen destination=Screen::campaign;
  MapPreview preview;bool preview_dirty=true;float transition=1;
- float x=83,y=220;int hover=-1;
+ float x=237,y=183;int hover=-1;
  std::string directory,base,settings;
  struct Map{std::string name;bool folder;};std::vector<Map> maps;
  static const char* race_name(unsigned r){return r==0?"Zerg":r==2?"Protoss":"Terran";}
@@ -35,7 +36,7 @@ struct Frontend {
  const char* ai_name(unsigned i)const{return !ai_available(i) || ai[i]==4?"Off":ai[i]==3?"Random":race_name(ai[i]);}
  std::string map_path()const{return selected_map<maps.size()?directory+"/"+maps[selected_map].name:"";}
  MatchSetup match(unsigned seed)const{MatchSetup m;m.enabled=true;m.game_type=game_type;m.difficulty=difficulty?AiDifficulty::medium:AiDifficulty::easy;m.races[0]=int(race);for(unsigned i=0;i<2;++i){seed=seed*1664525u+1013904223u;m.races[i+1]=!ai_available(i) || ai[i]==4?-1:ai[i]==3?int((seed>>16)%3):int(ai[i]);}return m;}
- static UiRect campaign_button(unsigned i){return {10+int(i%2)*154,174+int(i/2)*32,146,28};}
+ static UiRect campaign_button(unsigned i){return i==0?UiRect{10,187,146,26}:UiRect{164,170+int(i-1)*34,146,26};}
  void navigate(Screen to){if(leaving || transition<1 || screen==to)return;destination=to;leaving=true;transition=1;}
  void advance(float dt){
   if(leaving){transition=std::max(0.f,transition-dt/.38f);if(transition<.00001f){screen=destination;leaving=false;transition=0;if(screen==Screen::custom)preview_dirty=true;}}
@@ -77,7 +78,7 @@ struct Frontend {
   if(dialog==Dialog::unsupported || dialog==Dialog::error)return UiRect{112,183,96,22}.hit(px,py)?32:-1;
   if(dialog==Dialog::exit){if(UiRect{45,174,100,23}.hit(px,py))return 33;return UiRect{175,174,100,23}.hit(px,py)?32:-1;}
   if(screen==Screen::campaign){
-   static const int ids[]={5,5,3,4};for(unsigned i=0;i<4;++i)if(campaign_button(i).hit(px,py))return ids[i];
+   static const int ids[]={4,3,5};for(unsigned i=0;i<3;++i)if(campaign_button(i).hit(px,py))return ids[i];
    for(unsigned i=0;i<3;++i)if(UiRect{8+int(i)*104,20,96,143}.hit(px,py))return int(i);
   }else{
    if(transition<1)return -1;
@@ -95,7 +96,7 @@ struct Frontend {
   if(id<0 || leaving || transition<1)return;
   if(dialog==Dialog::map_list){if(id>=70 && id<75 && scroll+unsigned(id-70)<maps.size()){selected_map=scroll+unsigned(id-70);preview_dirty=true;dialog=Dialog::none;}else if(id==90 || id==91){if(id==90)scroll=scroll>=5?scroll-5:0;else if(scroll+5<maps.size())scroll+=5;}else if(id==32)dialog=Dialog::none;return;}
   if(dialog!=Dialog::none){if(dialog==Dialog::version && (id==30 || id==31)){brood=id==31;save();dialog=Dialog::none;}else if(id==33 && dialog==Dialog::exit)quit=true;else if(id==32)dialog=Dialog::none;return;}
-  if(screen==Screen::campaign){if(id<3 || id==5)dialog=Dialog::unsupported;else if(id==3){navigate(Screen::custom);}else if(id==4)dialog=Dialog::version;}
+  if(screen==Screen::campaign){if(id<3 || id==5){saved_notice=id==5;dialog=Dialog::unsupported;}else if(id==3){navigate(Screen::custom);}else if(id==4)dialog=Dialog::version;}
   else if(id==60){scroll=selected_map/5*5;dialog=Dialog::map_list;x=160;y=77+(selected_map-scroll)*24;}
   else if(id>=40 && id<52)adjust(unsigned(id-40)/2,id%2?1:-1);
   else if(id==10 && preview.valid && selected_map<maps.size() && !maps[selected_map].folder){save();play=true;}
