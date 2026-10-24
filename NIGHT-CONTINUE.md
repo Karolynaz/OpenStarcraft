@@ -510,3 +510,19 @@ roundtrip and subsequent game+audio+Exit checked. Private menu-motion-2026-10-24
 full/update ZIPs in local-data/releases, matchingELF/evidence in local-data/
 menu-motion-2026-10-24. Update now has6 files: MUST include animations.bin and
 matching menu/manifest. Emulator model/profile restored. No physical SD write.
+
+## 2026-10-24 — Play Custom larger text and metal supports
+
+User-requested Play Custom window updated: larger top metadata and bottom
+field/button fonts, fixed-size text fitting with two/six-line title/description
+limits and ellipsis. Original pSlots/pListMap2/pInfo panel beams/corners and
+PalNl Cancel metal mounts for the two footer buttons. Draw/input coordinates
+move together: rows60/85/110/141/167; footer x18/178,y196,124x28. Atlas stays4
+pages, animation bank unchanged. Read reports/CUSTOM_METAL_VALIDATION.md.
+Final src-d4e7d4454ac23955; 3dsx SHA256
+da14ffe71c43177f8f65153563863f329f833f1480b94de5e7df5866c5c86192.
+Private custom-metal-2026-10-24.zip and custom-metal-update-2026-10-24.zip
+under local-data/releases; matching ELF/evidence in local-data/custom-metal-
+2026-10-24. ASan frontend/ARM checks pass; original-model emulator normal and
+long-title/description previews, Cancel/B return and Exit checked. Test map
+removed/model restored. No physical SD write. No gameplay/AI change.

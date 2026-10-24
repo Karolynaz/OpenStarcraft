@@ -5,18 +5,31 @@
 namespace port3ds {
 inline void ui_text(C2D_TextBuf buf,const char* text,float x,float y,float size,unsigned color,bool center=false){C2D_Text t;C2D_TextParse(&t,buf,text);C2D_TextOptimize(&t);if(center){float w,h;C2D_TextGetDimensions(&t,size,size,&w,&h);x-=w/2;}C2D_DrawText(&t,C2D_WithColor,x,y,0,size,size,color);}
 inline void ui_border(UiRect r,unsigned color){C2D_DrawLine(r.x,r.y,color,r.x+r.w,r.y,color,1,0);C2D_DrawLine(r.x,r.y+r.h,color,r.x+r.w,r.y+r.h,color,1,0);C2D_DrawLine(r.x,r.y,color,r.x,r.y+r.h,color,1,0);C2D_DrawLine(r.x+r.w,r.y,color,r.x+r.w,r.y+r.h,color,1,0);}
+// Fit readable text by ellipsis/line limits, keeping the font size fixed.
+inline float ui_width(C2D_TextBuf buf,const char* value,float size){C2D_TextBufClear(buf);C2D_Text t;C2D_TextParse(&t,buf,value);float w,h;C2D_TextGetDimensions(&t,size,size,&w,&h);return w;}
+inline void ui_limited(C2D_TextBuf buf,const char* value,float x,float y,float size,float width,unsigned lines,unsigned color){
+ auto measure=C2D_TextBufNew(160);if(!measure)return;
+ const char* at=value;const float line_height=size*30;
+ for(unsigned row=0;row<lines && *at;++row){while(*at==' ' || *at=='\n' || *at=='\r')++at;if(!*at)break;char line[160]{};unsigned n=0,last_space=0;
+  while(at[n] && at[n]!='\n' && n<150){line[n]=at[n];line[n+1]=0;if(ui_width(measure,line,size)>width){line[n]=0;break;}if(at[n]==' ')last_space=n;++n;}
+  if(!n){++at;continue;}
+  if(at[n] && at[n]!='\n' && last_space && row+1<lines){n=last_space;line[n]=0;}
+  if(row+1==lines && at[n]){while(n && (std::snprintf(line+n,sizeof(line)-n,"..."),ui_width(measure,line,size)>width))line[--n]=0;}
+  ui_text(buf,line,x,y+row*line_height,size,color);at+=n;
+ }
+ C2D_TextBufDelete(measure);
+}
 inline void draw_frontend_top(const Frontend& f,UiArt& art,C2D_TextBuf text){
  if(f.screen==Frontend::Screen::campaign){art.draw("title",0,0);return;}
  art.draw("custom_top",0,0);const float slide=420*f.slide();
  art.draw("frame_top",-slide,0);
  const auto white=C2D_Color32(183,185,241,255),green=C2D_Color32(104,205,68,255);
  C2D_DrawRectSolid(15-slide,20,0,144,201,C2D_Color32(6,10,20,190));
- auto wrapped=[&](const char* value,float y,float size){C2D_Text t;C2D_TextParse(&t,text,value);C2D_DrawText(&t,C2D_WithColor|C2D_WordWrap,21-slide,y,0,size,size,white,132.f);};
- char title[90];std::snprintf(title,sizeof title,"%.70s",f.preview.title[0]?f.preview.title:"Map preview");wrapped(title,30,.48f);
- char description[260];std::snprintf(description,sizeof description,"%.240s",f.preview.valid?f.preview.description:f.preview.error);wrapped(description,77,.37f);
- char info[60];std::snprintf(info,sizeof info,"Players: %u",f.preview.players);ui_text(text,info,21-slide,186,.41f,green);
- std::snprintf(info,sizeof info,"Size: %ux%u",f.preview.width,f.preview.height);ui_text(text,info,21-slide,202,.37f,white);
- if(f.selected_map<f.maps.size()){char file[36];std::snprintf(file,sizeof file,"%.26s",f.maps[f.selected_map].name.c_str());ui_text(text,file,21-slide,218,.28f,white);}
+ ui_limited(text,f.preview.title[0]?f.preview.title:"Map preview",21-slide,28,.60f,132,2,white);
+ ui_limited(text,f.preview.valid?f.preview.description:f.preview.error,21-slide,82,.47f,132,6,white);
+ char info[60];std::snprintf(info,sizeof info,"Players: %u",f.preview.players);ui_text(text,info,21-slide,180,.52f,green);
+ std::snprintf(info,sizeof info,"Size: %ux%u",f.preview.width,f.preview.height);ui_text(text,info,21-slide,200,.47f,white);
+ if(f.selected_map<f.maps.size())ui_limited(text,f.maps[f.selected_map].name.c_str(),21-slide,218,.37f,132,1,white);
  if(f.preview.valid){const float ratio=f.preview.width/float(f.preview.height),w=ratio>=1?208:208*ratio,h=ratio>=1?208/ratio:208;
   const float x=178+(208-w)/2+slide,y=16+(208-h)/2;
   art.draw_preview(x,y,w,h);ui_border({int(x)-1,int(y)-1,int(w)+2,int(h)+2},C2D_Color32(150,35,24,255));
@@ -51,21 +64,22 @@ inline void draw_frontend(Frontend& f,UiArt& art,MenuAnimation& animation,C2D_Te
   art.draw("custom_bottom",0,0);
   const float shift=340*f.slide();
   const int panel_x=14-int(shift);
-  C2D_DrawRectSolid(panel_x,35,0,292,158,C2D_Color32(8,10,19,235));art.draw("frame_bottom",panel_x,35,292.f/320,158.f/240);
-  ui_text(text,"Create settings",160-shift,17,.53f,white,true);
+  C2D_DrawRectSolid(panel_x+8,48,0,276,140,C2D_Color32(8,10,19,235));art.draw("custom_panel",panel_x,24);
+  ui_text(text,"Create settings",160-shift,3,.60f,white,true);
   const char* labels[]={"Game Type","Map","Player","AI1","AI2"};const char* types[]={"Melee","Free for all","Use Map Settings"};
-  constexpr int rows[]={54,79,104,137,162};
+  constexpr int rows[]={60,85,110,141,167};
   char map_name[38]{};std::snprintf(map_name,sizeof map_name,"%.27s",f.preview.title[0]?f.preview.title:f.selected_map<f.maps.size()?f.maps[f.selected_map].name.c_str():"No maps");
   const char* values[]={types[f.game_type],map_name,Frontend::race_name(f.race),f.ai_name(0),f.ai_name(1)};
   for(unsigned i=0;i<5;++i){const bool enabled=i<3 || f.ai_available(i-3);const auto color=enabled?green:dim;
-   ui_text(text,labels[i],27-shift,rows[i],.38f,white);
-   ui_text(text,"<",123-shift,rows[i]-1,.48f,f.hover==int(40+i*2)?bright:color,true);
-   ui_text(text,values[i],145-shift,rows[i],i==1?.30f:.38f,color);
-   ui_text(text,">",288-shift,rows[i]-1,.48f,f.hover==int(41+i*2)?bright:color,true);
+   ui_text(text,labels[i],25-shift,rows[i],.50f,white);
+   ui_text(text,"<",123-shift,rows[i]-1,.58f,f.hover==int(40+i*2)?bright:color,true);
+   ui_limited(text,values[i],141-shift,rows[i],.52f,132,1,color);
+   ui_text(text,">",288-shift,rows[i]-1,.58f,f.hover==int(41+i*2)?bright:color,true);
   }
   for(unsigned i=0;i<2;++i){const float x=(i?178:18)+(i?shift:-shift);
-   C2D_DrawRectSolid(x,205,0,124,28,C2D_Color32(4,8,15,230));art.draw("frame_bottom",x,205,124.f/320,28.f/240);
-   ui_text(text,i?"OK":"Cancel",x+62,212,.49f,f.hover==int(i?10:13)?bright:green,true);
+   C2D_DrawRectSolid(x,196,0,124,28,C2D_Color32(4,8,15,230));
+   art.draw(i?"custom_ok":"custom_cancel",(i?178:0)+(i?shift:-shift),196);
+   ui_text(text,i?"OK":"Cancel",x+62,201,.59f,f.hover==int(i?10:13)?bright:green,true);
   }
 
  }

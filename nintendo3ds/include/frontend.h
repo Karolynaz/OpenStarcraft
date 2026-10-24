@@ -73,14 +73,14 @@ struct Frontend {
    for(unsigned i=0;i<3;++i)if(UiRect{8+int(i)*104,20,96,143}.hit(px,py))return int(i);
   }else{
    if(transition<1)return -1;
-   constexpr int rows[]={54,79,104,137,162};
+   constexpr int rows[]={60,85,110,141,167};
    for(unsigned row=0;row<5;++row){if(row>=3 && !ai_available(row-3))continue;
     if(UiRect{112,rows[row]-3,23,20}.hit(px,py))return 40+row*2;
     if(UiRect{277,rows[row]-3,23,20}.hit(px,py))return 41+row*2;
     if(UiRect{139,rows[row]-3,135,20}.hit(px,py))return 41+row*2;
    }
-   if(UiRect{18,205,124,28}.hit(px,py))return 13;
-   if(UiRect{178,205,124,28}.hit(px,py))return 10;
+   if(UiRect{18,196,124,28}.hit(px,py))return 13;
+   if(UiRect{178,196,124,28}.hit(px,py))return 10;
   }return -1;
  }
  void activate(int id){
@@ -103,7 +103,7 @@ struct Frontend {
  }
  void direction(unsigned direction){
   if(screen!=Screen::custom || dialog!=Dialog::none || leaving || transition<1)return;
-  constexpr int rows[]={54,79,104,137,162};unsigned row=0;float distance=999;
+  constexpr int rows[]={60,85,110,141,167};unsigned row=0;float distance=999;
   for(unsigned i=0;i<5;++i)if(std::abs(y-rows[i])<distance){distance=std::abs(y-rows[i]);row=i;}
   if(direction==1 || direction==3)adjust(row,direction==1?1:-1);
   else {row=(row+5+(direction==0?-1:1))%5;x=208;y=rows[row];}hover=hit(int(x),int(y));

@@ -43,6 +43,22 @@ add('custom_bottom',Image.open(a.custom_bottom))
 frame=bg.copy();frame.putalpha(Image.eval(frame.convert('L'),lambda v:255 if v else 0))
 add('frame_bottom',frame)
 add('frame_top',frame.resize((400,240),Image.Resampling.LANCZOS))
+# Keep original asymmetric metal mounts, instead of squeezing the entire
+# screen's outer frame into a short flat rectangle.
+def keyed(im):
+ im=im.convert('RGBA');im.putalpha(Image.eval(im.convert('L'),lambda v:255 if v else 0));return im
+panel=keyed(pcx('glue_create_pSlots')).resize((292,166),Image.Resampling.LANCZOS)
+beam=keyed(pcx('glue_create_pListMap2').crop((0,0,364,100))).resize((292,30),Image.Resampling.LANCZOS)
+panel.alpha_composite(beam,(0,0))
+right=keyed(pcx('glue_create_pInfo').crop((190,0,240,120))).resize((25,60),Image.Resampling.LANCZOS)
+panel.alpha_composite(right,(267,0));add('custom_panel',panel)
+for key,operation in [('custom_cancel',Image.Transpose.ROTATE_180),('custom_ok',Image.Transpose.FLIP_TOP_BOTTOM)]:
+ native=keyed(pcx('glue_PalNl_pCancel')).transpose(operation)
+ mount=Image.new('RGBA',(142,44))
+ mount.alpha_composite(native.crop((0,0,168,33)).resize((142,28),Image.Resampling.LANCZOS),(0,0))
+ mount.alpha_composite(native.crop((0,33,168,91)).resize((142,16),Image.Resampling.LANCZOS),(0,28))
+ add(key,mount)
+
 add('title',Image.open(a.title))
 logo=pcx('logo-bw')
 add('logo_sc',logo.crop((20,40,235,83)).resize((245,49),Image.Resampling.LANCZOS))
