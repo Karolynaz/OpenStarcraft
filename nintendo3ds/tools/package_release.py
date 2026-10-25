@@ -14,6 +14,11 @@ a = p.parse_args()
 required = ['openbw-3ds.3dsx', 'StarDat.mpq', 'BrooDat.mpq', 'Patch_rt.mpq',
             'graphics.bin', 'graphics-arena.bin', 'maps/probe.scx', 'maps/arena.chk',
             'README.txt', 'campaign/terran01.chk', 'campaign/terran01.brief', 'maps/AI/islands.scm', 'maps/AI/three-islands.scm', 'observer-maps.json', 'ui/menu.bin', 'ui/hud.bin', 'ui/manifest.json', 'ui/animations.bin', 'audio/effects-all.bin', 'audio/effects-all.json']
+for mission in ('terran01','zerg01','protoss01','expprotoss01','expterran01','expzerg01'):
+    for suffix in ('.chk','.brief','-effects.bin'):
+        name=f'campaign/{mission}{suffix}'
+        if name not in required: required.append(name)
+required += ['campaign/maps-manifest.json','campaign/audio-manifest.json']
 for race in ('terran', 'protoss', 'zerg'):
     folder = 'audio' if race == 'terran' else f'audio/{race}'
     required += [f'{folder}/effects.bin', f'{folder}/manifest.json']
@@ -52,6 +57,10 @@ count=struct.unpack_from('<I',bank,8)[0]
 sound_ids={struct.unpack_from('<I',bank,20+i*20)[0] for i in range(count)}
 if not {423,427,1357,1532,1604}.issubset(sound_ids):
     p.error('Combined bank lacks Raynor responses or Wasteland speech')
+for manifest in ('maps-manifest.json','audio-manifest.json'):
+    for name, expected in json.loads((a.source/'campaign'/manifest).read_text()).items():
+        if hashlib.sha256((a.source/'campaign'/name).read_bytes()).hexdigest()!=expected['sha256']:
+            p.error(f'Changed private campaign asset: {name}')
 ui_manifest=json.loads((a.source/'ui/manifest.json').read_text())
 for name in ('menu','hud','animations'):
     if hashlib.sha256((a.source/f'ui/{name}.bin').read_bytes()).hexdigest()!=ui_manifest[name]['sha256']:

@@ -8,11 +8,13 @@
 #include "map_preview.h"
 #include "selection_info.h"
 #include "save_format.h"
+#include "campaign_catalogue.h"
 
 namespace port3ds {
-enum class Scenario { empty, two_units, melee, ai_battle, versus_ai, gas_battle, terran_battle, terran_lab, protoss_battle, protoss_lab, zerg_battle, zerg_lab, protoss_ai_battle, protoss_versus_ai, zerg_ai_battle, zerg_versus_ai, terran_campaign };
+enum class Scenario { empty, two_units, melee, ai_battle, versus_ai, gas_battle, terran_battle, terran_lab, protoss_battle, protoss_lab, zerg_battle, zerg_lab, protoss_ai_battle, protoss_versus_ai, zerg_ai_battle, zerg_versus_ai, terran_campaign, zerg_campaign, protoss_campaign, bw_protoss_campaign, bw_terran_campaign, bw_zerg_campaign };
 inline bool arena_scenario(Scenario s) {return s>=Scenario::terran_battle && s<=Scenario::zerg_lab;}
 inline unsigned scenario_race(Scenario s) {
+    if(campaign::scenario(unsigned(s)))return campaign::race(unsigned(s));
     return s==Scenario::zerg_battle || s==Scenario::zerg_lab || s==Scenario::zerg_ai_battle || s==Scenario::zerg_versus_ai?0:
         s==Scenario::protoss_battle || s==Scenario::protoss_lab || s==Scenario::protoss_ai_battle || s==Scenario::protoss_versus_ai?2:1;
 }

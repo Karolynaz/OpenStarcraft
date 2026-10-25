@@ -17,7 +17,7 @@ unsigned read32(FILE* f) { unsigned char b[4]; if(std::fread(b,1,4,f)!=4) return
 struct Audio::Impl {
     struct Effect { unsigned id,offset,samples,priority,flags; unsigned cached=~0u; };
     struct Voice {
-        ndspWaveBuf wave{}; unsigned id=~0u,priority=0,capacity=0;
+        ndspWaveBuf wave{},tail{};unsigned segment=0,sent=0;bool segmented=false; unsigned id=~0u,priority=0,capacity=0;
         char* data=nullptr;unsigned offset=0,bytes=0,filled=0;
         std::atomic<unsigned> pending{0};std::atomic<bool> cancelled{false};
     };
@@ -68,6 +68,20 @@ struct Audio::Impl {
         for(unsigned n=0;n<voice_count;++n){auto& v=voices[stream_slot++%voice_count];
             if(!v.pending.load(std::memory_order_acquire))continue;
             if(v.cancelled.load()){v.pending.store(0,std::memory_order_release);continue;}
+            if(v.segmented){
+                auto& wave=v.segment%2?v.tail:v.wave;
+                if(wave.status==NDSP_WBUF_QUEUED || wave.status==NDSP_WBUF_PLAYING)continue;
+                const unsigned target=std::min(voice_bytes,v.bytes-v.sent),bytes=std::min(bank_chunk_bytes,target-v.filled);
+                char* dst=v.data+(v.segment%2)*voice_bytes;
+                const bool ok=std::fseek(effects_file,effect_base+long(v.offset+v.sent+v.filled),SEEK_SET)==0 && std::fread(dst+v.filled,1,bytes,effects_file)==bytes;
+                if(!ok){++io_errors;v.pending.store(0,std::memory_order_release);return;}
+                v.filled+=bytes;
+                if(v.filled==target){DSP_FlushDataCache(dst,target);lock();
+                    if(!v.cancelled.load()){wave={};wave.data_vaddr=dst;wave.nsamples=target/sample_bytes;ndspChnWaveBufAdd(unsigned(&v-voices.data())+1,&wave);if(!v.sent)++streamed;}
+                    unlock();v.sent+=target;v.filled=0;++v.segment;if(v.sent==v.bytes)v.pending.store(0,std::memory_order_release);
+                }
+                return;
+            }
             const unsigned bytes=std::min(bank_chunk_bytes,v.bytes-v.filled);
             bool ok=std::fseek(effects_file,effect_base+long(v.offset+v.filled),SEEK_SET)==0 && std::fread(v.data+v.filled,1,bytes,effects_file)==bytes;
             if(!ok){++io_errors;v.pending.store(0,std::memory_order_release);return;}
@@ -131,12 +145,12 @@ bool Audio::load(const char* root,bool dsp_ready,const char* music_prefix,const 
         char magic[8];bool valid=std::fread(magic,1,8,f)==8;
         const bool v2=valid && !std::memcmp(magic,"OBWAUD2\0",8);valid=valid && (v2 || !std::memcmp(magic,"OBWAUD1\0",8));
         const auto count=read32(f),size=read32(f);s.sample_bytes=v2?read32(f):2;
-        valid=valid && count>0 && count<=1200 && size>0 && size<=24*1024*1024 && (s.sample_bytes==1 || s.sample_bytes==2);
+        valid=valid && count>0 && count<=1200 && size>0 && size<=64*1024*1024 && (s.sample_bytes==1 || s.sample_bytes==2);
         if(!valid) return fail("Invalid audio header");
         s.effects.reserve(count);s.long_voice=false;
         for(unsigned n=0;n<count;++n) {
             Impl::Effect e{read32(f),read32(f),read32(f),read32(f),read32(f)};
-            if(e.id>=audio_sound_limit || e.offset>size || !e.samples || e.samples>(size-e.offset)/s.sample_bytes || e.samples>voice_bytes*2/s.sample_bytes) valid=false;
+            if(e.id>=audio_sound_limit || e.offset>size || !e.samples || e.samples>(size-e.offset)/s.sample_bytes || e.samples>(e.id>=campaign_sound_base?2*1024*1024:voice_bytes*2)/s.sample_bytes) valid=false;
             if(e.samples*s.sample_bytes>voice_bytes)s.long_voice=true;
             if(e.id<audio_sound_limit){if(s.effect_index[e.id]>=0)valid=false;s.effect_index[e.id]=short(n);}
             s.effects.push_back(e);
@@ -152,7 +166,7 @@ bool Audio::load(const char* root,bool dsp_ready,const char* music_prefix,const 
         std::stable_sort(order.begin(),order.end(),[&](unsigned a,unsigned b){return s.effects[a].samples<s.effects[b].samples;});
         unsigned used=0;
         for(unsigned index:order){auto& effect=s.effects[index];const unsigned bytes=effect.samples*s.sample_bytes;
-            if(bytes>s.resident-used)continue;
+            if(bytes>voice_bytes*2 || bytes>s.resident-used)continue;
             if(std::fseek(f,s.effect_base+long(effect.offset),SEEK_SET))return fail("Cannot seek audio effect");
             effect.cached=used;unsigned remaining=bytes;
             while(remaining){const unsigned pos=used%bank_chunk_bytes,n=std::min(remaining,bank_chunk_bytes-pos);
@@ -168,7 +182,7 @@ bool Audio::load(const char* root,bool dsp_ready,const char* music_prefix,const 
             ndspChnSetFormat(i,i?(s.sample_bytes==1?NDSP_FORMAT_MONO_PCM8:NDSP_FORMAT_MONO_PCM16):NDSP_FORMAT_STEREO_PCM16);
             float mix[12]={};mix[0]=mix[1]=i?0.5f:0.25f;ndspChnSetMix(i,mix);
         }
-        for(unsigned i=0;i<voice_count;++i) {s.voices[i].wave={};s.voices[i].pending=0;s.voices[i].cancelled=false;s.voices[i].id=~0u;s.voices[i].data=s.linear+(i?i+(s.long_voice?1:0):0)*voice_bytes;s.voices[i].capacity=voice_bytes*((!i && s.long_voice)?2:1);}
+        for(unsigned i=0;i<voice_count;++i) {s.voices[i].wave={};s.voices[i].tail={};s.voices[i].pending=0;s.voices[i].cancelled=false;s.voices[i].id=~0u;s.voices[i].data=s.linear+(i?i+(s.long_voice?1:0):0)*voice_bytes;s.voices[i].capacity=voice_bytes*((!i && s.long_voice)?2:1);}
         for(unsigned i=0;i<3;++i) {
             s.music[i]={};s.music[i].data_vaddr=s.linear+(voice_count+(s.long_voice?1:0))*voice_bytes+i*chunk_bytes;
             if(!s.fill(s.music[i])) return fail("Cannot stream music");
@@ -184,7 +198,7 @@ bool Audio::load(const char* root,bool dsp_ready,const char* music_prefix,const 
 void Audio::unload(){impl_->close();}
 void Audio::reset() {
     auto& s=*impl_;if(!s.counters.ready) return;
-    s.lock();for(unsigned i=0;i<voice_count;++i) {s.voices[i].cancelled=true;ndspChnWaveBufClear(i+1);s.voices[i].wave={};}s.unlock();
+    s.lock();for(unsigned i=0;i<voice_count;++i) {s.voices[i].cancelled=true;ndspChnWaveBufClear(i+1);s.voices[i].wave={};s.voices[i].tail={};}s.unlock();
 }
 void Audio::update(const SoundEvent* events,unsigned count,int cx,int cy,bool paused) {
     auto& s=*impl_;if(!s.counters.ready) return;
@@ -202,15 +216,15 @@ void Audio::update(const SoundEvent* events,unsigned count,int cx,int cy,bool pa
         if(now-s.last_played[e.id]<80) continue;
         unsigned slot=voice_count,priority=it->priority;bool duplicate=false;
         for(unsigned i=0;i<voice_count;++i) {
-            auto& v=s.voices[i];if(it->samples*s.sample_bytes>v.capacity)continue;
-            if(v.pending.load(std::memory_order_acquire)){if(v.id==e.id && (it->flags&0x10))duplicate=true;continue;}const bool busy=v.wave.status==NDSP_WBUF_QUEUED || v.wave.status==NDSP_WBUF_PLAYING;
+            auto& v=s.voices[i];if(it->samples*s.sample_bytes>v.capacity && !(i==0 && s.long_voice && it->samples*s.sample_bytes>voice_bytes*2))continue;
+            if(v.pending.load(std::memory_order_acquire)){if(v.id==e.id && (it->flags&0x10))duplicate=true;continue;}const bool busy=v.wave.status==NDSP_WBUF_QUEUED || v.wave.status==NDSP_WBUF_PLAYING || v.tail.status==NDSP_WBUF_QUEUED || v.tail.status==NDSP_WBUF_PLAYING;
             if(busy && v.id==e.id && (it->flags&0x10)) duplicate=true;
             if(!busy) {slot=i;priority=0;}
             else if(v.priority<priority) {slot=i;priority=v.priority;}
         }
         if(duplicate) continue;
         if(slot==voice_count) {++s.counters.voice_drops;continue;}
-        auto& v=s.voices[slot];ndspChnWaveBufClear(slot+1);v.wave={};
+        auto& v=s.voices[slot];ndspChnWaveBufClear(slot+1);v.wave={};v.tail={};v.segmented=it->samples*s.sample_bytes>voice_bytes*2;v.segment=v.sent=0;
         unsigned offset=it->cached,remaining=it->samples*s.sample_bytes,copied=0;
         while(offset!=~0u && remaining) {
             const unsigned position=offset%bank_chunk_bytes,bytes=std::min(remaining,bank_chunk_bytes-position);
@@ -232,7 +246,7 @@ AudioStats Audio::stats() const {
     const auto& s=*impl_;auto r=s.counters;r.music_underruns=s.underruns;r.io_errors=s.io_errors;
     r.played+=s.streamed.load();r.streamed=s.streamed.load();r.cache_bytes=s.resident;
     r.music_buffers=s.buffers;r.music_track=s.track;
-    if(r.ready) {r.dsp_drops=ndspGetDroppedFrames();for(const auto& v:s.voices) if(v.wave.status==NDSP_WBUF_PLAYING || v.wave.status==NDSP_WBUF_QUEUED) ++r.voices;}
+    if(r.ready) {r.dsp_drops=ndspGetDroppedFrames();for(const auto& v:s.voices) if(v.wave.status==NDSP_WBUF_PLAYING || v.wave.status==NDSP_WBUF_QUEUED || v.tail.status==NDSP_WBUF_PLAYING || v.tail.status==NDSP_WBUF_QUEUED) ++r.voices;}
     return r;
 }
 const char* Audio::error() const {return impl_->message;}

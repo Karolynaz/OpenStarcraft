@@ -17205,9 +17205,8 @@ struct state_functions {
 			else if (st.players[u->owner].controller == player_t::controller_computer_game) set_unit_order(u, u->unit_type->computer_ai_idle);
 			else set_unit_order(u, u->unit_type->human_ai_idle);
 		}
-		if (ut_flag(u, (unit_type_t::flags_t)0x800)) {
-			error("fixme unknown flag");
-		}
+		// 0x800 is Single Entity (campaign beacons/powerups). It does not
+		// require an extra completion action; selection handles unit grouping.
 		u->air_strength = get_unit_strength(u, false);
 		u->ground_strength = get_unit_strength(u, true);
 	}
@@ -18812,7 +18811,7 @@ struct state_functions {
 	bool trigger_count_comparison(const trigger::condition& c, int count) const {
 		if (c.num_n == 0) return count >= c.count_n;
 		else if (c.num_n == 1) return count <= c.count_n;
-		else if (c.num_n == 2) return count == c.count_n;
+		else if (c.num_n == 10) return count == c.count_n; // CHK Exactly opcode
 		else return false;
 	}
 
@@ -18884,7 +18883,7 @@ struct state_functions {
 		return r;
 	}
 
-	bool test_trigger_condition(const trigger::condition& c, int owner) const {
+	virtual bool test_trigger_condition(const trigger::condition& c, int owner) const {
 		switch (c.type) {
 		case 2: // command
 			return trigger_count_comparison(c, trigger_command_count(st, owner, c.group, c.unit_id, c.num_n != 1));
@@ -19208,7 +19207,7 @@ struct state_functions {
 						st.current_gas[p] += a.group2_n;
 						st.total_gas_gathered[p] += a.group2_n;
 					}
-				} else if (a.num_n == 8) {
+				} else if (a.num_n == 9) {
 					if (a.extra_n == 0 || a.extra_n == 2) {
 						if (st.current_minerals[p] < a.group2_n) st.current_minerals[p] = 0;
 						else st.current_minerals[p] -= a.group2_n;

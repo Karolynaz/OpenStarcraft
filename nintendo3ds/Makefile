@@ -270,3 +270,20 @@ build/hud-controls-test: tests/hud_controls.cpp source/engine.cpp $(HEADERS) bui
 .PHONY: test-hud-controls
 test-hud-controls: build/hud-controls-test
 	ASAN_OPTIONS=detect_leaks=0 ./build/hud-controls-test local-data/3ds/openbw local-data/3ds/openbw/maps/arena.chk /tmp/sc3ds-hud-controls.sav
+
+build/campaign-openings-test: tests/campaign_openings.cpp source/engine.cpp $(HEADERS) build/source_id.h | build
+	$(HOST_CXX) $(COMMON) -O1 -g -fsanitize=address -fno-omit-frame-pointer tests/campaign_openings.cpp source/engine.cpp -o $@
+
+build/campaign-audio-test: tests/campaign_audio.cpp source/audio.cpp include/audio.h tests/fake3ds/3ds.h | build
+	$(HOST_CXX) $(COMMON) -Itests/fake3ds -O1 -g -fsanitize=address -pthread tests/campaign_audio.cpp source/audio.cpp -o $@
+
+build/campaign-playthrough-test: tests/campaign_playthrough.cpp source/engine.cpp $(HEADERS) build/source_id.h | build
+	$(HOST_CXX) $(COMMON) -O1 -g -fsanitize=address -fno-omit-frame-pointer tests/campaign_playthrough.cpp source/engine.cpp -o $@
+
+build/campaign-triggers-test: tests/campaign_triggers.cpp $(HEADERS) | build
+	$(HOST_CXX) $(COMMON) -O1 -g -fsanitize=address -fno-omit-frame-pointer tests/campaign_triggers.cpp -o $@
+
+build/campaign-audio-banks-test: tests/campaign_audio_banks.cpp source/audio.cpp include/audio.h include/campaign_catalogue.h tests/fake3ds/3ds.h | build
+	$(HOST_CXX) $(COMMON) -Itests/fake3ds -O1 -g -fsanitize=address -pthread tests/campaign_audio_banks.cpp source/audio.cpp -o $@
+build/campaign-bw-routes-test: tests/campaign_bw_routes.cpp source/engine.cpp $(HEADERS) build/source_id.h | build
+	$(HOST_CXX) $(COMMON) -O1 -g -fsanitize=address -fno-omit-frame-pointer tests/campaign_bw_routes.cpp source/engine.cpp -o $@

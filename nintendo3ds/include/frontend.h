@@ -11,13 +11,15 @@
 #include <sys/stat.h>
 #include "map_preview.h"
 #include "skirmish.h"
+#include "campaign_catalogue.h"
 namespace port3ds {
 struct UiRect {int x,y,w,h;bool hit(int px,int py)const{return px>=x && py>=y && px<x+w && py<y+h;}};
 struct Frontend {
  enum class Screen {campaign,custom};enum class Dialog {none,version,unsupported,exit,error,map_list,ai_tests,briefing};
  Screen screen=Screen::campaign;Dialog dialog=Dialog::none;
  bool brood=true,play=false,load=false,quit=false,save_failed=false;
- bool saved_notice=false,campaign_start=false,terran_completed=false;
+ bool saved_notice=false,campaign_start=false;
+ unsigned mission=0;std::array<bool,campaign::count> completed{};
  std::vector<std::string> briefing;unsigned briefing_page=0;
  unsigned race=1,speed=4,game_type=0,subtype=0,scroll=0,selected_map=0;
  std::array<unsigned,2> ai{{3,3}};
@@ -31,11 +33,11 @@ struct Frontend {
  std::string directory,base,settings;
  struct Map{std::string name;bool folder;};std::vector<Map> maps;
  static const char* race_name(unsigned r){return r==0?"Zerg":r==2?"Protoss":"Terran";}
- unsigned scenario()const{if(campaign_start)return 16;if(observer_test<4)return observer_test==1?12:observer_test==2?14:5;return race==0?15:race==2?13:4;}
+ unsigned scenario()const{if(campaign_start)return campaign::missions[mission].scenario;if(observer_test<4)return observer_test==1?12:observer_test==2?14:5;return race==0?15:race==2?13:4;}
  unsigned capacity()const{return preview.valid?std::min(3u,preview.players):0;}
  bool ai_available(unsigned i)const{return capacity()>i+1;}
  const char* ai_name(unsigned i)const{return !ai_available(i) || ai[i]==4?"Off":ai[i]==3?"Random":race_name(ai[i]);}
- std::string map_path()const{if(campaign_start)return base+"/../campaign/terran01.chk";if(observer_test<4)return base+(observer_test==3?"/AI/three-islands.scm":"/AI/islands.scm");return selected_map<maps.size()?directory+"/"+maps[selected_map].name:"";}
+ std::string map_path()const{if(campaign_start)return base+"/../campaign/"+campaign::missions[mission].key+".chk";if(observer_test<4)return base+(observer_test==3?"/AI/three-islands.scm":"/AI/islands.scm");return selected_map<maps.size()?directory+"/"+maps[selected_map].name:"";}
  MatchSetup match(unsigned seed)const{MatchSetup m;if(campaign_start)return m;m.enabled=true;if(observer_test<4){m.observer=true;m.difficulty=AiDifficulty::medium;int r=observer_test==1?2:observer_test==2?0:1;m.races={{r,r,-1}};if(observer_test==3){m.races={{1,2,0}};m.teams={{0,1,1}};m.side_difficulty={{1,0,0}};}return m;}m.game_type=game_type;m.difficulty=difficulty?AiDifficulty::medium:AiDifficulty::easy;m.races[0]=int(race);for(unsigned i=0;i<2;++i){seed=seed*1664525u+1013904223u;m.races[i+1]=!ai_available(i) || ai[i]==4?-1:ai[i]==3?int((seed>>16)%3):int(ai[i]);}return m;}
  static UiRect campaign_button(unsigned i){return i==2?UiRect{92,205,136,24}:UiRect{18+int(i)*148,174,136,24};}
  void navigate(Screen to){if(leaving || transition<1 || screen==to)return;destination=to;leaving=true;transition=1;}
@@ -61,7 +63,7 @@ struct Frontend {
  }
  void init(const char* root){base=std::string(root)+"maps";directory=base;settings=std::string(root)+"player1.cfg";
   if(FILE* f=std::fopen(settings.c_str(),"r")){unsigned v,r;if(std::fscanf(f,"OPENBW_PROFILE1\nversion=%u\nrace=%u",&v,&r)==2){brood=v==1;race=r<3?r:1;}char line[128];while(std::fgets(line,sizeof line,f)){unsigned value;if(std::sscanf(line,"difficulty=%u",&value)==1)difficulty=value==1?1:0;}std::fclose(f);}else save();scan();
-  if(FILE* progress=std::fopen((std::string(root)+"campaign/progress.cfg").c_str(),"r")){char line[80];while(std::fgets(line,sizeof line,progress))if(std::string(line)=="terran=1\n")terran_completed=true;std::fclose(progress);}
+  if(FILE* progress=std::fopen((std::string(root)+"campaign/progress.cfg").c_str(),"r")){char line[80];while(std::fgets(line,sizeof line,progress)){for(unsigned i=0;i<campaign::count;++i)if(std::string(line)==std::string(campaign::missions[i].key)+"=1\n" || (i==0 && std::string(line)=="terran=1\n"))completed[i]=true;}std::fclose(progress);}
  }
  void save(){
   const auto temp=settings+".tmp";FILE* f=std::fopen(temp.c_str(),"w");if(!f){save_failed=true;return;}
@@ -104,12 +106,12 @@ struct Frontend {
   if(dialog==Dialog::map_list){if(id>=70 && id<75 && scroll+unsigned(id-70)<maps.size()){selected_map=scroll+unsigned(id-70);preview_dirty=true;dialog=Dialog::none;}else if(id==90 || id==91){if(id==90)scroll=scroll>=5?scroll-5:0;else if(scroll+5<maps.size())scroll+=5;}else if(id==32)dialog=Dialog::none;return;}
   if(dialog!=Dialog::none){if(dialog==Dialog::version && (id==30 || id==31)){brood=id==31;save();dialog=Dialog::none;}else if(id==33 && dialog==Dialog::exit)quit=true;else if(id==32)dialog=Dialog::none;return;}
   if(screen==Screen::campaign){if(id==5){load=true;}else if(id<3){
-   if(!brood && id==1){briefing.clear();briefing_page=0;const auto path=base+"/../campaign/terran01.brief";FILE* file=std::fopen(path.c_str(),"rb");
+   {static const unsigned original_races[]={0,1,2},brood_races[]={1,2,0};mission=campaign::opening(brood,(brood?brood_races:original_races)[id]);briefing.clear();briefing_page=0;const auto path=base+"/../campaign/"+campaign::missions[mission].key+".brief";FILE* file=std::fopen(path.c_str(),"rb");
     if(!file){std::snprintf(error,sizeof error,"Install the private campaign data package.");dialog=Dialog::error;return;}
     std::string page;for(unsigned n=0;n<16384;++n){int c=std::fgetc(file);if(c==EOF){if(!page.empty())briefing.push_back(page);break;}if(c=='\f'){briefing.push_back(page);page.clear();}else if(c=='\r'){}else if(c>=32 || c=='\n')page+=char(c);}std::fclose(file);
     if(briefing.empty()){std::snprintf(error,sizeof error,"Campaign briefing is empty.");dialog=Dialog::error;return;}
     dialog=Dialog::briefing;x=240;y=210;
-   }else {saved_notice=false;dialog=Dialog::unsupported;}
+   }
   }else if(id==3){campaign_start=false;observer_test=~0u;navigate(Screen::custom);}else if(id==4)dialog=Dialog::version;else if(id==6)dialog=Dialog::ai_tests;}
   else if(id==60){scroll=selected_map/5*5;dialog=Dialog::map_list;x=160;y=77+(selected_map-scroll)*24;}
   else if(id>=40 && id<52)adjust(unsigned(id-40)/2,id%2?1:-1);

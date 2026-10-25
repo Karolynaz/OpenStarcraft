@@ -791,3 +791,77 @@ be2ee5a0def4cb3465baafa82c3bab026957adec679c10707eb26e0e2e5c959a.
 Private selection-panel-10px-{update-,}2026-10-26.zip;22.69MB update. Evidence
 in local-data/panel10-2026-10-26, report SELECTION_PANEL_10PX_VALIDATION.md.
 Wireframe palette still previous approximation; not changed in this task.
+
+## Active 2026-10-26 overnight request — six campaign openings
+
+User authorized continuing campaign work now and one automatic restart at
+2026-10-26 03:35 Europe/Vilnius. Existing paused heartbeat
+starcraft-3ds-t-sinys-05-27 updated to ACTIVE, name StarCraft3DSkampanijos03:35,
+once-only COUNT1 at03:35. No later rescheduling/reset-credit/purchase permission.
+At00:34 current5hwindow23%used; reset advertised03:30. Goal: first Terran,
+Zerg,Protoss in original andBW (six missions); if done+tested, continue missions
+or real fixes. No physicalSD write unless separately asked.
+
+Audit: all six owned maps extracted privately under local-data/campaign-six-
+audit. Keys terran01,zerg01,protoss01,expprotoss01,expterran01,expzerg01.
+Maps64–128tiles. Human owners vary1/3/7/2/5 etc; old normalize onlyswaps0/1.
+Additional triggers needed: switches11/13, score21/27, deaths15, properties11,
+AI16, ping28, invincibility43, give48, HP49, shields51, move39, alliance57.
+Original VM scripts reachable opcodes audited via PyMS primary format source:
+Zer1/Pro1/TB1A build/research/attack waves (~25opcode subset), PB1A/PB1B
+mostlycapture/upgrade, EnBk enterbunker. Private bytecode+disassembly in audit.
+PyMS references downloaded only to/tmp/sc3ds-{AIBIN,TRG}-reference.py; do not
+execute/copy their implementation. Native OpenBW has no full AI VM yet.
+Need replace mission1-only frontend/audio/globalHUD assumptions, implement
+native trigger subset faithfully, actual original script-driven AI, per-map
+speech IDs/banks, six-start/progression/win-loss tests+emulator/memory checks.
+
+### 2026-10-26 01:40 checkpoint in progress
+
+Six menu entrypoints/normalized original maps, additional CHK semantics and
+bounded original-script AI now implemented. New headers campaign_catalogue.h,
+campaign_triggers.h,campaign_ai.h. All six maps/banks staged privately in
+local-data/3ds/openbw/campaign. Export/merge/verify tools support six keys.
+Per-map banks avoid CHK string ID collisions; long voices use reusable128KiB
+chunks, same256KiB long voice +4MiB cache. All58 mission WAVs byte-exact PASS.
+Native src-57f63c0be9bfa4b8 ARMv6K PASS. Candidate full package being prepared.
+
+SC T1 paid victory7649 and audio/rescue/save/defeat tests PASS. SCZ1 paid
+victory22344 and SCP1 paid victory21393 on current source PASS. Protoss revealed
+important depot rescue bug: rescuing Nexus must transfer entire rescuable base;
+fixed against primary GPTP behavior (reference/tmp/sc3ds-rescuable-reference.cpp).
+Corrected native Exactly comparison raw10 (old code2 was wrong) and resource
+Subtract9. Dedicated native trigger contracts PASS before adding AI fixture.
+All6 save/replay+48framecontinuation PASS, 5 idle runs17248frames; BWZ1 idle
+loses2251 after Exactly fix. BW fixed-army naive route tests lose (not proof of
+bug); BW3 normal victory paths remain to test and diagnose.
+
+Emulator originalmodel CPU100 reviewed SCZ1 and BW3 openings at src8d48, largest
+heap31.85MB/linearfree123904, all loaded world/audio. Stopped and prefs/profile
+restored. Latest57f63c binary final emu pass outstanding. No physicalSDwrite.
+
+CURRENT active tools may finish independently: host campaign-triggers-test
+build /tmp/sc3ds-trigger-build.log; paid AI fixture failed CC placement using
+trigger_create_unit, now switched to loader.create_initial_unit, rerun then
+validate paid Zer1 sparse town. Also package_release running output
+/tmp/sc3ds-six-package.log. Tests current passing logs:
+/tmp/sc3ds-{six-checkpoint-extended,zerg01-current-playthrough,
+protoss01-current-playthrough,six-dialogue,six-audio-memory}.log.
+BWroute diagnostic tests /tmp/sc3ds-{expprotoss,expzerg}-route.log lose.
+Narrow code/report checkpoint still to commit. Read reportCAMPAIGN_SIX_VALIDATION
+for precise claims. Do NOT call six missions fully end-to-end verified yet.
+
+### Checkpoint artifact status
+Sparse-town original Zer1 AI PASS: Barracks1, Marines3, native spending600
+minerals while mining continued (ending4280 is higher than4000 because mining,
+not free production). Complete native trigger contract PASS. All58 actual
+mission dialogue samples byte-exact; fragmented4MiB audio tests PASS.
+Current binary SHA256211ea89158a63bbecafe2927b5fb699623c4907c30b4083bca074b6c4ace111e.
+Private full candidate254files537279751bytes SHAe8e5e23cc7b1b924dcde09b851cb63c63f8733c1e59f32d6e4ff0baa94fb166b.
+Private update139files188018144bytes SHA36bc42571e732d85f24de9ab36b2545841f6680be7760a3bd59f6241da044c53.
+Paths local-data/releases/campaign-six-candidate[-update]-2026-10-26.zip.
+Both are candidates: BW normal victory paths remain unverified. Their fixed
+army diagnostics currently lose; improve actual routing/tactics, then inspect
+original triggers if still wrong. Do not change maps just to claim normal wins.
+Final current-source SCProtoss emulator startup is in progress; MUST stop and
+restore config/profile from campaign-six-validation backups before leaving.
