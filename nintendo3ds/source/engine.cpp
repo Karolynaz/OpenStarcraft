@@ -5,6 +5,8 @@
 #include "terran_battle.h"
 #include "creep_graphics.h"
 #include "fog_memory.h"
+#include "source_id.h"
+#include <cmath>
 #include "command_icons.h"
 #include <cstdio>
 #include <cstring>
@@ -38,6 +40,7 @@ struct Engine::Impl {
     std::unique_ptr<SoundFunctions> sound;
     char message[192] = "Not loaded";
     bool loaded = false,fog=false;
+    savegame::Writer journal;std::string initial_map;Scenario initial_scenario=Scenario::empty;MatchSetup initial_setup;
     static_vector<unit_id_32,192> selected;
     std::array<static_vector<unit_id_32,192>,4> groups;
     detail::FogMemory memory;
@@ -158,6 +161,7 @@ bool Engine::preview_map(const char* data_root,const char* map_path,MapPreview& 
 Engine::Engine() : impl_(new Impl) {}
 Engine::~Engine() = default;
 bool Engine::load(const char* data_root, const char* map_path, Scenario scenario,const MatchSetup* setup) {
+    impl_->journal.close();impl_->initial_map=map_path;impl_->initial_scenario=scenario;impl_->initial_setup=setup?*setup:MatchSetup{};
     const bool custom=setup && setup->enabled;
     impl_->loaded = false;
     impl_->fog=scenario==Scenario::melee || scenario==Scenario::versus_ai || scenario==Scenario::protoss_versus_ai || scenario==Scenario::zerg_versus_ai;
@@ -348,7 +352,7 @@ bool Engine::write_terrain(const char* data_root,const char* output){
     }catch(const std::exception& e){if(out)std::fclose(out);std::remove(temporary.c_str());std::snprintf(impl_->message,sizeof impl_->message,"%s",e.what());return false;}
 }
 
-bool Engine::surrender(){return ready() && !impl_->battle.enabled() && impl_->ai.surrender();}
+bool Engine::surrender(){savegame::Writer::Guard record(impl_->journal,{frame(),savegame::surrender});return ready() && !impl_->battle.enabled() && impl_->ai.surrender();}
 bool Engine::tick() {
     if (!impl_->loaded) return false;
     try {
@@ -371,7 +375,7 @@ std::size_t Engine::drain_sounds(SoundEvent* out, std::size_t capacity) {
     s.dropped+=s.count-n;s.count=0;return n;
 }
 unsigned Engine::dropped_sounds() const { return impl_->sound?impl_->sound->dropped:0; }
-void Engine::advance_wall_time(std::uint64_t us) {if(ready())impl_->battle.elapsed(impl_->player->funcs(),us);}
+void Engine::advance_wall_time(std::uint64_t us) {if(ready() && impl_->battle.enabled())impl_->journal.append({frame(),savegame::elapsed,int(uint32_t(us)),int(uint32_t(us>>32))});if(ready())impl_->battle.elapsed(impl_->player->funcs(),us);}
 Snapshot Engine::snapshot() const {
     Snapshot s;
     if (!impl_->loaded) return s;
@@ -436,7 +440,7 @@ SelectionInfo Engine::selection_info()const {
     else if(out.queue_count){const auto* type=u->build_queue.front();unit_work(WorkKind::training,type,u->current_build_unit && !f.unit_dying(u->current_build_unit)?u->current_build_unit->remaining_build_time:type->build_time);}
     return out;
 }
-bool Engine::cancel_selected_work(unsigned slot){
+bool Engine::cancel_selected_work(unsigned slot){savegame::Writer::Guard record(impl_->journal,{frame(),savegame::cancel,int(slot)});
     const auto info=selection_info();if(!info.valid || info.count!=1 || !info.own || info.work==WorkKind::none || slot>=5)return false;
     auto* u=impl_->first_selected();action_state state;action_functions a(impl_->player->st(),state);a.action_select(0,u);bool ok=false;
     if(info.work==WorkKind::training){if(slot>=info.queue_count)return false;
@@ -467,7 +471,7 @@ unsigned Engine::count_units(unsigned owner,unsigned type,bool completed) const 
 }
 bool Engine::researched(unsigned tech) const {return ready() && tech<44 && impl_->player->funcs().player_has_researched(0,static_cast<TechTypes>(tech));}
 unsigned Engine::upgrade_level(unsigned type) const {return ready() && type<61?impl_->player->funcs().player_upgrade_level(0,static_cast<UpgradeTypes>(type)):0;}
-bool Engine::select(int x, int y) {
+bool Engine::select(int x, int y) {savegame::Writer::Guard record(impl_->journal,{frame(),savegame::select,x,y});
     if (!ready()) return false;
     auto& funcs = impl_->player->funcs();
     auto* nearest = hit_unit(funcs, x, y, !(impl_->ai.observer() || impl_->battle.enabled()),impl_->fog);
@@ -479,8 +483,8 @@ bool Engine::select(int x, int y) {
     }
     return !impl_->selected.empty();
 }
-void Engine::clear_selection() { impl_->selected.clear(); }
-bool Engine::activate(int x,int y) {
+void Engine::clear_selection() {savegame::Writer::Guard record(impl_->journal,{frame(),savegame::clear}); impl_->selected.clear(); }
+bool Engine::activate(int x,int y) {savegame::Writer::Guard record(impl_->journal,{frame(),savegame::activate,x,y});
     if(!ready()) return false;
     if(impl_->ai.observer() || impl_->battle.enabled()) { const bool ok=select(x,y); impl_->command_message=ok?"Observer selection":"Selection cleared"; return ok; }
     auto& f=impl_->player->funcs();
@@ -498,7 +502,7 @@ bool Engine::activate(int x,int y) {
     if(!current) { const bool ok=select(x,y); impl_->command_message=ok?"Unit selected":"Select a unit first"; return ok; }
     return command(Command::context,x,y);
 }
-unsigned Engine::select_army(int cx,int cy) {
+unsigned Engine::select_army(int cx,int cy) {savegame::Writer::Guard record(impl_->journal,{frame(),savegame::army,cx,cy});
     impl_->selected.clear();
     if(!ready()) return 0;
     const auto& f=impl_->player->funcs();
@@ -511,7 +515,7 @@ unsigned Engine::select_army(int cx,int cy) {
     }
     return impl_->selected.size();
 }
-unsigned Engine::select_workers() {
+unsigned Engine::select_workers() {savegame::Writer::Guard record(impl_->journal,{frame(),savegame::workers});
     impl_->selected.clear();
     if(!ready()) return 0;
     const auto& f=impl_->player->funcs();
@@ -522,7 +526,7 @@ unsigned Engine::select_workers() {
     }
     return impl_->selected.size();
 }
-bool Engine::store_group(unsigned slot) {
+bool Engine::store_group(unsigned slot) {savegame::Writer::Guard record(impl_->journal,{frame(),savegame::store,int(slot)});
     if(slot>=4 || !ready()) return false;
     impl_->groups[slot].clear();
     const auto& f=impl_->player->funcs();
@@ -530,7 +534,7 @@ bool Engine::store_group(unsigned slot) {
         if(!f.unit_dead(u) && (!impl_->fog || player_sees(f,u))) impl_->groups[slot].push_back(id);
     return !impl_->groups[slot].empty();
 }
-bool Engine::recall_group(unsigned slot,int* x,int* y) {
+bool Engine::recall_group(unsigned slot,int* x,int* y) {savegame::Writer::Guard record(impl_->journal,{frame(),savegame::recall,int(slot)});
     if(slot>=4 || !ready()) return false;
     impl_->selected.clear();
     const auto& f=impl_->player->funcs();
@@ -605,7 +609,7 @@ PlacementView Engine::placement(Command kind,int x,int y) const {
     if(kind!=Command::depot && kind!=Command::barracks && kind!=Command::refinery)return {};
     return placement_unit(static_cast<unsigned>(kind==Command::depot?UnitTypes::Terran_Supply_Depot:kind==Command::refinery?UnitTypes::Terran_Refinery:UnitTypes::Terran_Barracks),x,y);
 }
-bool Engine::command(Command command, int x, int y) {
+bool Engine::command(Command command, int x, int y) {savegame::Writer::Guard record(impl_->journal,{frame(),savegame::command,int(command),x,y});
     auto fail = [&](const char* why) { impl_->command_message = why; return false; };
     if (!ready()) return fail("Load game with L first");
     auto& player = *impl_->player;
@@ -795,7 +799,7 @@ unsigned Engine::options(OptionPage page,MenuOption* output,unsigned capacity) c
     }
     return n;
 }
-bool Engine::perform(unsigned code,int x,int y) {
+bool Engine::perform(unsigned code,int x,int y) {savegame::Writer::Guard record(impl_->journal,{frame(),savegame::perform,int(code),x,y});
     auto fail=[&](const char* m){impl_->command_message=m;return false;};
     if(!ready())return fail("Load a scenario first");
     if(impl_->ai.enabled(0) || impl_->battle.enabled())return fail("Observer: AI controls both armies");
@@ -898,7 +902,7 @@ bool Engine::perform(unsigned code,int x,int y) {
     if(!ok)return fail("Unavailable: prerequisites, resources, energy or target");
     impl_->command_message="Command accepted";return true;
 }
-bool Engine::move_selected(int x, int y) {
+bool Engine::move_selected(int x, int y) {savegame::Writer::Guard record(impl_->journal,{frame(),savegame::move,x,y});
     if (!ready() || impl_->ai.enabled(0) || impl_->battle.enabled()) return false;
     auto& player = *impl_->player;
     auto& funcs = player.funcs();
@@ -939,7 +943,7 @@ std::uint32_t Engine::terrain_signature() const {
 }
 std::uint32_t Engine::frame() const {return ready()?impl_->player->st().current_frame:0;}
 bool Engine::fog_enabled() const {return ready() && impl_->fog;}
-void Engine::set_fog_enabled(bool enabled) {impl_->fog=enabled;if(impl_->sound)impl_->sound->fog=enabled;if(enabled && ready())impl_->memory.update(impl_->player->funcs());}
+void Engine::set_fog_enabled(bool enabled) {savegame::Writer::Guard record(impl_->journal,{frame(),savegame::fog,int(enabled)});impl_->fog=enabled;if(impl_->sound)impl_->sound->fog=enabled;if(enabled && ready())impl_->memory.update(impl_->player->funcs());}
 std::size_t Engine::remembered_units(UnitView* output,std::size_t capacity)const {return fog_enabled()?impl_->memory.markers(output,capacity):0;}
 FogCell Engine::fog_cell(unsigned x,unsigned y) const {
     if(!ready())return FogCell::unexplored;
@@ -1097,4 +1101,6 @@ bool core_self_test() {
         return fp8::integer(3).raw_value == 768;
     } catch (...) { return false; }
 }
+#include "save_engine.h"
+
 }

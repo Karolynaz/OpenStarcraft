@@ -7,6 +7,7 @@
 #include "skirmish.h"
 #include "map_preview.h"
 #include "selection_info.h"
+#include "save_format.h"
 
 namespace port3ds {
 enum class Scenario { empty, two_units, melee, ai_battle, versus_ai, gas_battle, terran_battle, terran_lab, protoss_battle, protoss_lab, zerg_battle, zerg_lab, protoss_ai_battle, protoss_versus_ai, zerg_ai_battle, zerg_versus_ai };
@@ -77,6 +78,11 @@ public:
     ~Engine();
     bool load(const char* data_root, const char* map_path, Scenario scenario,const MatchSetup* setup=nullptr);
     bool write_terrain(const char* data_root,const char* output);
+    bool start_recording(const char* session_path);
+    bool save_game(const char* path,const SaveView& view);
+    static bool inspect_save(const char* path,SaveInfo& info,char* error,std::size_t capacity);
+    bool load_save(const char* data_root,const char* path,const char* session_path,const char* extracted_map,SaveView& view,const std::function<bool(unsigned,unsigned)>& progress={});
+    std::uint32_t state_digest() const;
     bool surrender();
     bool tick();
     void advance_wall_time(std::uint64_t microseconds);

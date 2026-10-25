@@ -33,7 +33,7 @@ out/openbw-3ds.elf: $(OBJECTS) arm11.specs Makefile | out
 out/openbw-3ds.3dsx: out/openbw-3ds.elf
 	"$(DEVKITPRO)/tools/bin/3dsxtool" $< $@
 host: build/host-sim
-build/graphics-export: tools/graphics_export.cpp tools/asset_closure.h source/engine.cpp tests/gameplay.h tests/battle.h tests/gas.h tests/terran.h tests/terran_build.h tests/protoss.h tests/protoss_build.h tests/zerg.h tests/zerg_build.h $(HEADERS) | build
+build/graphics-export: tools/graphics_export.cpp tools/asset_closure.h source/engine.cpp tests/gameplay.h tests/battle.h tests/gas.h tests/terran.h tests/terran_build.h tests/protoss.h tests/protoss_build.h tests/zerg.h tests/zerg_build.h $(HEADERS) build/source_id.h | build
 	$(HOST_CXX) $(COMMON) tools/graphics_export.cpp source/engine.cpp -o $@
 ASSET_ROOT ?= ../data files
 MAP ?= local-data/3ds/openbw/maps/probe.scx
@@ -43,7 +43,7 @@ prepare-graphics: build/graphics-export
 	python3 tools/prepare_graphics.py local-data/graphics-work/raw.bin local-data/3ds/openbw/graphics.bin
 test-graphics: prepare-graphics
 	python3 tests/graphics.py local-data/graphics-work/raw.bin local-data/3ds/openbw/graphics.bin
-build/host-sim: source/engine.cpp source/host_main.cpp tests/gameplay.h tests/battle.h tests/gas.h tests/terran.h tests/terran_build.h tests/protoss.h tests/protoss_build.h tests/zerg.h tests/zerg_build.h $(HEADERS) | build
+build/host-sim: source/engine.cpp source/host_main.cpp tests/gameplay.h tests/battle.h tests/gas.h tests/terran.h tests/terran_build.h tests/protoss.h tests/protoss_build.h tests/zerg.h tests/zerg_build.h $(HEADERS) build/source_id.h | build
 	$(HOST_CXX) $(COMMON) source/engine.cpp source/host_main.cpp -o $@
 build/scheduler-test: tests/scheduler.cpp include/scheduler.h | build
 	$(HOST_CXX) -std=c++14 -Iinclude tests/scheduler.cpp -o $@
@@ -62,7 +62,7 @@ clean:
 	rm -rf build out
 -include build/main.d build/engine.d build/graphics.d build/audio.d build/csv_log.d
 
-build/audio-export: tools/audio_export.cpp tools/asset_closure.h source/engine.cpp tests/gameplay.h tests/battle.h tests/gas.h tests/terran.h tests/terran_build.h tests/protoss.h tests/protoss_build.h tests/zerg.h tests/zerg_build.h $(HEADERS) | build
+build/audio-export: tools/audio_export.cpp tools/asset_closure.h source/engine.cpp tests/gameplay.h tests/battle.h tests/gas.h tests/terran.h tests/terran_build.h tests/protoss.h tests/protoss_build.h tests/zerg.h tests/zerg_build.h $(HEADERS) build/source_id.h | build
 	$(HOST_CXX) $(COMMON) tools/audio_export.cpp source/engine.cpp -o $@
 prepare-audio: build/audio-export
 	mkdir -p local-data/audio-work
@@ -81,7 +81,7 @@ build/csv-test: tests/csv_log.cpp source/csv_log.cpp include/csv_log.h tests/fak
 	$(HOST_CXX) -std=c++14 -O1 -g -fsanitize=address -fno-omit-frame-pointer -pthread -Itests/fake3ds -Iinclude tests/csv_log.cpp source/csv_log.cpp -o $@
 test-csv: build/csv-test
 	ASAN_OPTIONS=detect_leaks=0 ./build/csv-test
-build/sprite-cache-test: tests/sprite_cache.cpp tests/composite.h tests/fake3ds/citro2d.h source/graphics.cpp source/engine.cpp $(HEADERS) | build
+build/sprite-cache-test: tests/sprite_cache.cpp tests/composite.h tests/fake3ds/citro2d.h source/graphics.cpp source/engine.cpp $(HEADERS) build/source_id.h | build
 	$(HOST_CXX) $(COMMON) -O1 -g -fsanitize=address -fno-omit-frame-pointer -Itests/fake3ds tests/sprite_cache.cpp source/graphics.cpp source/engine.cpp -o $@
 test-sprite-cache: build/sprite-cache-test
 	ASAN_OPTIONS=detect_leaks=0 ./build/sprite-cache-test "$(ASSET_ROOT)" local-data/3ds/openbw/maps/arena.chk local-data/3ds/openbw/graphics-arena.bin local-data/graphics-work/raw.bin
@@ -120,7 +120,7 @@ prepare-zerg-graphics: build/graphics-export
 test-zerg-cache: build/sprite-cache-test
 	ASAN_OPTIONS=detect_leaks=0 ./build/sprite-cache-test "$(ASSET_ROOT)" local-data/3ds/openbw/maps/arena.chk local-data/3ds/openbw/graphics-arena.bin local-data/graphics-work/zerg-raw.bin zerg
 
-build/reload-test: tests/reload.cpp source/engine.cpp $(HEADERS) | build
+build/reload-test: tests/reload.cpp source/engine.cpp $(HEADERS) build/source_id.h | build
 	$(HOST_CXX) $(COMMON) -O1 -g -fsanitize=address -fno-omit-frame-pointer tests/reload.cpp source/engine.cpp -o $@
 test-reload: build/reload-test
 	ASAN_OPTIONS=detect_leaks=0 ./build/reload-test "$(ASSET_ROOT)" local-data/3ds/openbw/maps/arena.chk local-data/3ds/openbw/maps/probe.scx
@@ -134,19 +134,19 @@ test-audio-memory: build/audio-memory-test
 build/frame-pacer-test: tests/frame_pacer.cpp include/frame_pacer.h | build
 	$(HOST_CXX) -std=c++14 -Iinclude tests/frame_pacer.cpp -o $@
 
-build/protoss-economy-test: tests/protoss_economy.cpp tests/battle.h tests/fake3ds/citro2d.h source/engine.cpp source/graphics.cpp $(HEADERS) | build
+build/protoss-economy-test: tests/protoss_economy.cpp tests/battle.h tests/fake3ds/citro2d.h source/engine.cpp source/graphics.cpp $(HEADERS) build/source_id.h | build
 	$(HOST_CXX) $(COMMON) -O1 -g -fsanitize=address -fno-omit-frame-pointer -pthread -Itests/fake3ds tests/protoss_economy.cpp source/engine.cpp source/graphics.cpp -o $@
 .PHONY: test-protoss-economy
 test-protoss-economy: build/protoss-economy-test
 	ASAN_OPTIONS=detect_leaks=0 ./build/protoss-economy-test "$(ASSET_ROOT)" local-data/3ds/openbw/maps/probe.scx local-data/3ds/openbw/graphics.bin local-data/3ds/openbw/audio/protoss/effects.bin
 
-build/cursor-test: tests/cursors.cpp tests/fake3ds/citro2d.h source/engine.cpp source/graphics.cpp $(HEADERS) | build
+build/cursor-test: tests/cursors.cpp tests/fake3ds/citro2d.h source/engine.cpp source/graphics.cpp $(HEADERS) build/source_id.h | build
 	$(HOST_CXX) $(COMMON) -O1 -g -fsanitize=address -fno-omit-frame-pointer -pthread -Itests/fake3ds tests/cursors.cpp source/engine.cpp source/graphics.cpp -o $@
 .PHONY: test-cursors
 test-cursors: build/cursor-test
 	ASAN_OPTIONS=detect_leaks=0 ./build/cursor-test "$(ASSET_ROOT)" local-data/3ds/openbw/maps/arena.chk local-data/3ds/openbw/graphics-arena.bin
 
-build/fog-test: tests/fog.cpp tests/fake3ds/citro2d.h source/engine.cpp source/graphics.cpp $(HEADERS) | build
+build/fog-test: tests/fog.cpp tests/fake3ds/citro2d.h source/engine.cpp source/graphics.cpp $(HEADERS) build/source_id.h | build
 	$(HOST_CXX) $(COMMON) -O1 -g -fsanitize=address -fno-omit-frame-pointer -pthread -Itests/fake3ds tests/fog.cpp source/engine.cpp source/graphics.cpp -o $@
 .PHONY: test-fog
 test-fog: build/fog-test
@@ -174,16 +174,16 @@ build/command-grid-test: tests/command_grid.cpp include/command_grid.h include/i
 test-command-grid: build/command-grid-test
 	./build/command-grid-test
 
-build/command-icons-test: tests/command_icons.cpp tests/fake3ds/citro2d.h source/engine.cpp source/graphics.cpp $(HEADERS) | build
+build/command-icons-test: tests/command_icons.cpp tests/fake3ds/citro2d.h source/engine.cpp source/graphics.cpp $(HEADERS) build/source_id.h | build
 	$(HOST_CXX) $(COMMON) -O1 -g -fsanitize=address -fno-omit-frame-pointer -pthread -Itests/fake3ds tests/command_icons.cpp source/engine.cpp source/graphics.cpp -o $@
 .PHONY: test-command-icons
 test-command-icons: build/command-icons-test local-data/ui-work/reference.bin
 	ASAN_OPTIONS=detect_leaks=0 ./build/command-icons-test "$(ASSET_ROOT)" local-data/3ds/openbw/maps/arena.chk local-data/3ds/openbw/graphics-arena.bin local-data/ui-work/reference.bin
 
-# Only the platform executable embeds source identity; game assets stay private.
+# Executable/save identity tracks source inputs; game assets stay private.
 build/source_id.h: $(HEADERS) $(wildcard source/*.cpp) tools/build_info.py Makefile arm11.specs | build
 	python3 tools/build_info.py $@
-build/main.o: build/source_id.h
+build/main.o build/engine.o: build/source_id.h
 
 build/frontend-export: tools/frontend_export.cpp tools/original_archive.h $(HEADERS) | build
 	$(HOST_CXX) $(COMMON) tools/frontend_export.cpp -o $@
@@ -193,19 +193,19 @@ build/frontend-test: tests/frontend.cpp include/frontend.h include/pause_menu.h 
 test-frontend: build/frontend-test
 	./build/frontend-test
 
-build/custom-match-test: tests/custom_match.cpp source/engine.cpp $(HEADERS) | build
+build/custom-match-test: tests/custom_match.cpp source/engine.cpp $(HEADERS) build/source_id.h | build
 	$(HOST_CXX) $(COMMON) -O1 -g -fsanitize=address -fno-omit-frame-pointer tests/custom_match.cpp source/engine.cpp -o $@
 .PHONY: test-custom-match
 test-custom-match: build/custom-match-test
 	ASAN_OPTIONS=detect_leaks=0 ./build/custom-match-test "$(ASSET_ROOT)" local-data/3ds/openbw/maps/probe.scx
 
-build/selection-info-test: tests/selection_info.cpp source/engine.cpp $(HEADERS) | build
+build/selection-info-test: tests/selection_info.cpp source/engine.cpp $(HEADERS) build/source_id.h | build
 	$(HOST_CXX) $(COMMON) -O1 -g -fsanitize=address -fno-omit-frame-pointer tests/selection_info.cpp source/engine.cpp -o $@
 .PHONY: test-selection-info
 test-selection-info: build/selection-info-test
 	ASAN_OPTIONS=detect_leaks=0 ./build/selection-info-test "$(ASSET_ROOT)" local-data/3ds/openbw/maps/arena.chk
 
-build/melee-test: tests/melee.cpp source/engine.cpp source/graphics.cpp $(HEADERS) | build
+build/melee-test: tests/melee.cpp source/engine.cpp source/graphics.cpp $(HEADERS) build/source_id.h | build
 	$(HOST_CXX) $(COMMON) -O1 -g -fsanitize=address -fno-omit-frame-pointer -Itests/fake3ds tests/melee.cpp source/engine.cpp source/graphics.cpp -o $@
 .PHONY: test-melee
 test-melee: build/melee-test
@@ -217,10 +217,10 @@ build/menu-animation-test: tests/menu_animation.cpp include/menu_animation.h tes
 test-menu-animation: build/menu-animation-test
 	ASAN_OPTIONS=detect_leaks=0 ./build/menu-animation-test local-data/3ds/openbw/ui/animations.bin
 
-build/maps-export: tools/maps_export.cpp tools/original_archive.h source/engine.cpp $(HEADERS) | build
+build/maps-export: tools/maps_export.cpp tools/original_archive.h source/engine.cpp $(HEADERS) build/source_id.h | build
 	$(HOST_CXX) $(COMMON) tools/maps_export.cpp source/engine.cpp -o $@
 
-build/map-catalogue-test: tests/map_catalogue.cpp source/engine.cpp $(HEADERS) | build
+build/map-catalogue-test: tests/map_catalogue.cpp source/engine.cpp $(HEADERS) build/source_id.h | build
 	$(HOST_CXX) $(COMMON) -O1 -g -fsanitize=address -fno-omit-frame-pointer tests/map_catalogue.cpp source/engine.cpp -o $@
 
 build/audio-stream-test: tests/audio_stream.cpp source/audio.cpp include/audio.h tests/fake3ds/3ds.h | build
@@ -236,7 +236,7 @@ build/ai-tactics-test: tests/ai_tactics.cpp $(HEADERS) | build
 test-ai-tactics: build/ai-tactics-test
 	ASAN_OPTIONS=detect_leaks=0 ./build/ai-tactics-test "$(ASSET_ROOT)" local-data/3ds/openbw/maps/probe.scx local-data/3ds/openbw/maps/AI/islands.scm
 
-build/observer-test: tests/observer.cpp source/engine.cpp $(HEADERS) | build
+build/observer-test: tests/observer.cpp source/engine.cpp $(HEADERS) build/source_id.h | build
 	$(HOST_CXX) $(COMMON) -O1 -g -fsanitize=address -fno-omit-frame-pointer tests/observer.cpp source/engine.cpp -o $@
 .PHONY: test-observer
 test-observer: build/observer-test
@@ -244,3 +244,9 @@ test-observer: build/observer-test
 
 build/observer-maps: tools/observer_maps.cpp tools/original_archive.h $(HEADERS) | build
 	$(HOST_CXX) $(COMMON) tools/observer_maps.cpp -o $@
+
+build/savegame-test: tests/savegame.cpp source/engine.cpp $(HEADERS) build/source_id.h | build
+	$(HOST_CXX) $(COMMON) -O1 -g -fsanitize=address -fno-omit-frame-pointer tests/savegame.cpp source/engine.cpp -o $@
+.PHONY: test-savegame
+test-savegame: build/savegame-test
+	ASAN_OPTIONS=detect_leaks=0 ./build/savegame-test "$(ASSET_ROOT)" local-data/3ds/openbw/maps/AI/three-islands.scm local-data/3ds/openbw/maps/arena.chk

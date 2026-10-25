@@ -27,6 +27,14 @@ u32 __stacksize__ = 256 * 1024;
 namespace {
 constexpr const char* root = "sdmc:/3ds/openbw/";
 constexpr const char* map = "sdmc:/3ds/openbw/maps/probe.scx";
+constexpr const char* save_slot="sdmc:/3ds/openbw/saves/slot1.ob3";
+constexpr const char* session_path="sdmc:/3ds/openbw/saves/session.ob3";
+constexpr const char* restore_map="sdmc:/3ds/openbw/saves/restored-map";
+bool find_save(std::string& path,port3ds::SaveInfo& info,char* error,size_t size){
+ path=save_slot;if(port3ds::Engine::inspect_save(path.c_str(),info,error,size))return true;
+ char first[192];std::snprintf(first,sizeof first,"%s",error);
+ path=std::string(save_slot)+".bak";if(port3ds::Engine::inspect_save(path.c_str(),info,error,size))return true;std::snprintf(error,size,"%s",first);path.clear();return false;
+}
 constexpr const char* arena = "sdmc:/3ds/openbw/maps/arena.chk";
 bool restored = false;
 void lifecycle(APT_HookType hook, void*) {
@@ -73,8 +81,8 @@ int main() {
     port3ds::Frontend front;front.init(root);
     while(!front.quit){
     int launch_scenario=-1;port3ds::MatchSetup match_setup;
-    std::string launch_map;bool return_custom=false;
-    front.play=false;
+    std::string launch_map,restore_path;bool return_custom=false,pending_restore=false;port3ds::SaveInfo restore_info;
+    front.play=front.load=false;
 
     {
         port3ds::UiArt art;port3ds::MenuAnimation animation;const bool art_ok=art.load("sdmc:/3ds/openbw/ui/menu.bin") && animation.load("sdmc:/3ds/openbw/ui/animations.bin");
@@ -88,6 +96,7 @@ int main() {
             if(front.quit)break;
             if(front.screen==port3ds::Frontend::Screen::custom && front.preview_dirty){front.preview_dirty=false;port3ds::Engine::preview_map(root,front.map_path().c_str(),front.preview);if(front.preview.valid)art.preview(front.preview.pixels.data());last=now_us();}
             if(down&KEY_DUP)front.direction(0);if(down&KEY_DRIGHT)front.direction(1);if(down&KEY_DDOWN)front.direction(2);if(down&KEY_DLEFT)front.direction(3);
+            if(front.load){front.load=false;if(find_save(restore_path,restore_info,front.error,sizeof front.error)){launch_scenario=int(restore_info.scenario);match_setup=restore_info.setup;pending_restore=true;break;}front.dialog=port3ds::Frontend::Dialog::error;}
             if(front.play){launch_scenario=int(front.scenario());match_setup=front.match(unsigned(now));launch_map=front.map_path();front.observer_test=~0u;break;}
             C3D_FrameBegin(C3D_FRAME_SYNCDRAW);C2D_TextBufClear(text_buf);
             C2D_TargetClear(top,C2D_Color32(0,0,0,255));C2D_SceneBegin(top);C3D_DepthTest(false,GPU_ALWAYS,GPU_WRITE_COLOR);
@@ -112,7 +121,7 @@ int main() {
         using Menu=port3ds::PauseMenu::Page;
         auto overlay=[&](Menu p){return port3ds::PauseMenu::overlay(p);};
         float menu_x=160,menu_y=60;
-        const char* notice_title="Save Game";
+        const char* notice_title="Save Game";char notice_message[192]="";
         port3ds::OptionPage option_page=port3ds::OptionPage::primary;
         port3ds::MenuOption option_rows[8]{};unsigned option_count=0;
         Menu menu=Menu::none; unsigned choice=0;
@@ -172,13 +181,28 @@ int main() {
                 loaded_scenario = scenario;
                 if(scenario==unsigned(launch_scenario)){char setup_info[80];std::snprintf(setup_info,sizeof setup_info,"human=%d ai1=%d ai2=%d",match_setup.races[0],match_setup.races[1],match_setup.races[2]);load_stage(scenario,"match-setup",setup_info);}
                 const bool custom_match=scenario==unsigned(launch_scenario) && match_setup.enabled;
-                paused = !engine.load(root, custom_match?launch_map.c_str():arena_mode?arena:map, static_cast<port3ds::Scenario>(scenario),scenario==unsigned(launch_scenario)?&match_setup:nullptr);
+                const bool restoring=pending_restore;port3ds::SaveView restored_view;
+                auto progress=[&](unsigned done,unsigned total){
+                    if(!aptMainLoop())return false;hidScanInput();if(hidKeysDown()&KEY_B)return false;
+                    C3D_FrameBegin(C3D_FRAME_SYNCDRAW);C2D_TextBufClear(text_buf);
+                    C2D_TargetClear(top,C2D_Color32(4,8,16,255));C2D_SceneBegin(top);port3ds::ui_text(text_buf,"Loading saved game",200,90,.65f,C2D_Color32(220,235,240,255),true);
+                    C2D_TargetClear(bottom,C2D_Color32(4,8,16,255));C2D_SceneBegin(bottom);char label[80];std::snprintf(label,sizeof label,"Rebuilding: %u / %u",done,total);port3ds::ui_text(text_buf,label,160,80,.49f,C2D_Color32(220,235,240,255),true);
+                    C2D_DrawRectSolid(30,115,0,260,12,C2D_Color32(30,50,60,255));C2D_DrawRectSolid(30,115,0,total?260.f*done/total:260,12,C2D_Color32(70,210,100,255));port3ds::ui_text(text_buf,"B cancel",160,150,.5f,C2D_Color32(220,235,240,255),true);C3D_FrameEnd(0);return true;
+                };
+                mkdir("sdmc:/3ds/openbw/saves",0777);
+                const bool loaded_ok=restoring?engine.load_save(root,restore_path.c_str(),session_path,restore_map,restored_view,progress):engine.load(root, custom_match?launch_map.c_str():arena_mode?arena:map, static_cast<port3ds::Scenario>(scenario),scenario==unsigned(launch_scenario)?&match_setup:nullptr);
+                paused=!loaded_ok;
+                pending_restore=false;
+                if(!restoring && engine.ready())engine.start_recording(session_path);
+                if(restoring && !loaded_ok){std::snprintf(front.error,sizeof front.error,"%s",engine.error());front.dialog=port3ds::Frontend::Dialog::error;return_custom=true;break;}
+                if(restoring)launch_map=std::string(restore_map)+(restore_info.raw_map?".chk":".scx");
+                next_text=0;input=port3ds::InputRouter{};
                 load_stage(scenario,engine.ready()?"core-ready":"core-failed",engine.ready()?"":engine.error());
                 // Reserve the contiguous sprite scratch before segmented PCM
                 // fills smaller holes left by the native core initialization.
                 if(custom_match && !engine.ready()){std::snprintf(front.error,sizeof front.error,"%s",engine.error());front.dialog=port3ds::Frontend::Dialog::error;return_custom=true;break;}
                 bool terrain_ok=true;
-                if(custom_match){load_stage(scenario,"terrain-cache-start",launch_map.c_str());terrain_ok=engine.write_terrain(root,"sdmc:/3ds/openbw/map-terrain.bin");if(terrain_ok)graphics.load("sdmc:/3ds/openbw/map-terrain.bin",engine.terrain_signature());}
+                if(custom_match || restoring){load_stage(scenario,"terrain-cache-start",launch_map.c_str());terrain_ok=engine.write_terrain(root,"sdmc:/3ds/openbw/map-terrain.bin");if(terrain_ok)graphics.load("sdmc:/3ds/openbw/map-terrain.bin",engine.terrain_signature());}
                 else if (engine.ready()) graphics.load(arena_mode?"sdmc:/3ds/openbw/graphics-arena.bin":"sdmc:/3ds/openbw/graphics.bin", engine.terrain_signature());
                 else graphics.clear();
                 load_stage(scenario,graphics.ready()?"graphics-ready":"graphics-off",graphics.ready()?"":graphics.error());
@@ -203,6 +227,7 @@ int main() {
                 renders = ticks = 0; tick_sum = tick_max = 0;
                 fps = tps = mean = worst = 0;
                 auto_camera=engine.snapshot().observer;
+                if(restoring){controls.camera_x=restored_view.camera_x;controls.camera_y=restored_view.camera_y;controls.cursor_x=restored_view.cursor_x;controls.cursor_y=restored_view.cursor_y;auto_camera=restored_view.auto_camera;}
                 camera_manual_until=0;
                 if(!log) toggle_log();
                 action = engine.ready() ? (auto_camera ? "AI vs AI: automatic camera / START menu" : "Circle Pad cursor / A action / B cancel") : engine.error();
@@ -241,7 +266,8 @@ int main() {
             auto activate_menu=[&]() {
                 if(menu==Menu::result){return_custom=choice==0;exit_requested=true;return;}
                 if(menu==Menu::system) {
-                    if(choice<2){notice_title=choice==0?"Save Game":"Load Game";menu=Menu::notice;choice=0;return;}
+                    if(choice==0){port3ds::SaveView view;view.camera_x=controls.camera_x;view.camera_y=controls.camera_y;view.cursor_x=controls.cursor_x;view.cursor_y=controls.cursor_y;view.auto_camera=auto_camera;notice_title="Save Game";std::snprintf(notice_message,sizeof notice_message,"%s",engine.save_game(save_slot,view)?"Game saved to slot 1.":engine.error());menu=Menu::notice;choice=0;return;}
+                    if(choice==1){if(find_save(restore_path,restore_info,notice_message,sizeof notice_message)){scenario=restore_info.scenario;launch_scenario=int(scenario);match_setup=restore_info.setup;pending_restore=pending_load=true;menu=Menu::none;}else {notice_title="Load Game";menu=Menu::notice;choice=0;}return;}
                     if(choice==2){menu=Menu::end_confirm;choice=1;return;}
                     if(choice==3){menu=Menu::options;choice=0;return;}
                     menu=Menu::none;return;
@@ -575,8 +601,7 @@ int main() {
                 const char* heading=menu==Menu::system?"Game Menu":menu==Menu::options?"Options":menu==Menu::scenarios?"Test scenarios":menu==Menu::legacy?"More scenarios":menu==Menu::notice?notice_title:menu==Menu::end_confirm?"End this game?":action;
                 port3ds::ui_text(hud_buf,heading,160,23,.63f,white,true);
                 if(menu==Menu::notice){
-                    port3ds::ui_text(hud_buf,"Saved games are not supported",160,105,.48f,white,true);
-                    port3ds::ui_text(hud_buf,"in this version.",160,124,.48f,white,true);
+                    port3ds::ui_limited(hud_buf,notice_message,40,100,.49f,240,4,white);
                 }
                 for(unsigned i=0;i<menu_count();++i){const auto r=port3ds::PauseMenu::row(i,menu_count());
                     C2D_DrawRectSolid(r.x,r.y,0,r.w,r.h,C2D_Color32(8,16,35,240));

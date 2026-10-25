@@ -640,3 +640,28 @@ ai-tactics-{update-,}2026-10-25.zip in local-data/releases; ELF/source/logs/scre
 under local-data/ai-tactics-2026-10-25. No physical SD write/publication/automation.
 Still limited: straight transport routes, basic air counters, no complete spell
 roster or general strategy coordinator. Protoss may correctly skip unsafe storms.
+
+## 2026-10-25 — persistent native Save / Load
+
+Implemented build-specific replay-backed disk saves (embedded map + bounded
+streamed input journal), native deterministic reconstruction and state digest.
+One slot plus checked temporary write/previous .bak; title Load and START
+Save/Load functional. Stores camera/autocamera; reconstructs AI/fog/units/
+resources/research/queues/bookmarks. New commands after load can be re-saved.
+Progress and B cancellation; wrong-build/corrupt saves rejected pre-mutation.
+Reload current after restore uses extracted map. Exact-build compatibility,
+long-game replay latency,12h/1M-event/2MiB-map limits; no crash autosave.
+See nintendo3ds/reports/SAVE_LOAD_VALIDATION.md and CONTROLS.md.
+
+Final src-a3274172bb26d242, 3DSX SHA256
+b5ddee234af6abbae02ecf34cedcf31b3c2939a1b4d0a32a29d749fd88a36e77.
+ASan save tests: queue/cancel/groups/fog/camera, continued frame checks, appended
+commands/re-save, backup, corrupt/truncated/foreign files, early/mid cancel;
+20,000-frame mixed AI reconstruction+720frames exact continuation; wall-clock
+stress journal. Frontend regression and ARMv6K/VFPv2 checks PASS. Final original
+model CPU100 emulator: new custom save, in-game load, fresh process/title Load
+continued to frame49 from saved27; no missing sprites/music underruns/audio IO.
+Earlier iteration also tested saved521->continued579. Heap max30,699,736bytes
+in final short samples. Preferences/profile restored. No physical SD write.
+Private save-load-{update-,}2026-10-25.zip in local-data/releases; binary/evidence
+under local-data/save-load-2026-10-25. Archives exclude runtime saves.

@@ -114,3 +114,25 @@ Nydus to enter; selecting Nydus itself offers **Build Nydus exit** on creep.
 
 The same Circle Pad cursor, A/B, X/L+X, bookmarks and minimap touch rules apply
 to every race. The bottom command menus also accept touch, as authorized.
+
+
+## Persistent Save / Load (2026-10-25)
+
+START -> Save Game writes slot 1 under 3ds/openbw/saves/slot1.ob3.
+START -> Load Game or title -> Load restores it. Previous saves are retained
+as slot1.ob3.bak; Load tries that backup if the main file fails validation.
+B cancels reconstruction and returns to the title menu. Save while paused.
+
+The save embeds the starting map, deterministic input journal and camera.
+Native simulation reconstructs resources, units, production, research, RNG,
+AI plans, transport missions, fog exploration, selection and bookmarks.
+Continuing and saving again is supported. Music restarts after loading;
+unfinished UI targeting/placement is cancelled.
+
+This first disk format is build-specific: keep the matching executable with
+important saves. Different builds are rejected. The purchased MPQs must still
+be installed. Long games take longer to load because the simulation runs from
+the beginning; progress is shown during replay. Limits: 12 game hours,
+1,000,000 recorded input events, and a 2 MiB starting map. Session journals
+stream to SD with bounded buffers. They are not crash-autosaves. Installation
+packages exclude player saves and session journals.
