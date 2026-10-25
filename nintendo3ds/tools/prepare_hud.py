@@ -22,4 +22,6 @@ for source in sorted(a.portrait_raw.glob('*.smk')):
 (folder/'manifest.json').write_text(json.dumps(portraits,indent=2)+'\n')
 from prepare_key_badges import install
 install(a.root)
+from prepare_panel_text import install as install_panel_text
+install_panel_text(a.root)
 print(f'HUD 1 page; {len(portraits)} static original portraits, on-demand in existing atlas')

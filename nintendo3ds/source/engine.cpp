@@ -472,9 +472,9 @@ SelectionInfo Engine::selection_info()const {
     out.valid=true;out.count=snap.selected;out.own=u->owner==0;out.type=unsigned(t->id);out.name=unit_name(u);
     out.building=f.ut_building(u);out.completed=f.u_completed(u);out.hp=snap.selected_hp;out.max_hp=snap.selected_max_hp;
     out.shields=snap.selected_shields;out.max_shields=snap.selected_max_shields;out.energy=snap.selected_energy;out.max_energy=snap.selected_max_energy;
-    out.armor=f.unit_armor(u).integer_part();out.kills=u->kill_count;
-    if(const auto* w=f.unit_or_subunit_ground_weapon(u))out.ground_damage=f.weapon_damage_amount(w,u->owner).integer_part();
-    if(const auto* w=f.unit_or_subunit_air_weapon(u))out.air_damage=f.weapon_damage_amount(w,u->owner).integer_part();
+    out.armor=f.unit_armor(u).integer_part();out.kills=u->kill_count;out.armor_level=f.player_upgrade_level(u->owner,t->armor_upgrade);if(t->has_shield)out.shield_level=f.player_upgrade_level(u->owner,UpgradeTypes::Protoss_Plasma_Shields);
+    if(const auto* w=f.unit_or_subunit_ground_weapon(u)){out.ground_weapon=true;out.ground_damage=f.weapon_damage_amount(w,u->owner).integer_part();out.ground_level=f.player_upgrade_level(u->owner,w->damage_upgrade);}
+    if(const auto* w=f.unit_or_subunit_air_weapon(u)){out.air_weapon=true;out.air_damage=f.weapon_damage_amount(w,u->owner).integer_part();out.air_level=f.player_upgrade_level(u->owner,w->damage_upgrade);}
     out.supply_used=snap.players[u->owner<3?u->owner:0].supply;out.supply_total=snap.players[u->owner<3?u->owner:0].supply_max;out.supply_provided=t->supply_provided.integer_part();
     out.queue_count=std::min<unsigned>(5,u->build_queue.size());for(unsigned i=0;i<out.queue_count;++i)out.queue[i]=unsigned(u->build_queue[i]->id);
     auto unit_work=[&](WorkKind kind,const unit_type_t* type,int remaining){out.work=kind;out.work_icon=unsigned(type->id);out.work_name=zerg::name(type->id);if(!out.work_name)out.work_name=protoss::name(type->id);if(!out.work_name)out.work_name=terran::name(type->id);out.total=type->build_time;out.remaining=remaining;};

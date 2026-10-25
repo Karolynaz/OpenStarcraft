@@ -18,4 +18,5 @@ int main(int argc,char**argv){assert(argc==4);Engine e;assert(e.load(argv[1],arg
  puts("Mixed Stim/Siege/Nuke catalogue, eligible-only dispatch, selection preservation, patrol/stop, viewport workers, 9 builds, original portrait and replay PASS");
  // A Protoss worker fixture for visual/controller testing, same source as ROM.
  assert(e.load(argv[1],argv[2],Scenario::protoss_lab));assert(e.start_recording((std::string(argv[3])+".protoss-journal").c_str()));auto probe=pick(e,64);view.camera_x=probe.x-200;view.camera_y=probe.y-120;view.cursor_x=200;view.cursor_y=120;assert(e.save_game((std::string(argv[3])+".protoss").c_str(),view));
+ auto nexus=pick(e,154);for(unsigned i=0;i<5;++i)assert(e.perform(option_code(OptionKind::train,64)));ticks(e,24);view.camera_x=nexus.x-200;view.camera_y=nexus.y-120;assert(e.save_game((std::string(argv[3])+".nexus").c_str(),view));
 }

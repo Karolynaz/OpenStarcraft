@@ -65,6 +65,8 @@ for name, expected in portrait_manifest.items():
         p.error(f'Changed portrait: {name}')
     required.append(f'portraits/{name}')
 required.append('portraits/manifest.json')
+if ui_manifest['hud'].get('panel_font_size')!=10:
+    p.error('HUD lacks the native 10px selection-panel font')
 if ui_manifest['hud'].get('key_badges')!=13:
     p.error('HUD lacks the native-pixel key badges')
 a.output.parent.mkdir(parents=True, exist_ok=True)

@@ -581,7 +581,7 @@ int main() {
                 }
             }
             const auto selected_info=engine.selection_info();
-            if(selected_info.count==1)port3ds::draw_selection_info(selected_info,graphics,engine,hud_buf);
+            if(selected_info.count==1)port3ds::draw_selection_info(selected_info,graphics,engine,hud_art);
             if(state.campaign && !selected_info.count)port3ds::ui_limited(hud_buf,state.objectives.c_str(),15,166,.39f,225,5,white);
             if(state.observer && !selected_info.count){
                 for(unsigned p=0;p<3;++p)if(state.players[p].ai){const auto& side=state.players[p];char row[80];std::snprintf(row,sizeof row,"%u %s  Scout %u Cast %u Drop %u",p+1,side.difficulty==port3ds::AiDifficulty::medium?"M":"E",side.scouts,side.casts,side.drop_units);port3ds::ui_text(hud_buf,row,15,169+p*19,.40f,white);}

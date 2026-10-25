@@ -768,3 +768,26 @@ Final src-2fa7384bbd9ea1e1, 3DSX SHA256
 5753cdd7f990f0de5496177078a52e5c56d53e0e313e9cd56c224b49f0d862d8.
 Private readable-key-badges-{update-,}2026-10-25.zip, 212file22.68MB update.
 See reports/KEY_BADGES_VALIDATION.md, local-data/key-badges-2026-10-25 evidence.
+
+## 2026-10-26 — 10px Figma selected-unit panel
+
+User requested Figma node31:59, nominal10px type, existing colors,64px Probe
+wireframe; upgrades remain text. Read full Figma context/screenshot. Background
+matches current supplied PNG exactly. Figma wireframe56 overridden by user64.
+New native Roboto Bold10 raster font in unused HUD columns (117glyphs; still
+256KiB GPU page). Name/stats x94,156/174+, wire17,153 at1:1, HP then shields
+side by side y219. Existing colors kept. Native armor/shield/weapon upgrade
+levels exposed as text. Production head94,174 and four24px queue cells134+
+share touch geometry; all existing native cancellation tests passed.
+
+ARMv6K/VFPv2, ASan selection/native cancellation/all races, HUD mixed powers/
+portrait/replay and atlas bounds/background tests PASS. OriginalmodelCPU100
+emulator Probe and idle/producing Nexus reviewed; layout fits. Model/profile/
+previous save restored, no physical SD write. Actual10px font has7–8px visible
+ink, matching typographic Figma size rather than the old misleading C2D scale.
+
+Final src-957604597e5b9ddf. Binary SHA256
+be2ee5a0def4cb3465baafa82c3bab026957adec679c10707eb26e0e2e5c959a.
+Private selection-panel-10px-{update-,}2026-10-26.zip;22.69MB update. Evidence
+in local-data/panel10-2026-10-26, report SELECTION_PANEL_10PX_VALIDATION.md.
+Wireframe palette still previous approximation; not changed in this task.
