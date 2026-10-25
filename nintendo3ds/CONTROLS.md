@@ -56,7 +56,9 @@ place with Circle Pad and A, cancel with B. Refinery placement snaps to geysers.
 ## Layout and assets
 
 The lower screen uses the supplied 320×240 background and Figma node28:30:
-4+5 commands, centered aspect-fit minimap, clock, MENU, 48×48 static original
+4+5 commands with native 23px single-key badges and 35×23px combination
+capsules (following the Diablo3Ds HUD), centered aspect-fit minimap, clock,
+MENU, 48×48 static original
 portrait, and the enlarged selected-unit/production panel. One portrait is
 uploaded on demand into the existing bounded sprite atlas; there is no video
 decoder or extra resident portrait texture bank. Private converted assets live

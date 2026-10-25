@@ -575,11 +575,9 @@ int main() {
                     graphics.ui_image(engine.command_icon(option_rows[i].icon,option_rows[i].enabled),cell.x,cell.y,35.f/36,engine);
                     if(menu==Menu::catalogue && i==choice)port3ds::ui_border({cell.x,cell.y,35,35},green);
                     const char* keys=menu==Menu::catalogue?port3ds::CommandGrid::key(i):i<4?(i==0?"A":i==1?"R+A":i==2?"R+B":"L+A"):(i==4?"X":i==5?"Y":i==6?"L+X":i==7?"L+Y":"L+R");
-                    int width=std::strlen(keys)>1?31:17;
-                    // Pixel-rounded pills also work on drivers that render
-                    // Citro2D procedural ellipses as their bounding rectangle.
-                    for(int row=0;row<15;++row){const float dy=row+.5f-7.5f;const int inset=int(std::ceil(7.5f-std::sqrt(7.5f*7.5f-dy*dy)));C2D_DrawRectSolid(cell.x+17.5f-width/2.f+inset,cell.y+27+row,0,width-2*inset,1,C2D_Color32(205,205,205,255));}
-                    port3ds::ui_centered(hud_buf,keys,{cell.x+int(17.5f-width/2.f),cell.y+27,width,15},.50f,C2D_Color32(0,0,0,255));
+                    char badge[24];std::snprintf(badge,sizeof badge,"key_%s",keys);unsigned bw=0,bh=0;
+                    if(hud_art.size(badge,bw,bh))hud_art.draw(badge,cell.x+(35-int(bw))/2,cell.y+27);
+
                 }
             }
             const auto selected_info=engine.selection_info();

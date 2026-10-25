@@ -20,4 +20,6 @@ for source in sorted(a.portrait_raw.glob('*.smk')):
   r,g,b=raw[i:i+3];pcm+=struct.pack('<H',(r>>3)<<11|(g>>3)<<6|(b>>3)<<1|1)
  target=folder/(source.stem+'.bin');target.write_bytes(pcm);portraits[target.name]={'sha256':hashlib.sha256(pcm).hexdigest(),'bytes':len(pcm)}
 (folder/'manifest.json').write_text(json.dumps(portraits,indent=2)+'\n')
+from prepare_key_badges import install
+install(a.root)
 print(f'HUD 1 page; {len(portraits)} static original portraits, on-demand in existing atlas')

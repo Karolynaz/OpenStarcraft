@@ -749,3 +749,22 @@ Private hud-controls-v2-{update-,}2026-10-25.zip; noSDwrite/publication.
 See reports/HUD_CONTROLS_V2_VALIDATION.md and rewritten CONTROLS.md. Saves
 remainexactsourcebuildspecific. Portraitsstaticbyrequest, onlyattackalerts
 currentlyimplemented. Fullcampaign/AIobjectivesfromearlierhistoryunchanged.
+
+
+## 2026-10-25 — Readable key badges from Diablo3Ds reference
+
+User reported smeared tiny command labels. Read their local Diablo3Ds HUD:
+23×23 exported Figma badges are blitted at native output pixels after palette
+conversion. Copied generic X/Y reference art; generated A/B and35×23combo
+capsules with14pxArial. Committed PNGs need no runtime font; all draw1:1 at
+integer positions. Packed13sprites into unused existing HUD columns324+;
+still256KiB GPU texture, background unchanged. Full badge touch height included.
+Tool prepare_hud now installs badges; package checks13badge manifest field.
+
+ARMv6K/VFPv2, ASan HUD/replay, 4+5geometry and badge pixel/reference/background
+checks PASS. OriginalmodelCPU100 emulator reviewed world and build catalogue;
+letters sharp/centered. Emulator preferences/profile/save restored; no SD write.
+Final src-2fa7384bbd9ea1e1, 3DSX SHA256
+5753cdd7f990f0de5496177078a52e5c56d53e0e313e9cd56c224b49f0d862d8.
+Private readable-key-badges-{update-,}2026-10-25.zip, 212file22.68MB update.
+See reports/KEY_BADGES_VALIDATION.md, local-data/key-badges-2026-10-25 evidence.
