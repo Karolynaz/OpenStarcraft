@@ -265,7 +265,7 @@ void Graphics::fog_minimap(const Engine& engine,float x,float y,float w,float h)
     C2D_DrawImageAt({&fog_texture_[fog_slot_],&sub},x,y,0,nullptr,w/width_,h/height_);
 }
 bool Graphics::ui_image(const SpriteView& view,float x,float y,float scale,const Engine& engine){
-    if(!ready() || view.image<65380 || view.image>65383)return false;
+    if(!ready() || view.image<65380 || view.image>65384)return false;
     // Share this frame's pin age with the world, rather than evicting textures
     // still referenced by the top screen's queued GPU draws.
     const auto key=sprite_key(view.image,view.frame,view.owner);auto found=cache_.find(key);

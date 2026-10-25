@@ -1,20 +1,9 @@
 #include "command_grid.h"
-#include "input.h"
 #include <cassert>
 #include <cstdio>
-int main(){using namespace port3ds;
- for(unsigned n=1;n<=8;++n){
-  for(unsigned i=0;i<n;++i){
-   const int x=CommandGrid::x+i%CommandGrid::columns*CommandGrid::cell_width,y=CommandGrid::y+i/CommandGrid::columns*CommandGrid::cell_height;
-   assert(CommandGrid::hit(x,y,n)==int(i));assert(CommandGrid::hit(x+31,y+31,n)==int(i));
-   for(unsigned direction=0;direction<4;++direction)assert(CommandGrid::move(i,direction,n)<n);
-   const auto down=CommandGrid::move(i,2,n);assert(down%CommandGrid::columns==i%CommandGrid::columns && CommandGrid::move(down,0,n)==i);
-   assert(CommandGrid::move(CommandGrid::move(i,1,n),3,n)==i);
-  }
-  assert(CommandGrid::hit(165,49,n)==-1 && CommandGrid::hit(286,49,n)==-1 && CommandGrid::hit(166,154,n)==-1);
-  assert(CommandGrid::hit(198,49,n)==-1); // decorative column gap
-
- }
- InputRouter input;InputFrame frame;for(int direction=0;direction<4;++direction){frame.direction=direction;const auto e=input.read(frame,true);assert(e.slot==unsigned(direction) && e.action==(direction==0 || direction==3?InputAction::previous:InputAction::next));}
- std::puts("Catalogue touch bounds / incomplete row / all four D-pad directions / inverse navigation PASS");
+int main(){using port3ds::CommandGrid;
+ for(unsigned n=1;n<=9;++n)for(unsigned i=0;i<n;++i){auto c=CommandGrid::cell(i);assert(CommandGrid::hit(c.x,c.y,n)==int(i));assert(CommandGrid::hit(c.x+34,c.y+42,n)==int(i));for(unsigned d=0;d<4;++d)assert(CommandGrid::move(i,d,n)<n);}
+ assert(CommandGrid::cell(3).x==229 && CommandGrid::cell(4).x==118 && CommandGrid::cell(8).x==266);
+ assert(CommandGrid::hit(117,29,9)==-1 && CommandGrid::hit(153,29,9)==-1);assert(CommandGrid::move(3,2,9)==7 && CommandGrid::move(8,0,9)==3);
+ puts("Figma 4+5 cells, badges/touch bounds and uneven-row D-pad navigation PASS");
 }

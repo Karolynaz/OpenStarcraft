@@ -1,120 +1,83 @@
-# Physical controls and observer mode
+# Physical controls and in-game HUD
 
-The current local build defaults to **All Zerg battle**: 144 troops across
-all twelve worker/army types, plus 25 Overlords and a Hatchery per side,
-200 supply. Lurkers burrow; Queens and Defilers use native powers. The prepared
-**All Protoss battle** and **All Terran battle** remain in START → Scenarios.
-Protoss has 78 troops plus fighter ammunition per side; Terran has 114 troops
-plus a prepared nuclear missile. Every battle uses the same flat 64×64 arena,
-original simulation, weapons, spells and art. These are deterministic
-performance fixtures, separate from Blizzard campaign AI.
+Current controls (2026-10-25) supersede the earlier Y/build, X/army and
+SELECT/pause layouts. The supplied Protoss skin is currently shared by all
+races; the command recipes and resource supply icon remain race-specific.
 
-The battle ends after at least 30 simulation seconds when either side has lost
-65% of its initial army resource value, immediately if its army is eliminated,
-or at 180 simulation seconds / 180 active real seconds. The higher remaining
-mineral+gas army value wins; equal scores draw. Bases are excluded from scoring.
-The result pauses the game. SELECT can pause manually; paused time is excluded.
-
-START → Scenarios → **Terran lab** provides full manual production, construction,
-research and abilities, with completed prerequisite buildings and 10,000 of
-each resource. Its technology starts unresearched. Normal costs, supply, build
-and research durations still apply. **Player vs AI** retains the ordinary 50/0
-opening against the small SCV/Marine test bot; that bot does not build the full
-Terran tree. Gas AI, Marines AI, Two Marines and Manual base are in Scenarios → Earlier scenarios.
-
-The camera follows combat. Circle Pad or minimap touch suspends following for
-eight seconds; START can disable it. Automatic CSV logging uses
-`/3ds/openbw/logs/ai-audio-benchmark.csv`. START → Exit drains the log before
-closing. Observer mode allows selection/bookmarks but blocks army commands.
-
-## Current input map
+## World controls
 
 | Input | Behavior |
 | --- | --- |
-| Circle Pad | Top-screen virtual pointer and edge scrolling |
-| A | Select a friendly unit/building; with a selection, issue its contextual move/gather/attack/repair/resume/rally order; confirm placement or menu choice |
-| B | Close menu or cancel pending placement/targeting; otherwise clear selection (does not stop an existing order) |
-| X | Select all completed own military units whose centers are on the current top screen |
-| L + X | Select all completed own workers on the map |
-| Y | Worker: eight basic buildings; producers: train/add-on/research menu; units: primary ability or ability menu |
-| L + Y | SCV: four advanced buildings; Probe: eight advanced buildings; buildings: research/upgrades/flight/cancel; units: abilities and common commands |
-| D-pad in a menu | Navigate choices; A confirms, B closes |
-| R + D-pad direction | Save the current selection in one of four direction slots |
-| D-pad outside a menu | Recall that direction's selection |
-| Same direction twice within 350 ms | Recall and center the camera on surviving group members |
-| SELECT | Pause/resume |
-| START | System menu: scenarios, auto-camera, CSV, reload current, exit |
-| Touch minimap | Move the camera; never move the top pointer or issue a game order |
-| Touch an open bottom menu | Activate the touched row |
+| Circle Pad | Top-screen pointer; edge scrolling |
+| A | Select when empty; otherwise contextual move/attack/gather/repair/rally; confirm placement or target |
+| Hold A + Circle Pad, with no selection | Draw a selection rectangle; release A to select own mobile units inside it (building fallback if no mobile units) |
+| B | Cancel target/placement/catalogue, otherwise clear selection |
+| R+A | Choose patrol destination, then A targets |
+| R+B | Stop selected units |
+| L+A | Choose attack-move destination (fourth movement slot) |
+| X / Y / L+X / L+Y | First four displayed powers |
+| L+R | Fifth displayed power, or next ability page if more than five |
+| Worker X / Y | Basic / advanced building catalogue |
+| Producer X / Y | Production/actions / other actions catalogue |
+| SELECT | Own mobile units on the current screen; building fallback |
+| R+X / R+Y | Own military units / workers on current screen |
+| L+D-pad direction | Save selection to one of four groups |
+| R+D-pad direction | Recall group; repeat within 350 ms to center camera |
+| START | Pause and bottom-screen Game Menu; START/B returns |
+| Touch MENU | Same pause menu |
+| Touch minimap | Move camera; aspect-fit blank margins ignore touches |
+| Touch blinking red attack marker | Center on the recent attack (marker lasts ten simulation seconds) |
+| Touch a command/power | Same action as its displayed shortcut |
+| Touch a selected unit in a group | Reduce selection to that member |
+| Touch active production/queued item | Native cancellation/refund, including middle queue entries |
 
-L/R alone do nothing. L no longer reloads the game and R no longer cycles
-scenarios. Touch outside the minimap and an open menu is ignored. No desktop
-mouse input backend is used.
+A unit group combines and deduplicates available powers by type. Stim, Siege,
+and nuclear strike take priority. Native actions filter incompatible members;
+selection is preserved. More than five powers use four powers plus a page
+button. No desktop mouse backend is used.
 
-SCV Y offers Command Center, Depot, Refinery, Barracks, Academy, Engineering
-Bay, Bunker and Missile Turret. L+Y offers the four advanced buildings. Move
-the footprint with Circle Pad, A places, B cancels. Refinery snaps to a geyser.
-Green means builder/cost/terrain/occupancy checks pass; the native engine
-rechecks on arrival. A on an own refinery gathers gas; A on a damaged or
-unfinished mechanical unit/building repairs or resumes construction.
+## Construction and production catalogues
 
-Select a production building and use Y to choose any of its standard products
-or legal add-ons. L+Y includes research, upgrades, lift/land, unload and work
-cancellation where appropriate. Research and all three weapon/armor levels
-require the original prerequisites and resources. Disabled rows show `x`.
+The same positions always have the same shortcuts, regardless of race:
 
-Tank Y toggles Siege Mode; Marine/Firebat Y uses Stim. Ghost, Medic, Science
-Vessel and Dropship expose their abilities as menus. A targeted ability asks
-for the top-screen target: move with Circle Pad, A confirms, B cancels. Ground
-abilities such as mines and nuclear strikes target terrain even under a unit.
-A on an allied transport/Bunker loads the selected eligible infantry. Select
-the transport/Bunker and choose Unload to release it. Cloaking/detection and
-native weapon sight ranges remain active even though terrain is fully explored
-and the observer renders both armies without fog.
+| Row | Left to right |
+| --- | --- |
+| Top four | X, Y, L+A, L+B |
+| Bottom five | L+X, L+Y, R+X, R+Y, L+R |
 
-Probe Y/L+Y exposes all sixteen Protoss buildings in two pages of eight.
-Pylons must power the appropriate structures. Probes use native warp
-construction and can leave the building to finish itself. Assimilators snap
-to a geyser. Carrier/Reaver Y manufactures Interceptors/Scarabs with native
-capacity and resource checks. Templar ability menus include nearest-matching
-Templar merge; both units need a clear path. High Templar, Dark Archon,
-Arbiter and Corsair expose their spells; Shuttle loads/unloads units. A on a
-Shield Battery recharges an eligible selected unit, or select the Battery and
-use Y to choose a recharge target. Selected Protoss units show a blue shield
-bar and shield values in the HUD.
+These shortcuts apply only while a catalogue is open. Therefore L+B selects
+the fourth catalogue item rather than cancelling; ordinary B still closes it.
+R+X/Y choose items here rather than changing the army/worker selection.
+D-pad navigates the 4+5 grid, A confirms, and every icon/badge accepts touch.
+Lists longer than nine use eight entries plus Next page in the ninth slot.
+Disabled recipes retain their position. X/Y open basic/advanced worker lists;
+place with Circle Pad and A, cancel with B. Refinery placement snaps to geysers.
 
-Selections and four bookmarks contain up to 192 generation-checked 32-bit unit
-IDs; recalling drops dead/invalid entries. Workers temporarily hidden inside
-a refinery remain bookmarked and become selectable again when they leave.
-Reloading clears all groups. Multi-unit
-orders are issued in native batches of at most twelve, preserving OpenBW's
-selection constraints. Buildings remain single-selection commands. Selection
-HP/queue fields describe the first live member, with the total count alongside.
+## Layout and assets
 
-The audio build plays original Terran music and positional game effects.
-SELECT and the end-of-match pause also pause audio; restarting clears old
-unit effects. The lower screen shows Audio ON/OFF, effect count, and music
-buffer/I/O errors. Automatic logs now use `logs/ai-audio-benchmark.csv`.
+The lower screen uses the supplied 320×240 background and Figma node28:30:
+4+5 commands, centered aspect-fit minimap, clock, MENU, 48×48 static original
+portrait, and the enlarged selected-unit/production panel. One portrait is
+uploaded on demand into the existing bounded sprite atlas; there is no video
+decoder or extra resident portrait texture bank. Private converted assets live
+under `/3ds/openbw/portraits/`. They must be installed with the new executable
+and `ui/hud.bin`. The top screen shows mineral/gas/racial supply icons and green
+numbers; selected-unit names stay in the lower information panel.
 
-## Zerg laboratory
+## Scenarios and pause menu
 
-START → Scenarios → Zerg laboratory has completed prerequisites and 20,000 of
-each resource. Research starts unresearched. Native prices, supply, energy,
-creep and durations apply. Select Hatchery/Lair/Hive with A, choose **Select
-Larva** with Y, then use Y for the first eight morphs or L+Y for Ultralisk.
-Drone Y/L+Y shows eight basic and three advanced structures; advanced also
-contains burrow. A Drone is consumed by successful construction. Lair/Hive,
-Greater Spire and colony morphs appear on their parent building's Y menu.
+Startup opens the title menu. Play Custom uses selected map/races, up to two
+AI opponents and Easy/Medium difficulty. START → Options → Test scenarios
+contains race laboratories and all-unit observer battles. Labs have prerequisite
+buildings and explicit 10,000/10,000 funds, but native costs/research durations.
+Campaign map triggers run only in campaign mode, not custom melee/labs.
 
-Hydralisk and Mutalisk Y offer their researched/prerequisite morphs. An Egg or
-incomplete structure offers cancellation. Burrow/unburrow uses native orders;
-Queen and Defiler powers use target menus. Overlords require Ventral Sacs to
-transport passengers. Select a ground Zerg unit, then A on a completed paired
-Nydus to enter; selecting Nydus itself offers **Build Nydus exit** on creep.
-
-The same Circle Pad cursor, A/B, X/L+X, bookmarks and minimap touch rules apply
-to every race. The bottom command menus also accept touch, as authorized.
-
+Observer battles follow combat without fog; pointer/minimap movement suspends
+automatic following for eight seconds. Prepared battles end on elimination,
+after 30 seconds with 65% army value lost, or after 180 active seconds. Scoring
+excludes bases. Game Menu contains Save, Load, End, Options and Return (B).
+Options contains test scenarios, auto-camera, CSV, reload and exit. CSV drains
+on exit. Both screens dim while the game is paused.
 
 ## Persistent Save / Load (2026-10-25)
 

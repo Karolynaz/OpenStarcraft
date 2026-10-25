@@ -261,3 +261,12 @@ test-campaign: build/campaign-test
 
 build/campaign-audio-export: tools/campaign_audio_export.cpp tools/original_archive.h include/sound_ids.h $(HEADERS) | build
 	$(HOST_CXX) $(COMMON) tools/campaign_audio_export.cpp -o $@
+build/portrait-export: tools/portrait_export.cpp tools/original_archive.h $(HEADERS) | build
+	$(HOST_CXX) $(COMMON) tools/portrait_export.cpp -o $@
+
+# New HUD behavior uses native units and journal reconstruction, not UI mocks.
+build/hud-controls-test: tests/hud_controls.cpp source/engine.cpp $(HEADERS) build/source_id.h | build
+	$(HOST_CXX) $(COMMON) -O1 -g -fsanitize=address -fno-omit-frame-pointer tests/hud_controls.cpp source/engine.cpp -o $@
+.PHONY: test-hud-controls
+test-hud-controls: build/hud-controls-test
+	ASAN_OPTIONS=detect_leaks=0 ./build/hud-controls-test local-data/3ds/openbw local-data/3ds/openbw/maps/arena.chk /tmp/sc3ds-hud-controls.sav

@@ -718,3 +718,34 @@ Final src-29f5fa8e6b3d1c6f, binary SHA256
 Private raynor-audio-{update-,}2026-10-25.zip under local-data/releases; evidence
 under local-data/raynor-audio-2026-10-25. No physicalSD/publication. Briefing
 narration/movies stillpending; active speech not restored midway onLoad.
+
+
+## 2026-10-25 — HUD/control v2
+
+User supplied protoss_updated_UI.png and Figma node28:30. Imported exact320×240
+skin; fitted minimap80×100; clock/MENU, original static48×48portdata portraits,
+larger selection/production panel,4+5grid and rounded key badges. Private110
+portraits convertedfromownedidleSMKs; existing4MiB atlas reused on demand.
+World A/context+empty A drag, Bcancel, Selectallviewport, R+Xarmy/R+Yworkers,
+L+Dpadstore/R+Dpadrecall/doublecenter, STARTpause. World X/Y/LX/LYpowers,
+LRfifth/page; workerX/Ybasic/advanced. R+Apatrol,R+Bstop,L+Aattackmove.
+Catalogue fixed X,Y,LA,LB/LX,LY,RX,RY,LR; Dpad+A/touch. Mixedpowersdedup and
+Stim/Siege/Nukepriority; nativeeligibilityfilterspreservegroup. Ten-second
+attackminimapmarker jump. NoncampaignUMStriggerssuppressed: priorcampaign
+integrationhadresetlabresources50onfirsttick; paidqueue/missiontestsnowPASS.
+
+ASan nativeHUDmixedpowers/patrol/stop/selection/portraits/journalPASS;
+input/4+5geometry/aspectmaptestsPASS; selectionqueue/refunds/research/morph,
+custommixedAI, existingcampaign+savegameregressionsPASS. ARMv6K/VFPv2PASS.
+Final originalmodelCPU100 emulator43unitProtoslab61activesecond samples:
+last59.85FPS23.94TPS, heap30,505,224 linear8,084,480, miss/overflow0.
+VisualX/Dpad/Aplace/Bcancel/Selectgroup/STARTdimPASS. TouchRPCdidnotdeliver
+pressesevenunchangedtitle; GUI fallbacknoWindowsAvailable; hostgeometryPASS,
+physicaltouchconfirmationpending. Emulatorprofile/model/previoussaverestored.
+
+Final src-66443a1419587c1c, 3DSX SHA256
+8c7fdff68230ee5dede07c422789efabfd40e19a0c2e432e258b84def57e0cc9.
+Private hud-controls-v2-{update-,}2026-10-25.zip; noSDwrite/publication.
+See reports/HUD_CONTROLS_V2_VALIDATION.md and rewritten CONTROLS.md. Saves
+remainexactsourcebuildspecific. Portraitsstaticbyrequest, onlyattackalerts
+currentlyimplemented. Fullcampaign/AIobjectivesfromearlierhistoryunchanged.

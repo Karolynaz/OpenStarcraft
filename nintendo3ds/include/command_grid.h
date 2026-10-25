@@ -1,21 +1,14 @@
 #pragma once
 namespace port3ds {
-// Bottom catalogue cells and touch share the same bounds. Other menus retain
-// their existing text rows, and closed-menu touches remain minimap-only.
 struct CommandGrid {
-    static constexpr int x=166,y=49,columns=3,cell_width=40,cell_height=35;
-    static int hit(int px,int py,unsigned count){
-        if(px<x || py<y || px>=x+columns*cell_width || py>=y+3*cell_height)return -1;
-        if((px-x)%cell_width>=32 || (py-y)%cell_height>=32)return -1;
-        const unsigned index=(py-y)/cell_height*columns+(px-x)/cell_width;
-        return index<count?int(index):-1;
-    }
-    static unsigned move(unsigned selected,unsigned direction,unsigned count){
-        if(!count)return 0;selected%=count;
-        if(direction==1)return (selected+1)%count;
-        if(direction==3)return (selected+count-1)%count;
-        const unsigned col=selected%columns,rows=(count+columns-1-col)/columns,row=selected/columns;
-        return ((row+(direction==0?rows-1:1))%rows)*columns+col;
-    }
+ struct Cell{int x,y,w,h;};
+ static Cell cell(unsigned i){return {118+int(i<4?i:i-4)*37,i<4?29:81,35,35};}
+ static const char* key(unsigned i){static const char* keys[]={"X","Y","L+A","L+B","L+X","L+Y","R+X","R+Y","L+R"};return i<9?keys[i]:"";}
+ static int hit(int x,int y,unsigned count){for(unsigned i=0;i<count && i<9;++i){auto c=cell(i);if(x>=c.x && x<c.x+c.w && y>=c.y && y<c.y+c.h+10)return int(i);}return -1;}
+ static unsigned move(unsigned i,unsigned direction,unsigned count){
+  if(!count)return 0;count=count>9?9:count;i%=count;
+  if(direction==1)return (i+1)%count;if(direction==3)return (i+count-1)%count;
+  unsigned col=i<4?i:i-4;unsigned other=i<4?4+col:(col<4?col:3);return other<count?other:i;
+ }
 };
 }

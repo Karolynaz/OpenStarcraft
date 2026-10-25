@@ -12,12 +12,14 @@ int main() {
     const auto camera = c.camera_x;
     assert(!c.minimap_touch(200, 40));
     assert(c.camera_x == camera && c.cursor_x == x && c.cursor_y == y);
-    assert(c.minimap_touch(154, 152));
+    assert(c.minimap_touch(93, 124));
     assert(c.camera_x == 624 && c.camera_y == 784);
     assert(c.cursor_x == x && c.cursor_y == y); // Touch never controls the cursor.
-    assert(c.minimap_touch(40, 45));
+    assert(c.minimap_touch(14, 45));
     assert(c.camera_x == 0 && c.camera_y == 0);
-    assert(!c.minimap_touch(155, 153));
+    assert(!c.minimap_touch(94, 125));
+    auto square=c.minimap_bounds();assert(square.x==14 && square.y==45 && square.w==80 && square.h==80);
+    c.map_size(64,32);auto wide=c.minimap_bounds();assert(wide.w==80 && wide.h==40 && wide.y==65);c.map_size(32,32);
     c.focus(128, 128);
     assert(c.world_x() == 128 && c.world_y() == 128);
     assert(c.camera_x == 0 && c.camera_y == 8);

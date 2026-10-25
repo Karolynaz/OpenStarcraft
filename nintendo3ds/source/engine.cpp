@@ -27,7 +27,9 @@ struct Engine::Impl {
         unsigned count=0, dropped=0;bool fog=false;
         detail::CampaignRuntime campaign;
         bool execute_trigger_action(execute_trigger_struct& ets,int owner,running_trigger& rt,running_trigger::action& ra,const trigger::action& a)override{
-            if(!campaign.active)return state_functions::execute_trigger_action(ets,owner,rt,ra,a);
+            // Melee/labs use adapter rules; map UMS triggers must not reset
+            // lab funds or run campaign scripts in a custom melee match.
+            if(!campaign.active)return true;
             if(owner!=0)return state_functions::execute_trigger_action(ets,owner,rt,ra,a);
             auto camera=[&](){if(a.location>0 && unsigned(a.location)<=st.locations.size()){const auto& area=st.locations[a.location-1].area;campaign.camera=(area.from+area.to)/2;++campaign.camera_serial;}};
             switch(a.type){
@@ -62,10 +64,11 @@ struct Engine::Impl {
     std::unique_ptr<SoundFunctions> sound;
     char message[192] = "Not loaded";
     bool loaded = false,fog=false;
-    savegame::Writer journal;std::string initial_map;Scenario initial_scenario=Scenario::empty;MatchSetup initial_setup;
+    savegame::Writer journal;std::string initial_map,initial_root;Scenario initial_scenario=Scenario::empty;MatchSetup initial_setup;
     static_vector<unit_id_32,192> selected;
     std::array<static_vector<unit_id_32,192>,4> groups;
     detail::FogMemory memory;
+    std::array<int,1700> alert_hp;std::array<unsigned,1700> alert_ids{};unsigned alert_frame=0;xy alert{};
     detail::BattleAI ai;
     detail::TerranBattle battle;
     std::unique_ptr<detail::CreepGraphics> creep;
@@ -183,7 +186,7 @@ bool Engine::preview_map(const char* data_root,const char* map_path,MapPreview& 
 Engine::Engine() : impl_(new Impl) {}
 Engine::~Engine() = default;
 bool Engine::load(const char* data_root, const char* map_path, Scenario scenario,const MatchSetup* setup) {
-    impl_->journal.close();impl_->initial_map=map_path;impl_->initial_scenario=scenario;impl_->initial_setup=setup?*setup:MatchSetup{};
+    impl_->journal.close();impl_->initial_root=data_root;impl_->alert_hp.fill(-1);impl_->alert_ids.fill(0);impl_->alert_frame=0;impl_->initial_map=map_path;impl_->initial_scenario=scenario;impl_->initial_setup=setup?*setup:MatchSetup{};
     const bool campaign=scenario==Scenario::terran_campaign;
     const bool custom=!campaign && setup && setup->enabled;
     impl_->loaded = false;
@@ -396,6 +399,7 @@ bool Engine::tick() {
         impl_->sound->next_frame();
         impl_->ai.step(*impl_->player);
         impl_->battle.step(*impl_->player);
+        for(auto* u:ptr(impl_->player->st().player_units[0]))if(u->index<1700){unsigned id=impl_->sound->get_unit_id_32(u).raw_value;int hp=u->hp.raw_value;if(impl_->alert_ids[u->index]==id && impl_->alert_hp[u->index]>hp && u->last_attacking_player!=0){impl_->alert_frame=frame();impl_->alert=u->sprite->position;}impl_->alert_hp[u->index]=hp;impl_->alert_ids[u->index]=id;}
         if(impl_->fog)impl_->memory.update(impl_->player->funcs());
         return true;
     } catch (const std::exception& e) {
@@ -417,6 +421,7 @@ Snapshot Engine::snapshot() const {
     Snapshot s;
     if (!impl_->loaded) return s;
     auto& st = impl_->player->st();
+    s.alert_frame=impl_->alert_frame;s.alert_x=impl_->alert.x;s.alert_y=impl_->alert.y;
     s.frame = st.current_frame;
     s.width = st.game->map_tile_width; s.height = st.game->map_tile_height;
     s.minerals = st.current_minerals[0]; s.gas = st.current_gas[0];
@@ -435,6 +440,7 @@ Snapshot Engine::snapshot() const {
             SelectionKind::command_center : funcs.unit_is(u,UnitTypes::Terran_Barracks) ? SelectionKind::barracks : SelectionKind::other;
     }
     for(auto id:impl_->selected) if(auto* u=funcs.get_unit(id)) if(!funcs.unit_dead(u) && (!impl_->fog || player_sees(funcs,u))) ++s.selected;
+    s.workers_only=s.selected>0;for(auto id:impl_->selected)if(auto* u=funcs.get_unit(id))if(!funcs.unit_dead(u) && !funcs.ut_worker(u))s.workers_only=false;
     s.campaign=impl_->sound->campaign.active;
 
 
@@ -556,12 +562,13 @@ unsigned Engine::select_army(int cx,int cy) {savegame::Writer::Guard record(impl
     }
     return impl_->selected.size();
 }
-unsigned Engine::select_workers() {savegame::Writer::Guard record(impl_->journal,{frame(),savegame::workers});
+unsigned Engine::select_workers(int camera_x,int camera_y) {savegame::Writer::Guard record(impl_->journal,{frame(),savegame::workers,camera_x,camera_y});
     impl_->selected.clear();
     if(!ready()) return 0;
     const auto& f=impl_->player->funcs();
     for(const auto* u:ptr(impl_->player->st().visible_units)) {
         if(u->owner!=0 || f.unit_dead(u) || !f.u_completed(u) || !f.ut_worker(u) || f.us_hidden(u)) continue;
+        const auto pos=u->sprite->position;if(camera_x>=0 && (pos.x<camera_x || pos.x>=camera_x+400 || pos.y<camera_y || pos.y>=camera_y+240))continue;
         if(impl_->selected.size()==192) break;
         impl_->selected.push_back(f.get_unit_id_32(u));
     }
@@ -761,7 +768,7 @@ unsigned Engine::options(OptionPage page,MenuOption* output,unsigned capacity) c
         unsigned index=0;catalogue::buildings([&](const terran::Product& b){
             if(b.parent!=u->unit_type->id)return;
             const auto* t=f.get_unit_type(b.type);if(f.ut_addon(t))return;
-            if((page==OptionPage::basic)==(index++<8))add(b.name,OptionKind::build,unsigned(b.type),true,f.unit_can_build(u,t) && f.has_available_resources_for(0,t),t->mineral_cost,t->gas_cost);
+            if((page==OptionPage::basic)==(index++<9))add(b.name,OptionKind::build,unsigned(b.type),true,f.unit_can_build(u,t) && f.has_available_resources_for(0,t),t->mineral_cost,t->gas_cost);
         });if(page==OptionPage::advanced && f.unit_is(u,UnitTypes::Zerg_Drone))add(f.u_burrowed(u)?"Unburrow":"Burrow",OptionKind::burrow,0,false,f.unit_can_use_tech(u,f.get_tech_type(TechTypes::Burrowing)));return n;
     }
     if(f.unit_is_hatchery(u))add("Select Larva",OptionKind::larvae,0,false,true);
@@ -793,7 +800,7 @@ unsigned Engine::options(OptionPage page,MenuOption* output,unsigned capacity) c
     }
     unsigned product_index=0;
     catalogue::units([&](const terran::Product& b){if(b.parent!=u->unit_type->id)return;
-        const unsigned index=product_index++;if((page==OptionPage::primary)!=(index<8))return;
+        const unsigned index=product_index++;if((page==OptionPage::primary)!=(index<9))return;
         const auto* t=f.get_unit_type(b.type);add(b.name,OptionKind::morph,unsigned(b.type),false,f.unit_can_build(u,t) && f.has_available_resources_for(0,t) && f.has_available_supply_for(0,t),t->mineral_cost,t->gas_cost);
     });
     if(f.unit_is(u,UnitTypes::Zerg_Larva))return n;
@@ -844,8 +851,13 @@ bool Engine::perform(unsigned code,int x,int y) {savegame::Writer::Guard record(
     auto fail=[&](const char* m){impl_->command_message=m;return false;};
     if(!ready())return fail("Load a scenario first");
     if(impl_->ai.enabled(0) || impl_->battle.enabled())return fail("Observer: AI controls both armies");
-    auto* u=impl_->first_selected();if(!u || u->owner!=0)return fail("Select an own unit/building");
     const auto kind=static_cast<OptionKind>(code>>16);const unsigned id=code&65535;
+    struct SelectionRestore{Impl* p;static_vector<unit_id_32,192> saved;bool restore=false;~SelectionRestore(){if(restore)p->selected=saved;}} selection{impl_.get(),impl_->selected,false};
+    if(impl_->selected.size()>1 && (kind==OptionKind::merge || kind==OptionKind::morph || kind==OptionKind::train || kind==OptionKind::stim || kind==OptionKind::siege || kind==OptionKind::cloak || kind==OptionKind::order || kind==OptionKind::unload || kind==OptionKind::burrow)){
+        unit_id_32 chosen{};for(auto uid:selection.saved){impl_->selected.clear();impl_->selected.push_back(uid);MenuOption rows[32];unsigned count=options(OptionPage::primary,rows,32);for(unsigned i=0;i<count;++i)if(rows[i].code==code && rows[i].enabled){chosen=uid;break;}if(chosen.raw_value)break;}
+        impl_->selected=selection.saved;if(chosen.raw_value && !impl_->selected.empty() && impl_->selected.front().raw_value!=chosen.raw_value){auto it=std::find(impl_->selected.begin(),impl_->selected.end(),chosen);std::rotate(impl_->selected.begin(),it,it+1);selection.restore=true;}
+    }
+    auto* u=impl_->first_selected();if(!u || u->owner!=0)return fail("Select an own unit/building");
     auto& p=*impl_->player;auto& f=p.funcs();action_state state;action_functions a(p.st(),state);a.action_select(0,u);bool ok=false;
     if(kind==OptionKind::larvae) {
         if(!f.unit_is_hatchery(u))return fail("Select Hatchery / Lair / Hive");
@@ -1017,6 +1029,7 @@ SpriteView Engine::cursor_image(CursorKind kind,std::uint64_t elapsed_us) const 
     return {int(f.offset.x)-64,int(f.offset.y)-64,cursor_image_base+index,frame,11,false,false,0,255};
 }
 SpriteInfo Engine::sprite_info(unsigned image,unsigned frame) const {
+    if(image==65384)return {48,48,frame<110};
     if(!ready())return {};
     if(image==detail::wireframe_image)return impl_->icons && impl_->icons->has_wireframes && frame<228*6?SpriteInfo{64,64,true}:SpriteInfo{};
     if(image==detail::resource_icon_image)return impl_->icons && impl_->icons->has_resources && frame<7?SpriteInfo{14,14,true}:SpriteInfo{};
@@ -1030,6 +1043,8 @@ SpriteInfo Engine::sprite_info(unsigned image,unsigned frame) const {
     const auto& f=grp->frames[frame];return {unsigned(f.size.x),unsigned(f.size.y),true};
 }
 bool Engine::sprite_pixels(unsigned image,unsigned frame,unsigned owner,uint16_t* out,std::size_t capacity) const {
+    if(image==65384){if(capacity<48*48 || frame>=110)return false;char path[512];std::snprintf(path,sizeof path,"%s/portraits/%u.bin",impl_->initial_root.c_str(),frame);FILE* f=std::fopen(path,"rb");if(!f)return false;bool ok=std::fread(out,2,48*48,f)==48*48;std::fclose(f);return ok;}
+
     const auto info=sprite_info(image,frame);if(!info.valid || info.width>512 || info.height>512 || size_t(info.width)*info.height>capacity)return false;
     if(image==detail::wireframe_image)return impl_->icons && impl_->icons->wire_pixels(frame,out,capacity);
     if(image==detail::resource_icon_image){std::copy(impl_->icons->resources[frame].begin(),impl_->icons->resources[frame].end(),out);return true;}
@@ -1142,6 +1157,7 @@ bool core_self_test() {
         return fp8::integer(3).raw_value == 768;
     } catch (...) { return false; }
 }
+#include "hud_engine.h"
 #include "save_engine.h"
 
 }

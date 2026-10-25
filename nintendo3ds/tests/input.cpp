@@ -1,24 +1,13 @@
 #include "input.h"
 #include <cassert>
 #include <cstdio>
-int main() {
-    using namespace port3ds;
-    InputRouter r; InputFrame f;
-    f.l=true; assert(r.read(f).action==InputAction::none);
-    f.x=true; assert(r.read(f).action==InputAction::workers);
-    f.l=false; assert(r.read(f).action==InputAction::army);
-    f.x=false;f.y=true; assert(r.read(f).action==InputAction::primary);
-    f.l=true;assert(r.read(f).action==InputAction::secondary);
-    f={};f.r=true;assert(r.read(f).action==InputAction::none);
-    f.direction=2;f.time=1000000;auto e=r.read(f);
-    assert(e.action==InputAction::store && e.slot==2);
-    f.r=false;f.time+=100000;e=r.read(f);assert(e.action==InputAction::recall && !e.center);
-    f.time+=300000;e=r.read(f);assert(e.center);
-    f.time+=400000;assert(!r.read(f).center);
-    f.direction=0;f.time+=100000;assert(!r.read(f).center);
-    assert(r.read(f,true).action==InputAction::previous);
-    f.direction=2;assert(r.read(f,true).action==InputAction::next);
-    f={};f.a=true;assert(r.read(f).action==InputAction::confirm);
-    f={};f.b=true;assert(r.read(f).action==InputAction::cancel);
-    std::puts("A/B / modifier chords / group store-recall / 350 ms double tap / menu navigation PASS");
+using namespace port3ds;
+int main(){
+ InputRouter r;InputFrame f;f.x=true;assert(r.read(f).action==InputAction::power && r.read(f).slot==0);f.l=true;assert(r.read(f).slot==2);f={};f.r=f.x=true;assert(r.read(f).action==InputAction::army);f.x=false;f.y=true;assert(r.read(f).action==InputAction::workers);
+ f={};f.r=f.a=true;assert(r.read(f).action==InputAction::patrol);f.a=false;f.b=true;assert(r.read(f).action==InputAction::stop);
+ f={};f.select=true;assert(r.read(f).action==InputAction::all);f={};f.start=true;assert(r.read(f).action==InputAction::system);
+ for(unsigned i=0;i<9;++i){f={};if(i==0)f.x=true;if(i==1)f.y=true;if(i==2)f.l=f.a=true;if(i==3)f.l=f.b=true;if(i==4)f.l=f.x=true;if(i==5)f.l=f.y=true;if(i==6)f.r=f.x=true;if(i==7)f.r=f.y=true;if(i==8){f.l=f.r=f.r_pressed=true;}auto e=r.read(f,true,true);assert(e.action==InputAction::hotkey && e.slot==i);}
+ f={};f.l=true;f.direction=2;f.time=1000000;assert(r.read(f).action==InputAction::store);f.l=false;f.r=true;assert(r.read(f).action==InputAction::recall);f.time+=200000;assert(r.read(f).center);f.r=false;assert(r.read(f).action==InputAction::none);
+ f={};f.b=true;assert(r.read(f,true,true).action==InputAction::cancel);f={};f.a=true;assert(r.read(f,true,true).action==InputAction::confirm);
+ puts("World/catalogue chord precedence, nine fixed shortcuts, selection groups and double recall PASS");
 }

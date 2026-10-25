@@ -42,11 +42,12 @@ struct Snapshot {
     unsigned queue = 0;
     unsigned selected = 0;
     int selected_energy=0,selected_max_energy=0,work_frames=0;
-    bool selected_building=false,selected_larva=false;
+    bool selected_building=false,selected_larva=false,workers_only=false;
     SelectionKind selection = SelectionKind::none;
     std::array<PlayerView,3> players{};
     int winner = -1;
     bool observer = false, benchmark = false,campaign=false;
+    unsigned alert_frame=0;int alert_x=0,alert_y=0;
     std::string objectives,transmission;unsigned mission_camera_serial=0;int mission_camera_x=0,mission_camera_y=0;
     unsigned battle_seconds=0,end_reason=0,score[2]{};
 };
@@ -87,6 +88,10 @@ public:
     bool surrender();
     bool tick();
     void advance_wall_time(std::uint64_t microseconds);
+    unsigned abilities(MenuOption* output,unsigned capacity) const;
+    void movement_options(MenuOption* output)const;
+    unsigned select_area(int x,int y,int width,int height);
+    SpriteView portrait()const;
     unsigned options(OptionPage page,MenuOption* output,unsigned capacity) const;
     bool perform(unsigned code,int world_x=0,int world_y=0);
     PlacementView placement_unit(unsigned type,int x,int y) const;
@@ -105,7 +110,7 @@ public:
     bool activate(int world_x, int world_y);
     void clear_selection();
     unsigned select_army(int camera_x, int camera_y);
-    unsigned select_workers();
+    unsigned select_workers(int camera_x=-1,int camera_y=-1);
     bool store_group(unsigned slot);
     bool recall_group(unsigned slot, int* center_x = nullptr, int* center_y = nullptr);
     bool observer_focus(int& x, int& y) const;

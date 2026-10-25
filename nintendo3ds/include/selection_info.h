@@ -12,10 +12,10 @@ struct SelectionInfo {
  int remaining=0,total=0;WorkKind work=WorkKind::none;
  std::array<unsigned,5> queue{{~0u,~0u,~0u,~0u,~0u}};
 };
-// Shared drawing/touch geometry in the 202x66 bottom selection region.
+// Shared drawing/touch geometry in the 224x78 bottom selection region.
 struct ProductionPanel {
  struct Cell{int x,y,w,h;};
- static Cell cell(unsigned slot){return slot==0?Cell{70,180,24,24}:Cell{98+int(slot-1)*30,207,24,24};}
+ static Cell cell(unsigned slot){return slot==0?Cell{80,176,26,26}:Cell{110+int(slot-1)*30,205,26,26};}
  static int hit(int x,int y,const SelectionInfo& info){
   if(!info.valid || info.count!=1 || !info.own || info.work==WorkKind::none)return -1;
   const unsigned count=info.work==WorkKind::training?info.queue_count:1;

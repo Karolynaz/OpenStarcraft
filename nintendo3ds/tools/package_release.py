@@ -56,6 +56,15 @@ ui_manifest=json.loads((a.source/'ui/manifest.json').read_text())
 for name in ('menu','hud','animations'):
     if hashlib.sha256((a.source/f'ui/{name}.bin').read_bytes()).hexdigest()!=ui_manifest[name]['sha256']:
         p.error(f'Changed UI asset: {name}')
+portrait_manifest=json.loads((a.source/'portraits/manifest.json').read_text())
+if len(portrait_manifest)!=110:
+    p.error('Expected 110 static original portraits')
+for name, expected in portrait_manifest.items():
+    path=a.source/'portraits'/name
+    if path.stat().st_size!=48*48*2 or hashlib.sha256(path.read_bytes()).hexdigest()!=expected['sha256']:
+        p.error(f'Changed portrait: {name}')
+    required.append(f'portraits/{name}')
+required.append('portraits/manifest.json')
 a.output.parent.mkdir(parents=True, exist_ok=True)
 with zipfile.ZipFile(a.output, 'w', compression=zipfile.ZIP_STORED) as package:
     for name in required:
