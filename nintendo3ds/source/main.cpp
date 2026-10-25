@@ -88,7 +88,7 @@ int main() {
             if(front.quit)break;
             if(front.screen==port3ds::Frontend::Screen::custom && front.preview_dirty){front.preview_dirty=false;port3ds::Engine::preview_map(root,front.map_path().c_str(),front.preview);if(front.preview.valid)art.preview(front.preview.pixels.data());last=now_us();}
             if(down&KEY_DUP)front.direction(0);if(down&KEY_DRIGHT)front.direction(1);if(down&KEY_DDOWN)front.direction(2);if(down&KEY_DLEFT)front.direction(3);
-            if(front.play){launch_scenario=int(front.scenario());match_setup=front.match(unsigned(now));launch_map=front.map_path();break;}
+            if(front.play){launch_scenario=int(front.scenario());match_setup=front.match(unsigned(now));launch_map=front.map_path();front.observer_test=~0u;break;}
             C3D_FrameBegin(C3D_FRAME_SYNCDRAW);C2D_TextBufClear(text_buf);
             C2D_TargetClear(top,C2D_Color32(0,0,0,255));C2D_SceneBegin(top);C3D_DepthTest(false,GPU_ALWAYS,GPU_WRITE_COLOR);
             port3ds::draw_frontend_top(front,art,text_buf);
@@ -365,7 +365,7 @@ int main() {
                 int x=0,y=0; if(engine.observer_focus(x,y)) controls.follow(x,y,ui_seconds);
             }
             if(state.winner>=0 && !result_shown) {
-                result_shown=true;paused=true;scheduler.reset();menu=Menu::result;choice=0;action=state.observer?(state.winner==0?"Red wins":state.winner==1?"Blue wins":"Battle finished"):(state.winner==0?"Victory!":state.winner==3?"Draw":"Defeat");
+                result_shown=true;paused=true;scheduler.reset();menu=Menu::result;choice=0;action=state.observer?(state.winner==0?"Red wins":state.winner==1?"Blue wins":state.winner==2?"Green wins":"Battle finished"):(state.winner==0?"Victory!":state.winner==3?"Draw":"Defeat");
             }
             port3ds::SoundEvent sound_events[256];
             const auto sound_count=engine.drain_sounds(sound_events,256);
@@ -537,6 +537,9 @@ int main() {
             }
             const auto selected_info=engine.selection_info();
             if(selected_info.count==1)port3ds::draw_selection_info(selected_info,graphics,engine,hud_buf);
+            if(state.observer && !selected_info.count){
+                for(unsigned p=0;p<3;++p)if(state.players[p].ai){const auto& side=state.players[p];char row[80];std::snprintf(row,sizeof row,"%u %s  Scout %u Cast %u Drop %u",p+1,side.difficulty==port3ds::AiDifficulty::medium?"M":"E",side.scouts,side.casts,side.drop_units);port3ds::ui_text(hud_buf,row,15,169+p*19,.40f,white);}
+            }
             unsigned selected_slot=0;
             for(std::size_t i=0;i<count && selected_slot<12;++i)if(units[i].selected){const auto& u=units[i];
                 const int x=15+int(selected_slot%6)*34,y=166+int(selected_slot/6)*34;
@@ -601,7 +604,7 @@ int main() {
         if(hud_buf)C2D_TextBufDelete(hud_buf);
     }
     if(!return_custom)break;
-    front.screen=port3ds::Frontend::Screen::custom;front.transition=0;front.preview_dirty=true;front.x=240;front.y=218;
+    front.screen=match_setup.observer?port3ds::Frontend::Screen::campaign:port3ds::Frontend::Screen::custom;front.transition=0;front.preview_dirty=true;front.x=240;front.y=218;
     C2D_Prepare();
     }
     if (R_SUCCEEDED(audio)) ndspExit();

@@ -12,7 +12,7 @@ p.add_argument('output', type=Path)
 a = p.parse_args()
 required = ['openbw-3ds.3dsx', 'StarDat.mpq', 'BrooDat.mpq', 'Patch_rt.mpq',
             'graphics.bin', 'graphics-arena.bin', 'maps/probe.scx', 'maps/arena.chk',
-            'README.txt', 'ui/menu.bin', 'ui/hud.bin', 'ui/manifest.json', 'ui/animations.bin', 'audio/effects-all.bin', 'audio/effects-all.json']
+            'README.txt', 'maps/AI/islands.scm', 'maps/AI/three-islands.scm', 'observer-maps.json', 'ui/menu.bin', 'ui/hud.bin', 'ui/manifest.json', 'ui/animations.bin', 'audio/effects-all.bin', 'audio/effects-all.json']
 for race in ('terran', 'protoss', 'zerg'):
     folder = 'audio' if race == 'terran' else f'audio/{race}'
     required += [f'{folder}/effects.bin', f'{folder}/manifest.json']
@@ -39,6 +39,10 @@ if (a.source/'map-catalogue.json').is_file():
         if hashlib.sha256((a.source/name).read_bytes()).hexdigest()!=expected['sha256']:
             p.error(f'Changed owned map: {name}')
     required.append('map-catalogue.json')
+observer_manifest=json.loads((a.source/'observer-maps.json').read_text())
+for name, expected in observer_manifest['maps'].items():
+    if hashlib.sha256((a.source/name).read_bytes()).hexdigest()!=expected['sha256']:
+        p.error(f'Changed private observer map: {name}')
 audio_manifest=json.loads((a.source/'audio/effects-all.json').read_text())
 if hashlib.sha256((a.source/'audio/effects-all.bin').read_bytes()).hexdigest()!=audio_manifest['sha256']:
     p.error('Changed combined private audio bank')

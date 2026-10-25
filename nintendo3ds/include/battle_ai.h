@@ -3,12 +3,13 @@
 // no resource grants, instant buildings, free research or campaign triggers.
 #include "actions.h"
 #include "race_catalogue.h"
+#include "battle_tactics.h"
 namespace port3ds { namespace detail {
 using namespace bwgame;
 class BattleAI {
  struct KnownBuilding {unit_id_32 id;xy position;bool valid=false;};
  struct Side {
-  bool enabled=false,building=false;
+  bool enabled=false,building=false;BattleTactics tactics;AiDifficulty difficulty=AiDifficulty::medium;
   unit_id_32 builder;UnitTypes plan=UnitTypes::Terran_Supply_Depot;
   unsigned search=24,trained=0,built=0,waves=0,lost=0,researches=0;
   unsigned build_frame=0,attack_frame=0,visited_starts=0,sector=0;
@@ -17,11 +18,12 @@ class BattleAI {
  };
  std::array<Side,3> sides_{};
  std::array<bool,3> active_{{true,true,false}};bool custom_=false,gas_=false;
- int winner_=-1;AiDifficulty difficulty_=AiDifficulty::medium;
+ int winner_=-1;bool observing_=false;std::array<unsigned,3> teams_{{0,1,2}};
+ bool hostile(unsigned p,unsigned other)const{return other<3 && p!=other && active_[other] && teams_[p]!=teams_[other];}
  static bool idle(const unit_t* u){auto o=u->order_type->id;return o==Orders::PlayerGuard || o==Orders::Guard || o==Orders::Stop || o==Orders::Nothing || o==u->unit_type->return_to_idle->id;}
  static xy spiral(unsigned n){unsigned r=1;while(n>=8*r){n-=8*r;++r;}const int k=n%(2*r),d=r;switch(n/(2*r)){case 0:return {d,-d+k};case 1:return {d-k,d};case 2:return {-d,d-k};default:return {-d+k,-d};}}
  void update(game_player& player,unsigned owner){
-  auto& side=sides_[owner];const auto profile=ai_profile(difficulty_);if(!side.enabled || player.st().current_frame%profile.think_frames)return;
+  auto& side=sides_[owner];const auto profile=ai_profile(side.difficulty);if(!side.enabled || player.st().current_frame%profile.think_frames)return;
   auto& f=player.funcs();auto& st=player.st();action_state state;action_functions a(st,state);
   const auto race=st.players[owner].race;const bool z=race==race_t::zerg,p=race==race_t::protoss;
   const auto base_type=z?UnitTypes::Zerg_Hatchery:p?UnitTypes::Protoss_Nexus:UnitTypes::Terran_Command_Center;
@@ -39,10 +41,15 @@ class BattleAI {
    if(f.unit_is(u,base_type) || (z && (f.unit_is(u,UnitTypes::Zerg_Lair) || f.unit_is(u,UnitTypes::Zerg_Hive)))){auto distance=[&](unit_t* b){auto d=b->sprite->position-st.game->start_locations[owner];return d.x*d.x+d.y*d.y;};if(!base || distance(u)<distance(base))base=u;}
    if(f.unit_is(u,gas_type) && f.u_completed(u))refinery=u;
    if(f.unit_is(u,worker_type) && f.u_completed(u))workers.push_back(u);
-   else if(f.u_completed(u) && (f.unit_is(u,UnitTypes::Protoss_Observer) || f.unit_is(u,UnitTypes::Zerg_Overlord)))detectors.push_back(u);
+   else if(f.u_completed(u) && (f.unit_is(u,UnitTypes::Protoss_Observer) || f.unit_is(u,UnitTypes::Zerg_Overlord) || f.unit_is(u,UnitTypes::Terran_Science_Vessel)))detectors.push_back(u);
    else if(f.unit_is(u,UnitTypes::Zerg_Larva) && u->build_queue.empty())larvae.push_back(u);
-   else if(f.u_completed(u) && !f.ut_building(u) && !f.ut_turret(u) && (f.unit_or_subunit_ground_weapon(u) || f.unit_or_subunit_air_weapon(u) || f.unit_is(u,UnitTypes::Terran_Medic)))army.push_back(u);
+   else if(f.u_completed(u) && !f.ut_building(u) && !f.ut_turret(u) && (f.unit_or_subunit_ground_weapon(u) || f.unit_or_subunit_air_weapon(u) || f.unit_is(u,UnitTypes::Terran_Medic) || f.unit_is(u,UnitTypes::Protoss_High_Templar) || f.unit_is(u,UnitTypes::Zerg_Queen) || f.unit_is(u,UnitTypes::Zerg_Defiler)))army.push_back(u);
   }
+  std::array<bool,3> enemies{};for(unsigned p=0;p<3;++p)enemies[p]=hostile(owner,p);
+  xy known_target{};for(const auto& known:side.known)if(known.valid){known_target=known.position;break;}
+  side.tactics.step(player,owner,base,enemies,side.difficulty,known_target);
+  const bool island=side.tactics.island(),anti_air=side.tactics.seen_air()>=2;
+  auto reserved=[&](unit_t* u){return side.tactics.reserved(f.get_unit_id_32(u)) || f.us_hidden(u);};
   auto has=[&](UnitTypes id){return counts[unsigned(id)]!=0;};
   auto complete=[&](UnitTypes id){return structures[unsigned(id)]!=nullptr;};
   auto* builder=f.get_unit(side.builder);
@@ -52,7 +59,7 @@ class BattleAI {
   auto gas_order=[](const unit_t* w){return w->order_type->id==Orders::HarvestGas || w->order_type->id==Orders::ReturnGas || w->order_type->id==Orders::MoveToGas || w->order_type->id==Orders::WaitForGas;};
   unsigned gas_workers=0;for(auto* w:workers)if(gas_order(w))++gas_workers;
   for(auto* w:workers){
-   if(side.building && f.get_unit_id_32(w)==side.builder)continue;
+   if(reserved(w) || (side.building && f.get_unit_id_32(w)==side.builder))continue;
    // Keep stable gas assignments while workers are inside the refinery or
    // returning cargo, and grow to three only after an eight-worker economy.
    if(gas_order(w))continue;
@@ -74,14 +81,17 @@ class BattleAI {
    want(UnitTypes::Zerg_Evolution_Chamber,army.size()>=4 && refinery);
    want(UnitTypes::Zerg_Spire,complete(UnitTypes::Zerg_Lair));
    want(UnitTypes::Zerg_Queens_Nest,complete(UnitTypes::Zerg_Spire) && army.size()>=8);
-   want(UnitTypes::Zerg_Ultralisk_Cavern,complete(UnitTypes::Zerg_Hive));
+   want(UnitTypes::Zerg_Defiler_Mound,complete(UnitTypes::Zerg_Hive));
+   want(UnitTypes::Zerg_Ultralisk_Cavern,complete(UnitTypes::Zerg_Defiler_Mound));
   }else if(p){
    want(UnitTypes::Protoss_Gateway,complete(UnitTypes::Protoss_Pylon));
    want(gas_type,gas_ && complete(UnitTypes::Protoss_Gateway));
    want(UnitTypes::Protoss_Cybernetics_Core,refinery);
    want(UnitTypes::Protoss_Forge,complete(UnitTypes::Protoss_Cybernetics_Core) && army.size()>=4);
    want(UnitTypes::Protoss_Citadel_of_Adun,complete(UnitTypes::Protoss_Forge));
-   want(UnitTypes::Protoss_Stargate,complete(UnitTypes::Protoss_Citadel_of_Adun));
+   want(UnitTypes::Protoss_Robotics_Facility,complete(UnitTypes::Protoss_Cybernetics_Core) && island);
+   want(UnitTypes::Protoss_Templar_Archives,complete(UnitTypes::Protoss_Citadel_of_Adun));
+   want(UnitTypes::Protoss_Stargate,complete(UnitTypes::Protoss_Templar_Archives));
    want(UnitTypes::Protoss_Robotics_Facility,complete(UnitTypes::Protoss_Stargate));
    want(UnitTypes::Protoss_Observatory,complete(UnitTypes::Protoss_Robotics_Facility));
   }else{
@@ -92,23 +102,24 @@ class BattleAI {
    want(UnitTypes::Terran_Factory,complete(UnitTypes::Terran_Engineering_Bay));
    want(UnitTypes::Terran_Armory,complete(UnitTypes::Terran_Factory));
    want(UnitTypes::Terran_Starport,complete(UnitTypes::Terran_Armory));
+   want(UnitTypes::Terran_Science_Facility,complete(UnitTypes::Terran_Starport));
   }
   // Medium may buy one reachable expansion. Reject occupied/enemy starts;
   // evaluate only known neutral resource geometry, never hidden enemy units.
   xy build_center=base?base->sprite->position:xy{};bool expansion=false;
   const unsigned bases=counts[unsigned(base_type)]+(z?counts[unsigned(UnitTypes::Zerg_Lair)]+counts[unsigned(UnitTypes::Zerg_Hive)]:0);
-  if(difficulty_==AiDifficulty::medium && base && !need && bases<2 && workers.size()>=12 && army.size()>=8 && st.current_frame>=24*60*8 && st.current_minerals[owner]>=600){
+  if(side.difficulty==AiDifficulty::medium && base && !need && bases<2 && workers.size()>=12 && army.size()>=8 && st.current_frame>=24*60*8 && st.current_minerals[owner]>=600){
    int best=1536*1536;unit_t* patch=nullptr;
    for(auto* m:ptr(st.visible_units))if(f.unit_is_mineral_field(m) && !f.unit_dying(m) && m->building.resource.resource_count>=500 && f.is_reachable(base,m)){
     auto pos=m->sprite->position,d=pos-base->sprite->position;int distance=d.x*d.x+d.y*d.y;if(distance<512*512 || distance>=best)continue;
-    bool safe=true;for(unsigned other=0;other<3;++other)if(other!=owner && active_[other]){auto delta=pos-st.game->start_locations[other];if(delta.x*delta.x+delta.y*delta.y<640*640)safe=false;}
+    bool safe=true;for(unsigned other=0;other<3;++other)if(hostile(owner,other)){auto delta=pos-st.game->start_locations[other];if(delta.x*delta.x+delta.y*delta.y<640*640)safe=false;}
     if(safe){best=distance;patch=m;}
    }
    if(patch){need=true;plan=base_type;build_center=patch->sprite->position;expansion=true;}
   }
   const auto* type=f.get_unit_type(plan);
   if(base && f.u_completed(base) && need && !side.building && !unfinished && live<profile.budget && f.has_available_resources_for(owner,type)){
-   unit_t* worker=nullptr;for(auto* w:workers)if(f.unit_can_build(w,type) && w->order_type->id!=Orders::HarvestGas){worker=w;break;}
+   unit_t* worker=nullptr;for(auto* w:workers)if(!reserved(w) && f.unit_can_build(w,type) && w->order_type->id!=Orders::HarvestGas){worker=w;break;}
    if(worker){if(side.plan!=plan){side.plan=plan;side.search=z?0:24;}
     auto place=[&](xy center){if(center.x<type->placement_size.x/2 || center.y<type->placement_size.y/2)return false;const auto tile=(center-type->placement_size/2)/32,pos=tile*32+type->placement_size/2;
      if(expansion){auto d=pos-build_center;if(d.x*d.x+d.y*d.y>320*320)return false;auto home=pos-base->sprite->position;if(home.x*home.x+home.y*home.y<400*400)return false;}
@@ -123,16 +134,24 @@ class BattleAI {
   }
   // Technology purchases reserve their actual cost before optional army units.
   const bool reserve=need && (st.current_minerals[owner]<type->mineral_cost+50 || st.current_gas[owner]<type->gas_cost);
-  auto train=[&](unit_t* parent,UnitTypes next,bool morph=false){if(!parent || live>=profile.budget)return false;a.action_select(owner,parent);bool ok=morph?a.action_morph(owner,a.get_unit_type(next)):a.action_train(owner,a.get_unit_type(next));if(ok){++side.trained;++pending[unsigned(next)];++live;}return ok;};
+  auto train=[&](unit_t* parent,UnitTypes next,bool morph=false){if(!parent || live>=profile.budget)return false;
+   const bool support=next==worker_type || next==supply_type || next==UnitTypes::Terran_Dropship || next==UnitTypes::Protoss_Shuttle || next==UnitTypes::Protoss_Observer || next==UnitTypes::Terran_Science_Vessel || next==UnitTypes::Protoss_High_Templar || next==UnitTypes::Zerg_Queen || next==UnitTypes::Zerg_Defiler;
+   // Keep room for tech buildings, native tank turrets, transport and casters.
+   // A full low-tier army must not permanently prevent island technology.
+   if(!support && live>=profile.budget-10)return false;a.action_select(owner,parent);bool ok=morph?a.action_morph(owner,a.get_unit_type(next)):a.action_train(owner,a.get_unit_type(next));if(ok){++side.trained;++pending[unsigned(next)];++live;}return ok;};
   if(z){
    for(auto* larva:larvae){
     if(free<=5 && !pending[unsigned(supply_type)] && st.supply_available[owner][r]<fp1::integer(120)){if(train(larva,supply_type,true))continue;}
     if(counts[unsigned(worker_type)]+pending[unsigned(worker_type)]<profile.workers){train(larva,worker_type,true);continue;}
-    if(reserve || army.size()+pending[unsigned(UnitTypes::Zerg_Hydralisk)]+pending[unsigned(UnitTypes::Zerg_Zergling)]*2>=profile.army-(complete(UnitTypes::Zerg_Spire)?0u:6u) || !complete(UnitTypes::Zerg_Spawning_Pool))continue;
+    const bool need_caster=(complete(UnitTypes::Zerg_Queens_Nest) && counts[unsigned(UnitTypes::Zerg_Queen)]+pending[unsigned(UnitTypes::Zerg_Queen)]<1) || (complete(UnitTypes::Zerg_Defiler_Mound) && counts[unsigned(UnitTypes::Zerg_Defiler)]+pending[unsigned(UnitTypes::Zerg_Defiler)]<1);
+    if(reserve || (!need_caster && army.size()+pending[unsigned(UnitTypes::Zerg_Hydralisk)]+pending[unsigned(UnitTypes::Zerg_Zergling)]*2>=profile.army-(complete(UnitTypes::Zerg_Spire)?2u:6u)) || !complete(UnitTypes::Zerg_Spawning_Pool))continue;
     UnitTypes next=UnitTypes::Zerg_Zergling;
     if(complete(UnitTypes::Zerg_Hydralisk_Den) && st.current_gas[owner]>=25)next=UnitTypes::Zerg_Hydralisk;
     if(complete(UnitTypes::Zerg_Spire) && st.current_gas[owner]>=100 && counts[unsigned(UnitTypes::Zerg_Mutalisk)]<6)next=UnitTypes::Zerg_Mutalisk;
     if(complete(UnitTypes::Zerg_Ultralisk_Cavern) && st.current_gas[owner]>=200 && counts[unsigned(UnitTypes::Zerg_Ultralisk)]<2)next=UnitTypes::Zerg_Ultralisk;
+    if(anti_air && complete(UnitTypes::Zerg_Hydralisk_Den))next=UnitTypes::Zerg_Hydralisk;
+    if(complete(UnitTypes::Zerg_Queens_Nest) && counts[unsigned(UnitTypes::Zerg_Queen)]+pending[unsigned(UnitTypes::Zerg_Queen)]<1)next=UnitTypes::Zerg_Queen;
+    if(complete(UnitTypes::Zerg_Defiler_Mound) && counts[unsigned(UnitTypes::Zerg_Defiler)]+pending[unsigned(UnitTypes::Zerg_Defiler)]<1)next=UnitTypes::Zerg_Defiler;
     train(larva,next,true);
    }
    if(!reserve && army.size()>=4 && base && f.u_completed(base)){
@@ -143,12 +162,15 @@ class BattleAI {
   }else{
    if(base && f.u_completed(base) && base->build_queue.empty() && counts[unsigned(worker_type)]+pending[unsigned(worker_type)]<profile.workers)train(base,worker_type);
    unsigned queued=0;for(auto* b:production)queued+=b->build_queue.size();
-   for(auto* b:production)if(b->build_queue.empty() && !reserve && army.size()+queued<profile.army){
+   for(auto* b:production)if(b->build_queue.empty() && !reserve && (army.size()+queued<profile.army || f.unit_is(b,UnitTypes::Terran_Starport) || f.unit_is(b,UnitTypes::Protoss_Robotics_Facility) || (f.unit_is(b,UnitTypes::Protoss_Gateway) && complete(UnitTypes::Protoss_Templar_Archives) && counts[unsigned(UnitTypes::Protoss_High_Templar)]+pending[unsigned(UnitTypes::Protoss_High_Templar)]<2))){
     UnitTypes next=p?UnitTypes::Protoss_Zealot:UnitTypes::Terran_Marine;bool produces=true;
-    if(p){if(f.unit_is(b,UnitTypes::Protoss_Gateway)){if(counts[65]+counts[66]+pending[65]+pending[66]>=16)continue;if(complete(UnitTypes::Protoss_Cybernetics_Core) && st.current_gas[owner]>=50 && counts[unsigned(UnitTypes::Protoss_Dragoon)]<(army.size()+queued)/2+1)next=UnitTypes::Protoss_Dragoon;}
+    if(p){if(f.unit_is(b,UnitTypes::Protoss_Gateway)){if(counts[65]+counts[66]+pending[65]+pending[66]>=16 && (!complete(UnitTypes::Protoss_Templar_Archives) || counts[unsigned(UnitTypes::Protoss_High_Templar)]+pending[unsigned(UnitTypes::Protoss_High_Templar)]>=2))continue;if(complete(UnitTypes::Protoss_Cybernetics_Core) && st.current_gas[owner]>=50 && counts[unsigned(UnitTypes::Protoss_Dragoon)]<(army.size()+queued)/2+1)next=UnitTypes::Protoss_Dragoon;}
      else if(f.unit_is(b,UnitTypes::Protoss_Stargate)){if(counts[70]+pending[70]>=6)continue;next=UnitTypes::Protoss_Scout;}
      else if(f.unit_is(b,UnitTypes::Protoss_Robotics_Facility) && complete(UnitTypes::Protoss_Observatory) && !has(UnitTypes::Protoss_Observer))next=UnitTypes::Protoss_Observer;
+     else if(f.unit_is(b,UnitTypes::Protoss_Robotics_Facility) && (island || side.difficulty==AiDifficulty::medium) && !has(UnitTypes::Protoss_Shuttle) && !pending[unsigned(UnitTypes::Protoss_Shuttle)])next=UnitTypes::Protoss_Shuttle;
      else produces=false;
+     if(f.unit_is(b,UnitTypes::Protoss_Gateway) && complete(UnitTypes::Protoss_Templar_Archives) && counts[unsigned(UnitTypes::Protoss_High_Templar)]+pending[unsigned(UnitTypes::Protoss_High_Templar)]<2)next=UnitTypes::Protoss_High_Templar;
+     else if(f.unit_is(b,UnitTypes::Protoss_Gateway) && anti_air && complete(UnitTypes::Protoss_Cybernetics_Core))next=UnitTypes::Protoss_Dragoon;
     }else{
      if(f.unit_is(b,UnitTypes::Terran_Barracks)){if(counts[0]+counts[32]+counts[34]+pending[0]+pending[32]+pending[34]>=12)continue;if(complete(UnitTypes::Terran_Academy) && st.current_gas[owner]>=25){if(counts[unsigned(UnitTypes::Terran_Medic)]<2)next=UnitTypes::Terran_Medic;else if(counts[unsigned(UnitTypes::Terran_Firebat)]<2)next=UnitTypes::Terran_Firebat;}}
      else if(f.unit_is(b,UnitTypes::Terran_Factory)){
@@ -156,7 +178,14 @@ class BattleAI {
       if(!b->building.addon){a.action_select(owner,b);const auto* addon=a.get_unit_type(UnitTypes::Terran_Machine_Shop);const auto pos=b->sprite->position-b->unit_type->placement_size/2+addon->addon_position+addon->placement_size/2;
        if(f.unit_can_build(b,addon) && f.has_available_resources_for(owner,addon) && f.can_place_building(b,owner,addon,pos,true,true))f.place_building(b,a.get_order_type(Orders::PlaceAddon),addon,b->sprite->position);produces=false;}
       else next=st.current_gas[owner]>=100 && counts[unsigned(UnitTypes::Terran_Siege_Tank_Tank_Mode)]<3?UnitTypes::Terran_Siege_Tank_Tank_Mode:complete(UnitTypes::Terran_Armory)?UnitTypes::Terran_Goliath:UnitTypes::Terran_Vulture;
-     }else if(f.unit_is(b,UnitTypes::Terran_Starport)){if(counts[8]+pending[8]>=4)continue;next=UnitTypes::Terran_Wraith;}else produces=false;
+     }else if(f.unit_is(b,UnitTypes::Terran_Starport)){
+      if(!b->building.addon){a.action_select(owner,b);const auto* addon=a.get_unit_type(UnitTypes::Terran_Control_Tower);const auto pos=b->sprite->position-b->unit_type->placement_size/2+addon->addon_position+addon->placement_size/2;
+       if(f.unit_can_build(b,addon) && f.has_available_resources_for(owner,addon) && f.can_place_building(b,owner,addon,pos,true,true))f.place_building(b,a.get_order_type(Orders::PlaceAddon),addon,b->sprite->position);produces=false;}
+      else if(complete(UnitTypes::Terran_Science_Facility) && counts[unsigned(UnitTypes::Terran_Science_Vessel)]+pending[unsigned(UnitTypes::Terran_Science_Vessel)]<1)next=UnitTypes::Terran_Science_Vessel;
+      else if((island || side.difficulty==AiDifficulty::medium) && !has(UnitTypes::Terran_Dropship) && !pending[unsigned(UnitTypes::Terran_Dropship)])next=UnitTypes::Terran_Dropship;
+      else {if(counts[8]+pending[8]>=4 || army.size()+queued>=profile.army)continue;next=UnitTypes::Terran_Wraith;}
+     }else produces=false;
+     if(anti_air && f.unit_is(b,UnitTypes::Terran_Factory) && b->building.addon && complete(UnitTypes::Terran_Armory))next=UnitTypes::Terran_Goliath;
     }
     if(produces && train(b,next))++queued;
    }
@@ -164,18 +193,22 @@ class BattleAI {
   // Research is paid and runs for native durations; one level at a time.
   if(!reserve && army.size()>=4)for(auto* b:production){if(f.unit_is_researching(b) || f.unit_is_upgrading(b) || !b->build_queue.empty())continue;a.action_select(owner,b);
    bool busy=false;
-   catalogue::upgrades([&](const terran::Upgrade& entry){if(!busy && entry.parent==b->unit_type->id && st.upgrade_levels[owner][entry.type]<1)if(a.action_upgrade(owner,a.get_upgrade_type(entry.type))){busy=true;++side.researches;}});
-   if(!busy && f.unit_is(b,UnitTypes::Terran_Machine_Shop) && !st.tech_researched[owner][TechTypes::Tank_Siege_Mode])if(a.action_research(owner,a.get_tech_type(TechTypes::Tank_Siege_Mode)))++side.researches;
+   // Combat tech comes before generic upgrades; no free tech flags.
+   catalogue::techs([&](const auto& entry){
+    const bool useful=entry.type==TechTypes::Cloaking_Field || entry.type==TechTypes::Stim_Packs || entry.type==TechTypes::Tank_Siege_Mode || entry.type==TechTypes::Psionic_Storm || entry.type==TechTypes::EMP_Shockwave || entry.type==TechTypes::Irradiate || entry.type==TechTypes::Spawn_Broodlings || entry.type==TechTypes::Ensnare || entry.type==TechTypes::Plague || entry.type==TechTypes::Consume;
+    if(useful && !busy && zerg::parent(b->unit_type->id,entry.parent) && !st.tech_researched[owner][entry.type] && a.action_research(owner,a.get_tech_type(entry.type))){busy=true;++side.researches;}
+   });
+   if(!busy)catalogue::upgrades([&](const auto& entry){if(!busy && zerg::parent(b->unit_type->id,entry.parent) && st.upgrade_levels[owner][entry.type]<1)if(a.action_upgrade(owner,a.get_upgrade_type(entry.type))){busy=true;++side.researches;}});
   }
   // Keep one native detector with the army; do not order every supply
   // Overlord into combat. Follow uses the ordinary action validation.
-  if(army.size()>=6 && !detectors.empty() && st.current_frame%120==0){auto* lead=army.front();auto* detector=detectors.front();a.action_select(owner,detector);if(detector->order_target.unit!=lead)a.action_default_order(owner,lead->sprite->position,lead,nullptr,false);}
+  if(army.size()>=6 && !detectors.empty() && st.current_frame%120==0){auto* lead=army.front();auto* detector=detectors.front();a.action_select(owner,detector);if(!f.unit_is(detector,UnitTypes::Terran_Science_Vessel) && !reserved(detector) && detector->order_type->tech_type==TechTypes::None && detector->order_target.unit!=lead)a.action_default_order(owner,lead->sprite->position,lead,nullptr,false);}
   // Retain only information actually seen by this side. An empty, visible
   // last-known location clears the record; hidden deaths do not leak to AI.
   auto sees=[&](const unit_t* e){return e && e->sprite && (e->sprite->visibility_flags&(1u<<owner)) && !f.unit_is_undetected(e,owner) && !f.unit_dying(e);};
   for(auto& known:side.known)if(known.valid && f.player_position_is_visible(owner,known.position)){auto* e=f.get_unit(known.id);if(!sees(e) || e->sprite->position!=known.position)known.valid=false;}
   unit_t* threat=nullptr;int nearest=480*480;
-  for(auto* e:ptr(st.visible_units))if(e->owner<3 && e->owner!=owner && active_[e->owner] && sees(e)){
+  for(auto* e:ptr(st.visible_units))if(e->owner<3 && hostile(owner,e->owner) && sees(e)){
    if(f.ut_building(e)){const auto id=f.get_unit_id_32(e);KnownBuilding* slot=nullptr;
     for(auto& known:side.known)if(known.valid && known.id==id){slot=&known;break;}
     if(!slot)for(auto& known:side.known)if(!known.valid){slot=&known;break;}
@@ -183,17 +216,18 @@ class BattleAI {
    }
    if(base){auto d=e->sprite->position-base->sprite->position;int distance=d.x*d.x+d.y*d.y;if(distance<nearest){nearest=distance;threat=e;}}
   }
-  for(unsigned other=0;other<3;++other)if(other!=owner && active_[other] && f.player_position_is_visible(owner,st.game->start_locations[other]))side.visited_starts|=1u<<other;
+  for(unsigned other=0;other<8;++other)if(st.game->start_locations[other]!=xy{} && f.player_position_is_visible(owner,st.game->start_locations[other]))side.visited_starts|=1u<<other;
   if((threat || st.current_frame>=std::max(side.attack_frame,profile.first_attack)) && (threat || army.size()>=6)){
    xy target{};bool found=false;int best=0x7fffffff;
    if(threat){target=threat->sprite->position;found=true;}
    else for(const auto& known:side.known)if(known.valid){auto d=known.position-(base?base->sprite->position:xy{});int distance=d.x*d.x+d.y*d.y;if(distance<best){best=distance;target=known.position;found=true;}}
-   if(!found)for(unsigned n=1;n<3;++n){const unsigned other=(owner+n)%3;if(active_[other] && !(side.visited_starts&(1u<<other))){target=st.game->start_locations[other];found=true;break;}}
+   if(!found)for(unsigned n=1;n<=8;++n){const unsigned other=(owner+n)%8;if(st.game->start_locations[other]!=xy{} && !(side.visited_starts&(1u<<other))){target=st.game->start_locations[other];found=true;break;}}
    // Once known starts are cleared, sweep bounded map sectors instead of
    // reading the positions/counts of unseen enemy expansions.
    if(!found)for(unsigned n=0;n<16;++n){unsigned cell=side.sector++%16;xy pos{int((cell%4*2+1)*st.game->map_width/8),int((cell/4*2+1)*st.game->map_height/8)};if((!base || f.is_reachable(base,pos)) && !f.player_position_is_visible(owner,pos)){target=pos;found=true;break;}}
    side.target=target;unsigned sent=0;
    if(found)for(auto* u:army){
+    if(reserved(u) || u->order_type->tech_type!=TechTypes::None || f.unit_is(u,UnitTypes::Protoss_High_Templar) || f.unit_is(u,UnitTypes::Zerg_Defiler) || f.unit_is(u,UnitTypes::Zerg_Queen) || (!f.u_flying(u) && !f.is_reachable(u,target)))continue;
     if(!threat && sent>=profile.wave_size)break;
     const bool tank=f.unit_is(u,UnitTypes::Terran_Siege_Tank_Tank_Mode),sieged=f.unit_is(u,UnitTypes::Terran_Siege_Tank_Siege_Mode);
     if(st.tech_researched[owner][TechTypes::Tank_Siege_Mode] && (tank || sieged)){auto d=target-u->sprite->position;int distance=d.x*d.x+d.y*d.y;a.action_select(owner,u);if(tank && distance<350*350 && distance>80*80){a.action_siege(owner,false);continue;}if(sieged && distance>400*400){a.action_unsiege(owner,false);continue;}}
@@ -204,10 +238,12 @@ class BattleAI {
  }
 public:
  static constexpr unsigned unit_budget=ai_unit_budget;
- void reset(bool red,bool blue,bool gas=false,bool=false,bool=false){custom_=false;difficulty_=AiDifficulty::medium;active_={{true,true,false}};gas_=gas;sides_={};sides_[0].enabled=red;sides_[1].enabled=blue;winner_=-1;}
- void configure(const MatchSetup& setup){custom_=true;difficulty_=setup.difficulty;gas_=true;sides_={};winner_=-1;for(unsigned p=0;p<3;++p){active_[p]=setup.races[p]>=0;sides_[p].enabled=p!=0 && active_[p];}}
+ void reset(bool red,bool blue,bool gas=false,bool=false,bool=false){custom_=false;observing_=false;teams_={{0,1,2}};active_={{true,true,false}};gas_=gas;sides_={};sides_[0].enabled=red;sides_[1].enabled=blue;winner_=-1;}
+ void configure(const MatchSetup& setup){custom_=true;observing_=setup.observer;teams_=setup.teams;gas_=true;sides_={};winner_=-1;for(unsigned p=0;p<3;++p){active_[p]=setup.races[p]>=0;sides_[p].enabled=(setup.observer || p!=0) && active_[p];sides_[p].difficulty=setup.side_difficulty[p]<0?setup.difficulty:setup.side_difficulty[p]==0?AiDifficulty::easy:AiDifficulty::medium;}}
  bool enabled(unsigned p)const{return p<3 && sides_[p].enabled;}
- bool observer()const{return enabled(0) && enabled(1);}
+ bool observer()const{return observing_ || (enabled(0) && enabled(1));}
+ AiDifficulty difficulty(unsigned p)const{return sides_[p].difficulty;}
+ const BattleTactics& tactics(unsigned p)const{return sides_[p].tactics;}
  int winner()const{return winner_;}
  bool surrender(){if(enabled(0) || winner_>=0)return false;winner_=active_[1]?1:active_[2]?2:3;return true;}
  unsigned remembered(unsigned p)const{unsigned n=0;for(const auto& b:sides_[p].known)if(b.valid)++n;return n;}
@@ -219,7 +255,8 @@ public:
   for(unsigned p=0;p<3;++p){auto& side=sides_[p];for(auto id:side.previous){auto* u=f.get_unit(id);if(!u || f.unit_dying(u))++side.lost;}side.previous.clear();
    for(auto* u:ptr(player.st().player_units[p]))if(!f.unit_dying(u)){if(side.previous.size()<128)side.previous.push_back(f.get_unit_id_32(u));if(f.ut_building(u))buildings[p]=true;}
   }
-  if(custom_){if(!buildings[0]){winner_=buildings[1]?1:buildings[2]?2:3;return;}if((active_[1] || active_[2]) && !((active_[1] && buildings[1]) || (active_[2] && buildings[2]))){winner_=0;return;}}
+  if(custom_ && observing_){unsigned living=0,representative=3;for(unsigned p=0;p<3;++p)if(active_[p] && buildings[p]){bool seen=false;for(unsigned q=0;q<p;++q)if(active_[q] && buildings[q] && teams_[q]==teams_[p])seen=true;if(!seen)++living;representative=std::min(representative,p);}if(living<=1){winner_=int(representative);return;}}
+  else if(custom_){if(!buildings[0]){winner_=buildings[1]?1:buildings[2]?2:3;return;}if((active_[1] || active_[2]) && !((active_[1] && buildings[1]) || (active_[2] && buildings[2]))){winner_=0;return;}}
   else if(!buildings[0] || !buildings[1]){winner_=buildings[0]?0:buildings[1]?1:2;return;}
   for(unsigned p=0;p<3;++p)if(active_[p] && buildings[p])update(player,p);
  }

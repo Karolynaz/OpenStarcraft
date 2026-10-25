@@ -161,6 +161,7 @@ bool Engine::load(const char* data_root, const char* map_path, Scenario scenario
     const bool custom=setup && setup->enabled;
     impl_->loaded = false;
     impl_->fog=scenario==Scenario::melee || scenario==Scenario::versus_ai || scenario==Scenario::protoss_versus_ai || scenario==Scenario::zerg_versus_ai;
+    if(custom && setup->observer)impl_->fog=false;
     impl_->battle.reset(scenario==Scenario::terran_battle || scenario==Scenario::protoss_battle || scenario==Scenario::zerg_battle,scenario_race(scenario));
     impl_->selected.clear();
     impl_->memory.reset();
@@ -237,6 +238,7 @@ bool Engine::load(const char* data_root, const char* map_path, Scenario scenario
                 loader.setup_info.create_melee_units_for_player[i] = active && melee;
             }
         });
+        if(custom)for(unsigned p=0;p<3;++p)for(unsigned q=0;q<3;++q)if(p!=q)player.st().alliances[p][q]=setup->teams[p]==setup->teams[q]?2:0;
         // The deterministic controller runs after loading; native player slots stay human.
         if (scenario == Scenario::two_units) {
             auto* type = loader.get_unit_type(UnitTypes::Terran_Marine);
@@ -397,6 +399,7 @@ Snapshot Engine::snapshot() const {
     s.score[0]=impl_->battle.score(0);s.score[1]=impl_->battle.score(1);
     for(unsigned p=0;p!=3;++p) {
         auto& v=s.players[p];
+        v.scouts=impl_->ai.tactics(p).scouts();v.casts=impl_->ai.tactics(p).casts();v.drop_units=impl_->ai.tactics(p).drops();v.difficulty=impl_->ai.difficulty(p);
         v.minerals=st.current_minerals[p]; v.gas=st.current_gas[p];
         const auto player_race=static_cast<unsigned>(st.players[p].race);
         v.supply=st.supply_used[p][player_race].integer_part(); v.supply_max=std::min(200,st.supply_available[p][player_race].integer_part());
@@ -550,21 +553,27 @@ bool Engine::recall_group(unsigned slot,int* x,int* y) {
 bool Engine::observer_focus(int& x,int& y) const {
     if(!ready()) return false;
     const auto& st=impl_->player->st(); const auto& f=impl_->player->funcs();
+    unsigned active[3]{},n=0;
+    for(unsigned p=0;p<3;++p)if(!st.player_units[p].empty())active[n++]=p;
+    if(!n)return false;
+    // Visit every live base even during fighting, then spend one slot following
+    // action/airlifts. Three-sided matches never omit the third base.
+    const unsigned slot=(st.current_frame/(24*8))%(n+1);
+    if(slot<n){const unit_t* base=nullptr;int best=0x7fffffff;const auto side=active[slot];
+        for(const auto* u:ptr(st.player_units[side]))if(!f.unit_dead(u) && f.ut_resource_depot(u) && (!impl_->fog || player_sees(f,u))){auto d=u->sprite->position-st.game->start_locations[side];int dist=d.x*d.x+d.y*d.y;if(dist<best){best=dist;base=u;}}
+        if(base){x=base->sprite->position.x;y=base->sprite->position.y;return true;}
+    }
     const unit_t* moving=nullptr;
-    for(unsigned p=0;p!=2;++p) for(const auto* u:ptr(st.player_units[p])) {
+    for(unsigned i=0;i<n;++i){unsigned p=active[(i+st.current_frame/(24*8))%n];for(const auto* u:ptr(st.player_units[p])) {
         if(f.unit_dead(u) || f.ut_building(u) || f.ut_worker(u) || f.ut_turret(u) || f.us_hidden(u) || (impl_->fog && !player_sees(f,u)))continue;
         const auto* target=u->order_target.unit;
-        if(target && target->owner<2 && target->owner!=p && !f.unit_dead(target) && (!impl_->fog || player_sees(f,target))) {
-            x=(u->sprite->position.x+target->sprite->position.x)/2;
-            y=(u->sprite->position.y+target->sprite->position.y)/2; return true;
+        if(target && target->owner<3 && !st.alliances[p][target->owner] && !f.unit_dead(target) && (!impl_->fog || player_sees(f,target))) {
+            x=(u->sprite->position.x+target->sprite->position.x)/2;y=(u->sprite->position.y+target->sprite->position.y)/2;return true;
         }
-        if(u->order_type->id==Orders::AttackMove) moving=u;
-    }
-    if(moving) { x=moving->sprite->position.x; y=moving->sprite->position.y; return true; }
-    const unsigned side=(st.current_frame/360)%2;
-    for(const auto* u:ptr(st.player_units[side])) if(!f.unit_dead(u) && f.ut_building(u) && (!impl_->fog || player_sees(f,u))) {
-        x=u->sprite->position.x; y=u->sprite->position.y; return true;
-    }
+        if(f.u_flying(u) && f.unit_provides_space(u) && !f.loaded_units(u).empty()){x=u->sprite->position.x;y=u->sprite->position.y;return true;}
+        if(u->order_type->id==Orders::AttackMove)moving=u;
+    }}
+    if(moving){x=moving->sprite->position.x;y=moving->sprite->position.y;return true;}
     return false;
 }
 const char* Engine::command_status() const { return impl_->command_message; }

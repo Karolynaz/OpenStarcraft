@@ -612,3 +612,31 @@ save implementation. Private menu-centering-{update-,}2026-10-25.zip under
 local-data/releases; screenshots/ELF/source under local-data/menu-centering-
 2026-10-25. Atlas remains4pages after removing unused entries. Model/profile
 restored. No physical SD write. See reports/MENU_CENTERING_VALIDATION.md.
+
+## 2026-10-25 — tactical AI and title observer scenarios
+
+User requested scouts/adaptation, transport/islands, complex powers and four
+observer fixtures including1Medium vs2alliedEasy, all3races. Implemented bounded
+BattleTactics: reserved scout/transport/cargo roles, sight-limited air counters,
+load/fly/unload/retry/return with caster cargo priority, selected native combat
+spells and paid caster tech/production. Kept42Easy/56Medium budgets, reserve
+headroom to avoid low-tier armies blocking tech. Per-side difficulty, native
+alliances and team victory; observer fogOFF, rotating2/3base + action camera,
+Scout/Cast/Drop HUD counters. Title AI tests has3islandMedium mirrors and
+TerranMedium vs ProtossEasy+ZergEasy. Owned maps/AI/{islands,three-islands}.scm
+plus observer-maps.json required by packages. Observer End Game returns title.
+Read nintendo3ds/reports/AI_TACTICS_VALIDATION.md for scope/results/limitations.
+ASan6economy regressions,3native transports,6native energy/cast tests, hidden
+knowledge,4observer configurations/cameras, team death/victory allPASS. Three
+60k ordinary-resource island economies build support and drop troops. Full
+mixed match ended65736frames, winner2Easyteam, peak189units; casts56/0/16 and
+drops49/12/20. Synthetic tech/energy grants exist only in isolated tests.
+Final src-65651930a6229cc5; binary SHA256
+3ae9399e998ef95624ba44115551d8179bbefeef350b420b6d08be3c1331f171.
+Original-model CPU100 emulator booted all4scenarios; no sprite misses/audio IO/
+music gaps; median59.83FPS/23.93TPS, early-run dips to28.94FPS recorded. Not a
+full-battle physical performance claim. Preferences/profile restored. Private
+ai-tactics-{update-,}2026-10-25.zip in local-data/releases; ELF/source/logs/screens
+under local-data/ai-tactics-2026-10-25. No physical SD write/publication/automation.
+Still limited: straight transport routes, basic air counters, no complete spell
+roster or general strategy coordinator. Protoss may correctly skip unsafe storms.

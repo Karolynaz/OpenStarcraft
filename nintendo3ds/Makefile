@@ -229,3 +229,18 @@ build/audio-stream-test: tests/audio_stream.cpp source/audio.cpp include/audio.h
 .PHONY: prepare-all-audio
 prepare-all-audio:
 	python3 tools/merge_audio.py local-data/3ds/openbw/audio
+
+build/ai-tactics-test: tests/ai_tactics.cpp $(HEADERS) | build
+	$(HOST_CXX) $(COMMON) -O1 -g -fsanitize=address -fno-omit-frame-pointer tests/ai_tactics.cpp -o $@
+.PHONY: test-ai-tactics
+test-ai-tactics: build/ai-tactics-test
+	ASAN_OPTIONS=detect_leaks=0 ./build/ai-tactics-test "$(ASSET_ROOT)" local-data/3ds/openbw/maps/probe.scx local-data/3ds/openbw/maps/AI/islands.scm
+
+build/observer-test: tests/observer.cpp source/engine.cpp $(HEADERS) | build
+	$(HOST_CXX) $(COMMON) -O1 -g -fsanitize=address -fno-omit-frame-pointer tests/observer.cpp source/engine.cpp -o $@
+.PHONY: test-observer
+test-observer: build/observer-test
+	ASAN_OPTIONS=detect_leaks=0 ./build/observer-test "$(ASSET_ROOT)" local-data/3ds/openbw/maps
+
+build/observer-maps: tools/observer_maps.cpp tools/original_archive.h $(HEADERS) | build
+	$(HOST_CXX) $(COMMON) tools/observer_maps.cpp -o $@

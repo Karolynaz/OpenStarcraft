@@ -45,6 +45,7 @@ inline void draw_frontend(Frontend& f,UiArt& art,MenuAnimation& animation,C2D_Te
  const bool campaign=f.screen==Frontend::Screen::campaign;
  if(campaign){
   const float shift=340*f.slide();art.draw("campaign_left",-shift,0);art.draw("campaign_right",160+shift,0);
+  art.draw("title_button",112-shift,8,96.f/136,22.f/24);ui_centered(text,"AI tests",{int(112-shift),8,96,22},.49f,f.hover==6?bright:green);
   const char* races[3]={f.brood?"Terr":"Zerg",f.brood?"Prot":"Terr",f.brood?"Zerg":"Prot"};
   const char* names[3]={f.brood?"Terran":"Zerg",f.brood?"Protoss":"Terran",f.brood?"Zerg":"Protoss"};
   const char* episodes[3]={f.brood?"Episode V":"Episode II",f.brood?"Episode IV":"Episode I",f.brood?"Episode VI":"Episode III"};
@@ -94,7 +95,13 @@ inline void draw_frontend(Frontend& f,UiArt& art,MenuAnimation& animation,C2D_Te
  if(f.dialog!=Frontend::Dialog::none){
   C2D_DrawRectSolid(0,0,0,320,240,C2D_Color32(0,0,0,150));
   C2D_DrawRectSolid(14,30,0,292,188,C2D_Color32(5,9,8,255));ui_border({14,30,292,188},C2D_Color32(105,110,103,255));ui_border({17,33,286,182},C2D_Color32(170,35,23,255));
-  if(f.dialog==Frontend::Dialog::map_list){
+  if(f.dialog==Frontend::Dialog::ai_tests){
+   ui_text(text,"AI observer scenarios",160,43,.55f,white,true);
+   const char* names[]={"Terran island AI vs AI","Protoss island AI vs AI","Zerg island AI vs AI","Medium vs 2 Easy (all races)"};
+   for(unsigned i=0;i<4;++i)ui_centered(text,names[i],{34,70+int(i)*28,252,24},.46f,f.hover==int(100+i)?bright:green);
+   label("Cancel",32,160,194,.44f);
+  }
+  else if(f.dialog==Frontend::Dialog::map_list){
    ui_text(text,"Select map",160,40,.58f,white,true);
    for(unsigned i=0;i<5 && f.scroll+i<f.maps.size();++i){const auto index=f.scroll+i;const auto& name=f.maps[index].name;auto slash=name.find_last_of('/');const auto title=name.substr(slash==std::string::npos?0:slash+1);
     const bool selected=index==f.selected_map;const auto color=f.hover==int(70+i)?bright:selected?white:green;

@@ -27,6 +27,7 @@ struct PlayerView {
     unsigned workers = 0, army = 0, buildings = 0, live = 0;
     unsigned trained = 0, built = 0, waves = 0, lost = 0;
     bool ai = false;
+    unsigned scouts=0,casts=0,drop_units=0;AiDifficulty difficulty=AiDifficulty::medium;
 };
 struct PlacementView { int x = 0, y = 0, width = 0, height = 0; bool valid = false; };
 struct Snapshot {
