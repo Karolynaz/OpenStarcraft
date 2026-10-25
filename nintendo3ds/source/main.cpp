@@ -56,8 +56,8 @@ void load_stage(unsigned scenario,const char* stage,const char* detail="") {
     std::fclose(f);
 }
 const char* scenario_name(unsigned s) {
-    static const char* names[] = {"Empty map", "Two marines", "Manual base", "AI vs AI", "Player vs AI", "Gas AI vs AI", "All Terran battle", "Terran laboratory", "All Protoss battle", "Protoss laboratory", "All Zerg battle", "Zerg laboratory", "Protoss AI vs AI", "Protoss player vs AI", "Zerg AI vs AI", "Zerg player vs AI"};
-    return names[s % 16];
+    static const char* names[] = {"Empty map", "Two marines", "Manual base", "AI vs AI", "Player vs AI", "Gas AI vs AI", "All Terran battle", "Terran laboratory", "All Protoss battle", "Protoss laboratory", "All Zerg battle", "Zerg laboratory", "Protoss AI vs AI", "Protoss player vs AI", "Zerg AI vs AI", "Zerg player vs AI", "Terran 1: Wasteland"};
+    return s<17?names[s]:"Unknown scenario";
 }
 }
 
@@ -126,6 +126,7 @@ int main() {
         port3ds::MenuOption option_rows[8]{};unsigned option_count=0;
         Menu menu=Menu::none; unsigned choice=0;
         bool result_shown=false;
+        unsigned mission_camera_serial=0;
         bool initial_load=true, auto_camera=true, attacking=false, warming=false;
         u64 camera_manual_until=0;
         bool paused = true;
@@ -180,6 +181,7 @@ int main() {
                 const unsigned next_race=port3ds::scenario_race(mode);
                 loaded_scenario = scenario;
                 if(scenario==unsigned(launch_scenario)){char setup_info[80];std::snprintf(setup_info,sizeof setup_info,"human=%d ai1=%d ai2=%d",match_setup.races[0],match_setup.races[1],match_setup.races[2]);load_stage(scenario,"match-setup",setup_info);}
+                const bool campaign_mode=scenario==unsigned(port3ds::Scenario::terran_campaign);
                 const bool custom_match=scenario==unsigned(launch_scenario) && match_setup.enabled;
                 const bool restoring=pending_restore;port3ds::SaveView restored_view;
                 auto progress=[&](unsigned done,unsigned total){
@@ -190,7 +192,7 @@ int main() {
                     C2D_DrawRectSolid(30,115,0,260,12,C2D_Color32(30,50,60,255));C2D_DrawRectSolid(30,115,0,total?260.f*done/total:260,12,C2D_Color32(70,210,100,255));port3ds::ui_text(text_buf,"B cancel",160,150,.5f,C2D_Color32(220,235,240,255),true);C3D_FrameEnd(0);return true;
                 };
                 mkdir("sdmc:/3ds/openbw/saves",0777);
-                const bool loaded_ok=restoring?engine.load_save(root,restore_path.c_str(),session_path,restore_map,restored_view,progress):engine.load(root, custom_match?launch_map.c_str():arena_mode?arena:map, static_cast<port3ds::Scenario>(scenario),scenario==unsigned(launch_scenario)?&match_setup:nullptr);
+                const bool loaded_ok=restoring?engine.load_save(root,restore_path.c_str(),session_path,restore_map,restored_view,progress):engine.load(root, (custom_match || campaign_mode)?launch_map.c_str():arena_mode?arena:map, static_cast<port3ds::Scenario>(scenario),scenario==unsigned(launch_scenario)?&match_setup:nullptr);
                 paused=!loaded_ok;
                 pending_restore=false;
                 if(!restoring && engine.ready())engine.start_recording(session_path);
@@ -202,11 +204,11 @@ int main() {
                 // fills smaller holes left by the native core initialization.
                 if(custom_match && !engine.ready()){std::snprintf(front.error,sizeof front.error,"%s",engine.error());front.dialog=port3ds::Frontend::Dialog::error;return_custom=true;break;}
                 bool terrain_ok=true;
-                if(custom_match || restoring){load_stage(scenario,"terrain-cache-start",launch_map.c_str());terrain_ok=engine.write_terrain(root,"sdmc:/3ds/openbw/map-terrain.bin");if(terrain_ok)graphics.load("sdmc:/3ds/openbw/map-terrain.bin",engine.terrain_signature());}
+                if(custom_match || campaign_mode || restoring){load_stage(scenario,"terrain-cache-start",launch_map.c_str());terrain_ok=engine.write_terrain(root,"sdmc:/3ds/openbw/map-terrain.bin");if(terrain_ok)graphics.load("sdmc:/3ds/openbw/map-terrain.bin",engine.terrain_signature());}
                 else if (engine.ready()) graphics.load(arena_mode?"sdmc:/3ds/openbw/graphics-arena.bin":"sdmc:/3ds/openbw/graphics.bin", engine.terrain_signature());
                 else graphics.clear();
                 load_stage(scenario,graphics.ready()?"graphics-ready":"graphics-off",graphics.ready()?"":graphics.error());
-                if(custom_match && (!terrain_ok || !graphics.ready())){std::snprintf(front.error,sizeof front.error,"%s",terrain_ok?graphics.error():engine.error());front.dialog=port3ds::Frontend::Dialog::error;return_custom=true;break;}
+                if((custom_match || campaign_mode) && (!terrain_ok || !graphics.ready())){std::snprintf(front.error,sizeof front.error,"%s",terrain_ok?graphics.error():engine.error());front.dialog=port3ds::Frontend::Dialog::error;return_custom=true;break;}
                 if(engine.ready())sound.load(next_race==0?"sdmc:/3ds/openbw/audio/zerg":next_race==2?"sdmc:/3ds/openbw/audio/protoss":"sdmc:/3ds/openbw/audio",R_SUCCEEDED(audio),next_race==0?"zerg":next_race==2?"protoss":"terran","sdmc:/3ds/openbw/audio/effects-all.bin");
                 load_stage(scenario,sound.stats().ready?"audio-ready":"audio-off",sound.error());
                 // Atlas descriptors keep their addresses across reloads, while
@@ -215,6 +217,7 @@ int main() {
                 scheduler.reset();warming=true;
                 controls = port3ds::Controls{};
                 const auto state = engine.snapshot();
+                mission_camera_serial=0;
                 if (engine.ready()) {
                     controls.map_size(state.width, state.height);
                     const auto count = engine.visible_units(units, unit_view_capacity);
@@ -227,7 +230,7 @@ int main() {
                 renders = ticks = 0; tick_sum = tick_max = 0;
                 fps = tps = mean = worst = 0;
                 auto_camera=engine.snapshot().observer;
-                if(restoring){controls.camera_x=restored_view.camera_x;controls.camera_y=restored_view.camera_y;controls.cursor_x=restored_view.cursor_x;controls.cursor_y=restored_view.cursor_y;auto_camera=restored_view.auto_camera;}
+                if(restoring){controls.camera_x=restored_view.camera_x;controls.camera_y=restored_view.camera_y;controls.cursor_x=restored_view.cursor_x;controls.cursor_y=restored_view.cursor_y;auto_camera=restored_view.auto_camera;mission_camera_serial=state.mission_camera_serial;}
                 camera_manual_until=0;
                 if(!log) toggle_log();
                 action = engine.ready() ? (auto_camera ? "AI vs AI: automatic camera / START menu" : "Circle Pad cursor / A action / B cancel") : engine.error();
@@ -390,7 +393,9 @@ int main() {
             if(!paused && state.observer && auto_camera && now>=camera_manual_until) {
                 int x=0,y=0; if(engine.observer_focus(x,y)) controls.follow(x,y,ui_seconds);
             }
+            if(state.campaign && state.mission_camera_serial!=mission_camera_serial){controls.focus(state.mission_camera_x,state.mission_camera_y);mission_camera_serial=state.mission_camera_serial;}
             if(state.winner>=0 && !result_shown) {
+                if(state.campaign && state.winner==0){FILE* progress=std::fopen("sdmc:/3ds/openbw/campaign/progress.tmp","w");if(progress){const bool ok=std::fprintf(progress,"OPENBW_CAMPAIGN1\nterran=1\n")>0;const bool closed=std::fclose(progress)==0;if(ok && closed && !std::rename("sdmc:/3ds/openbw/campaign/progress.tmp","sdmc:/3ds/openbw/campaign/progress.cfg"))front.terran_completed=true;}}
                 result_shown=true;paused=true;scheduler.reset();menu=Menu::result;choice=0;action=state.observer?(state.winner==0?"Red wins":state.winner==1?"Blue wins":state.winner==2?"Green wins":"Battle finished"):(state.winner==0?"Victory!":state.winner==3?"Draw":"Defeat");
             }
             port3ds::SoundEvent sound_events[256];
@@ -441,7 +446,7 @@ int main() {
                 if(menu==Menu::none && attacking)std::snprintf(help,sizeof help,"%.64s\nA confirm target\nB cancel targeting\nCircle Pad: aim",target_help);
                 else if(menu==Menu::none) std::snprintf(help,sizeof help,"A action / B cancel\nX army / L+X workers\nY power1 / L+Y power2/menu\nR+D-pad: save group\nD-pad: recall group\nTwice: center camera\nSELECT pause\nSTART menu");
                 else {
-                    const char* results[]={"Play Custom","Exit"};
+                    const char* results[]={state.campaign?"Campaign menu":"Play Custom","Exit"};
                     const char* system[]={"Save Game","Load Game","End Game","Options","Return to Game (B)"};
                     const char* options[]={"Scenarios",auto_camera?"Auto camera: ON":"Auto camera: OFF",log?"CSV: ON":"CSV: OFF","Reload current",engine.fog_enabled()?"Fog: ON (player)":"Fog: OFF (observer)","Exit application","Back (B)"};
                     const char* ending[]={"End Game","Cancel (B)"};
@@ -533,6 +538,11 @@ int main() {
                 C2D_DrawText(&resource_values[i],C2D_WithColor,resource_x+17,2,0,.56f,.56f,C2D_Color32(40,245,48,255));
                 resource_x+=17+widths[i]+10;
             }
+            if(state.campaign){
+                char objective[96];std::snprintf(objective,sizeof objective,"Barracks %u/1  Marines %u/10  Raynor: %s",engine.count_units(0,111),engine.count_units(0,0),engine.count_units(0,19)?"rescued":"find him");
+                C2D_DrawRectSolid(0,22,0,400,18,C2D_Color32(3,8,15,205));port3ds::ui_text(hud_buf,objective,5,22,.45f,white);
+                if(!state.transmission.empty()){C2D_DrawRectSolid(3,145,0,394,92,C2D_Color32(3,8,15,235));port3ds::ui_limited(hud_buf,state.transmission.c_str(),9,149,.48f,382,6,white);}
+            }
             if(placing || attacking || pending_load || !engine.ready())C2D_DrawText(&message,C2D_WithColor|C2D_WordWrap,8,204,0,.46f,.46f,white,384.f);
             auto cursor=engine.cursor_kind(controls.world_x(),controls.world_y(),attacking);
             if(menu!=Menu::none)cursor=port3ds::CursorKind::arrow;
@@ -563,6 +573,7 @@ int main() {
             }
             const auto selected_info=engine.selection_info();
             if(selected_info.count==1)port3ds::draw_selection_info(selected_info,graphics,engine,hud_buf);
+            if(state.campaign && !selected_info.count)port3ds::ui_limited(hud_buf,state.objectives.c_str(),15,166,.39f,225,5,white);
             if(state.observer && !selected_info.count){
                 for(unsigned p=0;p<3;++p)if(state.players[p].ai){const auto& side=state.players[p];char row[80];std::snprintf(row,sizeof row,"%u %s  Scout %u Cast %u Drop %u",p+1,side.difficulty==port3ds::AiDifficulty::medium?"M":"E",side.scouts,side.casts,side.drop_units);port3ds::ui_text(hud_buf,row,15,169+p*19,.40f,white);}
             }
@@ -629,7 +640,7 @@ int main() {
         if(hud_buf)C2D_TextBufDelete(hud_buf);
     }
     if(!return_custom)break;
-    front.screen=match_setup.observer?port3ds::Frontend::Screen::campaign:port3ds::Frontend::Screen::custom;front.transition=0;front.preview_dirty=true;front.x=240;front.y=218;
+    front.screen=(match_setup.observer || launch_scenario==int(port3ds::Scenario::terran_campaign))?port3ds::Frontend::Screen::campaign:port3ds::Frontend::Screen::custom;front.transition=0;front.preview_dirty=true;front.x=240;front.y=218;
     C2D_Prepare();
     }
     if (R_SUCCEEDED(audio)) ndspExit();

@@ -12,7 +12,7 @@ p.add_argument('output', type=Path)
 a = p.parse_args()
 required = ['openbw-3ds.3dsx', 'StarDat.mpq', 'BrooDat.mpq', 'Patch_rt.mpq',
             'graphics.bin', 'graphics-arena.bin', 'maps/probe.scx', 'maps/arena.chk',
-            'README.txt', 'maps/AI/islands.scm', 'maps/AI/three-islands.scm', 'observer-maps.json', 'ui/menu.bin', 'ui/hud.bin', 'ui/manifest.json', 'ui/animations.bin', 'audio/effects-all.bin', 'audio/effects-all.json']
+            'README.txt', 'campaign/terran01.chk', 'campaign/terran01.brief', 'maps/AI/islands.scm', 'maps/AI/three-islands.scm', 'observer-maps.json', 'ui/menu.bin', 'ui/hud.bin', 'ui/manifest.json', 'ui/animations.bin', 'audio/effects-all.bin', 'audio/effects-all.json']
 for race in ('terran', 'protoss', 'zerg'):
     folder = 'audio' if race == 'terran' else f'audio/{race}'
     required += [f'{folder}/effects.bin', f'{folder}/manifest.json']

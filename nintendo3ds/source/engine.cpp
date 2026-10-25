@@ -8,6 +8,7 @@
 #include "source_id.h"
 #include <cmath>
 #include "command_icons.h"
+#include "campaign_runtime.h"
 #include <cstdio>
 #include <cstring>
 #include <stdexcept>
@@ -23,6 +24,25 @@ struct Engine::Impl {
     struct SoundFunctions : state_functions {
         std::array<SoundEvent,256> events{};
         unsigned count=0, dropped=0;bool fog=false;
+        detail::CampaignRuntime campaign;
+        bool execute_trigger_action(execute_trigger_struct& ets,int owner,running_trigger& rt,running_trigger::action& ra,const trigger::action& a)override{
+            if(!campaign.active)return state_functions::execute_trigger_action(ets,owner,rt,ra,a);
+            if(owner!=0)return state_functions::execute_trigger_action(ets,owner,rt,ra,a);
+            auto camera=[&](){if(a.location>0 && unsigned(a.location)<=st.locations.size()){const auto& area=st.locations[a.location-1].area;campaign.camera=(area.from+area.to)/2;++campaign.camera_serial;}};
+            switch(a.type){
+            case 5:case 30:campaign.cinematic=true;return true;
+            case 6:case 31:campaign.cinematic=false;return true;
+            case 7:{
+                if(!(ra.flags&1)){campaign.message=a.string_index;campaign.message_until=st.current_frame+std::max(96,a.time_n*24/1000);}
+                auto wait=a;wait.type=4;wait.time_n=std::max(1000,a.time_n);return state_functions::execute_trigger_action(ets,owner,rt,ra,wait);
+            }
+            case 9:campaign.message=a.string_index;campaign.message_until=st.current_frame+240;return true;
+            case 10:camera();return true;
+            case 12:campaign.objective=a.string_index;return true;
+            case 8:case 17:case 32:return true; // voice/leaderboard presentation comes later
+            default:return state_functions::execute_trigger_action(ets,owner,rt,ra,a);
+            }
+        }
         explicit SoundFunctions(state& st) : state_functions(st) {}
         void play_sound(int id, xy pos, const unit_t* source,bool race) override {
             if(id<0)return;
@@ -162,9 +182,10 @@ Engine::Engine() : impl_(new Impl) {}
 Engine::~Engine() = default;
 bool Engine::load(const char* data_root, const char* map_path, Scenario scenario,const MatchSetup* setup) {
     impl_->journal.close();impl_->initial_map=map_path;impl_->initial_scenario=scenario;impl_->initial_setup=setup?*setup:MatchSetup{};
-    const bool custom=setup && setup->enabled;
+    const bool campaign=scenario==Scenario::terran_campaign;
+    const bool custom=!campaign && setup && setup->enabled;
     impl_->loaded = false;
-    impl_->fog=scenario==Scenario::melee || scenario==Scenario::versus_ai || scenario==Scenario::protoss_versus_ai || scenario==Scenario::zerg_versus_ai;
+    impl_->fog=campaign || scenario==Scenario::melee || scenario==Scenario::versus_ai || scenario==Scenario::protoss_versus_ai || scenario==Scenario::zerg_versus_ai;
     if(custom && setup->observer)impl_->fog=false;
     impl_->battle.reset(scenario==Scenario::terran_battle || scenario==Scenario::protoss_battle || scenario==Scenario::zerg_battle,scenario_race(scenario));
     impl_->selected.clear();
@@ -187,6 +208,8 @@ bool Engine::load(const char* data_root, const char* map_path, Scenario scenario
             data_loading::mpq_file<> archive(map);
             archive(chk, "staredit/scenario.chk");
         }
+        std::array<unsigned,12> campaign_races{};campaign_races.fill(1);
+        if(campaign)for(size_t at=0;at+8<=chk.size();){unsigned n=data_loading::value_at<uint32_t,true>(chk.data()+at+4);if(n>chk.size()-at-8)throw std::runtime_error("Campaign chunk bounds");if(!std::memcmp(chk.data()+at,"SIDE",4)){if(n!=12)throw std::runtime_error("Campaign race table");for(unsigned i=0;i<12;++i)campaign_races[i]=chk[at+8+i]<3?chk[at+8+i]:0;}at+=8+n;}
         unsigned width = 0, height = 0;
         validate_map(chk, width, height);
         if(custom){
@@ -229,6 +252,11 @@ bool Engine::load(const char* data_root, const char* map_path, Scenario scenario
         game_load_functions loader(player.st());
         loader.load_map_data(chk.data(), chk.size(), [&]() {
             const bool melee=scenario==Scenario::melee || scenario==Scenario::ai_battle || scenario==Scenario::versus_ai || scenario==Scenario::gas_battle || scenario==Scenario::protoss_ai_battle || scenario==Scenario::protoss_versus_ai || scenario==Scenario::zerg_ai_battle || scenario==Scenario::zerg_versus_ai;
+            if(campaign){
+                loader.setup_info.create_no_units=false;loader.setup_info.victory_condition=0;loader.setup_info.starting_units=0;loader.setup_info.resource_type=0;
+                for(unsigned i=0;i<12;++i){auto& p=player.st().players[i];p.race=static_cast<race_t>(campaign_races[i]);if(p.controller==player_t::controller_open || p.controller==player_t::controller_computer)p.controller=player_t::controller_occupied;}
+                return;
+            }
             loader.setup_info.create_no_units = !melee;
             loader.setup_info.victory_condition = 0;
             loader.setup_info.starting_units = custom?1:0;
@@ -243,6 +271,10 @@ bool Engine::load(const char* data_root, const char* map_path, Scenario scenario
             }
         });
         if(custom)for(unsigned p=0;p<3;++p)for(unsigned q=0;q<3;++q)if(p!=q)player.st().alliances[p][q]=setup->teams[p]==setup->teams[q]?2:0;
+        if(campaign)for(const auto& trigger:player.st().game->triggers){
+            for(const auto& c:trigger.conditions)if(c.type && c.type!=2 && c.type!=4 && c.type!=12)throw std::runtime_error("Unsupported campaign trigger condition");
+            for(const auto& a:trigger.actions)if(a.type && a.type!=1 && a.type!=2 && a.type!=4 && a.type!=5 && a.type!=6 && a.type!=7 && a.type!=8 && a.type!=9 && a.type!=10 && a.type!=12 && a.type!=17 && a.type!=26 && a.type!=30 && a.type!=31 && a.type!=32 && a.type!=38)throw std::runtime_error("Unsupported campaign trigger action");
+        }
         // The deterministic controller runs after loading; native player slots stay human.
         if (scenario == Scenario::two_units) {
             auto* type = loader.get_unit_type(UnitTypes::Terran_Marine);
@@ -316,6 +348,8 @@ bool Engine::load(const char* data_root, const char* map_path, Scenario scenario
         catch(const std::exception&){impl_->icons.reset();}
         impl_->sound.reset(new Impl::SoundFunctions(player.st()));
         impl_->sound->fog=impl_->fog;
+        impl_->sound->campaign.active=campaign;
+        if(campaign){impl_->sound->campaign.camera=player.st().game->start_locations[0];impl_->sound->campaign.camera_serial=1;}
         impl_->loaded = true;
         std::snprintf(impl_->message, sizeof impl_->message, "Loaded %ux%u tiles", width, height);
         return true;
@@ -352,10 +386,11 @@ bool Engine::write_terrain(const char* data_root,const char* output){
     }catch(const std::exception& e){if(out)std::fclose(out);std::remove(temporary.c_str());std::snprintf(impl_->message,sizeof impl_->message,"%s",e.what());return false;}
 }
 
-bool Engine::surrender(){savegame::Writer::Guard record(impl_->journal,{frame(),savegame::surrender});return ready() && !impl_->battle.enabled() && impl_->ai.surrender();}
+bool Engine::surrender(){savegame::Writer::Guard record(impl_->journal,{frame(),savegame::surrender});if(ready() && impl_->sound->campaign.active){impl_->sound->st.players[0].victory_state=2;return true;}return ready() && !impl_->battle.enabled() && impl_->ai.surrender();}
 bool Engine::tick() {
     if (!impl_->loaded) return false;
     try {
+        if(impl_->sound->campaign.active)impl_->sound->campaign.rescue(*impl_->sound);
         impl_->sound->next_frame();
         impl_->ai.step(*impl_->player);
         impl_->battle.step(*impl_->player);
@@ -398,7 +433,11 @@ Snapshot Engine::snapshot() const {
             SelectionKind::command_center : funcs.unit_is(u,UnitTypes::Terran_Barracks) ? SelectionKind::barracks : SelectionKind::other;
     }
     for(auto id:impl_->selected) if(auto* u=funcs.get_unit(id)) if(!funcs.unit_dead(u) && (!impl_->fog || player_sees(funcs,u))) ++s.selected;
-    s.observer=impl_->ai.observer() || impl_->battle.enabled(); s.winner=impl_->battle.enabled()?impl_->battle.winner():impl_->ai.winner();
+    s.campaign=impl_->sound->campaign.active;
+
+
+    if(s.campaign){const auto& c=impl_->sound->campaign;s.objectives=detail::CampaignRuntime::text(impl_->player->st(),c.objective);s.transmission=frame()<c.message_until?detail::CampaignRuntime::text(impl_->player->st(),c.message):"";s.mission_camera_serial=c.camera_serial;s.mission_camera_x=c.camera.x;s.mission_camera_y=c.camera.y;}
+    s.observer=impl_->ai.observer() || impl_->battle.enabled(); s.winner=impl_->battle.enabled()?impl_->battle.winner():impl_->ai.winner();if(s.campaign){int result=impl_->player->st().players[0].victory_state;s.winner=result>=3?0:result==2?1:-1;}
     s.benchmark=impl_->battle.enabled();s.battle_seconds=impl_->battle.seconds();s.end_reason=impl_->battle.reason();
     s.score[0]=impl_->battle.score(0);s.score[1]=impl_->battle.score(1);
     for(unsigned p=0;p!=3;++p) {

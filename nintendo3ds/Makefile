@@ -250,3 +250,11 @@ build/savegame-test: tests/savegame.cpp source/engine.cpp $(HEADERS) build/sourc
 .PHONY: test-savegame
 test-savegame: build/savegame-test
 	ASAN_OPTIONS=detect_leaks=0 ./build/savegame-test "$(ASSET_ROOT)" local-data/3ds/openbw/maps/AI/three-islands.scm local-data/3ds/openbw/maps/arena.chk
+
+build/campaign-export: tools/campaign_export.cpp tools/original_archive.h include/campaign_map.h $(HEADERS) | build
+	$(HOST_CXX) $(COMMON) tools/campaign_export.cpp -o $@
+build/campaign-test: tests/campaign.cpp source/engine.cpp $(HEADERS) build/source_id.h | build
+	$(HOST_CXX) $(COMMON) -O1 -g -fsanitize=address -fno-omit-frame-pointer tests/campaign.cpp source/engine.cpp -o $@
+.PHONY: test-campaign
+test-campaign: build/campaign-test
+	ASAN_OPTIONS=detect_leaks=0 ./build/campaign-test "$(ASSET_ROOT)" local-data/3ds/openbw/campaign/terran01.chk

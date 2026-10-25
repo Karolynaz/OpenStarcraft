@@ -110,9 +110,14 @@ inline void draw_frontend(Frontend& f,UiArt& art,MenuAnimation& animation,C2D_Te
    }
    label("<",90,50,195,.52f);label("Cancel",32,160,195,.47f);label(">",91,270,195,.52f);
   }
+  else if(f.dialog==Frontend::Dialog::briefing){
+   ui_text(text,f.terran_completed?"Wasteland (completed)":"Terran 1: Wasteland",160,38,.54f,white,true);
+   if(f.briefing_page<f.briefing.size())ui_limited(text,f.briefing[f.briefing_page].c_str(),28,65,.46f,264,9,white);
+   label("Back (B)",111,80,205,.48f);label(f.briefing_page+1<f.briefing.size()?"Next (A)":"Begin (A)",110,240,205,.48f);
+  }
   else if(f.dialog==Frontend::Dialog::version){ui_text(text,"Select Game",160,43,.55f,white,true);art.draw("logo_sc",37,63);label("Original",30,160,108,.42f);art.draw("logo_bw",37,123);label("Expansion",31,160,173,.42f);label("Cancel",32,160,194);}
   else if(f.dialog==Frontend::Dialog::error){ui_text(text,"Cannot start match",160,51,.50f,white,true);C2D_Text t;C2D_TextParse(&t,text,f.error);C2D_DrawText(&t,C2D_WithColor|C2D_WordWrap,29,85,0,.42f,.42f,white,260.f);label("OK",32,160,185,.45f);}
-  else if(f.dialog==Frontend::Dialog::unsupported){ui_text(text,f.saved_notice?"Load Saved":"Campaign",160,58,.55f,white,true);ui_text(text,f.saved_notice?"Saved games are not supported":"Campaigns are not supported",160,103,.44f,white,true);ui_text(text,"in this version.",160,121,.44f,white,true);label("OK",32,160,185,.45f);}
+  else if(f.dialog==Frontend::Dialog::unsupported){ui_text(text,f.saved_notice?"Load Saved":"Campaign",160,58,.55f,white,true);ui_text(text,"Available now: Original Terran 1",160,103,.44f,white,true);ui_text(text,"Choose Original in Options.",160,121,.44f,white,true);label("OK",32,160,185,.45f);}
   else {ui_text(text,"Exit StarCraft?",160,78,.55f,white,true);label("Exit",33,95,176,.45f);label("Cancel",32,225,176,.45f);}
  }
  art.draw("cursor",f.x,f.y);

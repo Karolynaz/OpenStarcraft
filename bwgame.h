@@ -13143,7 +13143,7 @@ struct state_functions {
 					}
 				}
 				if (execute_now) {
-					rt.current_action_index = 0;
+					if (~rt.flags & 1) rt.current_action_index = 0;
 					execute_trigger(ets, i, rt, t);
 					any_triggers_executed = true;
 				}
@@ -17199,7 +17199,7 @@ struct state_functions {
 			u->secondary_order_timer = 0;
 		}
 		if (st.players[u->owner].controller == player_t::controller_rescue_passive) {
-			error("fixme rescue passive");
+			set_unit_order(u, get_order_type(Orders::Neutral));
 		} else {
 			if (st.players[u->owner].controller == player_t::controller_neutral) set_unit_order(u, get_order_type(Orders::Neutral));
 			else if (st.players[u->owner].controller == player_t::controller_computer_game) set_unit_order(u, u->unit_type->computer_ai_idle);
@@ -18803,7 +18803,7 @@ struct state_functions {
 				else if (unit_id == 230) r += count_obj.non_building_counts[p];
 				else if (unit_id == 231) r += count_obj.building_counts[p];
 				else if (unit_id == 232) r += count_obj.factory_counts[p];
-				else r += count_obj.unit_counts[owner].at((UnitTypes)unit_id);
+				else r += count_obj.unit_counts[p].at((UnitTypes)unit_id);
 			}
 		}
 		return r;
@@ -18890,8 +18890,12 @@ struct state_functions {
 			return trigger_count_comparison(c, trigger_command_count(st, owner, c.group, c.unit_id, c.num_n != 1));
 		case 3: // bring
 			return trigger_count_comparison(c, trigger_command_count(trigger_bring_count(st.locations.at(c.location - 1)), owner, c.group, c.unit_id, c.num_n != 1));
+		case 4: { // accumulate resources
+			int total=0;for(int p:trigger_players(owner,c.group)){if(c.extra_n==0 || c.extra_n==2)total+=st.current_minerals[p];if(c.extra_n==1 || c.extra_n==2)total+=st.current_gas[p];}
+			return trigger_count_comparison(c,total);
+		}
 		case 12: // elapsed time
-			return trigger_count_comparison(c, st.current_frame);
+			return trigger_count_comparison(c, st.current_frame / 24);
 		case 14: // opponents
 			return trigger_count_comparison(c, trigger_opponent_count(owner, c.group));
 		case 22: // always
@@ -19038,7 +19042,7 @@ struct state_functions {
 		std::array<int, 12> victory_state{};
 	};
 
-	bool execute_trigger_action(execute_trigger_struct& ets, int owner, running_trigger& rt, running_trigger::action& ra, const trigger::action& a) {
+	virtual bool execute_trigger_action(execute_trigger_struct& ets, int owner, running_trigger& rt, running_trigger::action& ra, const trigger::action& a) {
 		switch (a.type) {
 		case 1: // victory
 			if (st.players[owner].controller == player_t::controller_occupied || st.players[owner].controller == player_t::controller_computer_game) {
@@ -19223,7 +19227,7 @@ struct state_functions {
 				unit_t* u = trigger_find_unit(owner, loc, a.group_n, a.extra_n);
 				if (u) pos = u->sprite->position;
 				auto& target_loc = st.locations.at(a.group2_n - 1);
-				xy diff = pos - (loc.area.from + loc.area.to) / 2;
+				xy diff = pos - (target_loc.area.from + target_loc.area.to) / 2;
 				xy from = target_loc.area.from + diff;
 				xy to = target_loc.area.to + diff;
 				if (from.x < 0) {
@@ -21346,7 +21350,7 @@ struct game_load_functions : state_functions {
 			}
 			if (r.left()) {
 				for (size_t i = 0; i != 8; ++i) {
-					st.players[i].force = r.get<uint8_t>();
+					st.players[i].force = r.get<uint8_t>() + 1;
 				}
 				for (size_t i = 0; i != 4; ++i) {
 					game_st.forces[i].name = get_map_string(r.get<uint16_t>());

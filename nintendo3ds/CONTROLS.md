@@ -136,3 +136,23 @@ the beginning; progress is shown during replay. Limits: 12 game hours,
 1,000,000 recorded input events, and a 2 MiB starting map. Session journals
 stream to SD with bounded buffers. They are not crash-autosaves. Installation
 packages exclude player saves and session journals.
+
+
+## First campaign mission (2026-10-25)
+
+Title -> Options -> Original -> Terran (Episode I) starts Wasteland.
+The lower screen shows the private original text briefing: A/Next advances,
+B/Back returns, and Begin starts the mission. Other campaigns remain unavailable.
+
+Find and rescue Raynor, build a Barracks, and reach 10 Marines while keeping
+Raynor alive. The original map units, fog, resource triggers, unit restrictions,
+victory and defeat conditions are used. Top HUD shows objective counters;
+deselect units to see current objectives below. Conversations show subtitles.
+Original music/effects remain enabled. Campaign speech, animated portraits,
+movies and exact cinematic unit-freeze presentation are not implemented yet.
+
+Save Game / Load Game also work in this mission. Winning records completion
+in campaign/progress.cfg and returns to the campaign menu; later missions
+are not unlocked yet. This build's saves require this exact executable.
+Campaign assets are privately extracted from the purchased StarCraft.mpq:
+campaign/terran01.chk and campaign/terran01.brief. Keep both with the build.

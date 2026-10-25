@@ -665,3 +665,36 @@ Earlier iteration also tested saved521->continued579. Heap max30,699,736bytes
 in final short samples. Preferences/profile restored. No physical SD write.
 Private save-load-{update-,}2026-10-25.zip in local-data/releases; binary/evidence
 under local-data/save-load-2026-10-25. Archives exclude runtime saves.
+
+## 2026-10-25 — first original Terran campaign mission
+
+Wasteland (Original -> Terran Episode I) playable. Owned StarCraft.mpq nested
+scenario extracted with campaign-export into private campaign/terran01.chk;
+human slot1->0 normalization includes restrictions/forces/masks/triggers.
+Private four-page text briefing and native objectives/subtitles/camera/waits;
+original map units/resources/technology restrictions,96px Raynor rescue,
+original victory/defeat. No custom BattleAI. Mission enemies guard natively;
+this map has no build-AI script. Unsupported campaign trigger opcodes reject.
+Core fixes: FORC disk0->native1 IDs; Wait retains action index; elapsedseconds;
+Accumulate; specific-unit count uses requested player; Move Location uses
+destination center; passive rescue initialization no longer aborts.
+Campaign loader restores SIDE after generic open-slot race randomization.
+
+ASan full paid playthrough: escort/rescue, mine, construct Barracks, train to
+10Marines, victory frame7773. Factory forbidden. Fixture Raynor/total-loss
+defeat branches PASS; campaign save/load+120exactframes PASS; owner swap
+involution PASS. Frontend briefing/data/error/back/begin tests, prior savegame,
+custom/mixed AI,4observers and fogmemory regressions PASS. ARMv6K/VFPv2 PASS.
+Original-model CPU100 emulator: correct road/initialunits/supply10/18/resource
+icons, native campaign save/load, cross-architecture replay of the full winning
+host journal, Victory and progress.cfg, final Campaign menu returns to title.
+Source src-88f350761cef9368, 3DSX SHA256
+6333672f2be8bf887855c7c148bb786bc0d46b168bbe38b4caf15008f22797df.
+Preferences/profile restored; no physical SD installation/publication.
+Private releases campaign-1-{update-,}2026-10-25.zip include only initial
+campaign assets, exclude runtime saves/progress. Evidence in local-data/
+campaign-2026-10-25; see reports/CAMPAIGN_1_VALIDATION.md and CONTROLS.md.
+
+Limits: first mission only; speech/portraits/movies and exact cinematic unit
+freeze deferred (subtitles/waits present). Later campaign AI/opcodes/missions
+still needed. Completion recorded, no mission2unlock. Saves build-specific.
