@@ -1,4 +1,5 @@
 #include "audio.h"
+#include "sound_ids.h"
 #include <3ds.h>
 #include <array>
 #include <atomic>
@@ -20,7 +21,7 @@ struct Audio::Impl {
         char* data=nullptr;unsigned offset=0,bytes=0,filled=0;
         std::atomic<unsigned> pending{0};std::atomic<bool> cancelled{false};
     };
-    std::vector<Effect> effects;std::array<short,1200> effect_index;
+    std::vector<Effect> effects;std::array<short,audio_sound_limit> effect_index;
     // Small allocations tolerate fragmentation after native scenario reloads.
     std::array<std::unique_ptr<char[]>,cache_bytes/bank_chunk_bytes> pcm;
     unsigned resident=0,stream_slot=0;long effect_base=0;
@@ -38,7 +39,7 @@ struct Audio::Impl {
     std::atomic<unsigned> underruns{0}, io_errors{0}, buffers{0}, track{0};
     AudioStats counters;
     char message[100]="Audio not loaded";
-    u64 last_played[1200]{};
+    u64 last_played[audio_sound_limit]{};
     unsigned next_track=1,sample_bytes=2;bool long_voice=false;
     bool open_track() {
         if(file) std::fclose(file);
@@ -135,9 +136,9 @@ bool Audio::load(const char* root,bool dsp_ready,const char* music_prefix,const 
         s.effects.reserve(count);s.long_voice=false;
         for(unsigned n=0;n<count;++n) {
             Impl::Effect e{read32(f),read32(f),read32(f),read32(f),read32(f)};
-            if(e.id>=1200 || e.offset>size || !e.samples || e.samples>(size-e.offset)/s.sample_bytes || e.samples>voice_bytes*2/s.sample_bytes) valid=false;
+            if(e.id>=audio_sound_limit || e.offset>size || !e.samples || e.samples>(size-e.offset)/s.sample_bytes || e.samples>voice_bytes*2/s.sample_bytes) valid=false;
             if(e.samples*s.sample_bytes>voice_bytes)s.long_voice=true;
-            if(e.id<1200){if(s.effect_index[e.id]>=0)valid=false;s.effect_index[e.id]=short(n);}
+            if(e.id<audio_sound_limit){if(s.effect_index[e.id]>=0)valid=false;s.effect_index[e.id]=short(n);}
             s.effects.push_back(e);
         }
         s.effect_base=std::ftell(f);
@@ -195,7 +196,7 @@ void Audio::update(const SoundEvent* events,unsigned count,int cx,int cy,bool pa
         const auto& e=events[n];
         const int distance=e.x||e.y?std::max(0,std::max(cx-e.x,e.x-cx-400))+std::max(0,std::max(cy-e.y,e.y-cy-240)):0;
         if(distance>=512) {++s.counters.culled;continue;}
-        const int index=e.id<1200?s.effect_index[e.id]:-1;
+        const int index=e.id<audio_sound_limit?s.effect_index[e.id]:-1;
         if(index<0) {++s.counters.missing;continue;}
         auto it=s.effects.begin()+index;
         if(now-s.last_played[e.id]<80) continue;

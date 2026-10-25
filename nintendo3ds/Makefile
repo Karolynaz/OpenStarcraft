@@ -258,3 +258,6 @@ build/campaign-test: tests/campaign.cpp source/engine.cpp $(HEADERS) build/sourc
 .PHONY: test-campaign
 test-campaign: build/campaign-test
 	ASAN_OPTIONS=detect_leaks=0 ./build/campaign-test "$(ASSET_ROOT)" local-data/3ds/openbw/campaign/terran01.chk
+
+build/campaign-audio-export: tools/campaign_audio_export.cpp tools/original_archive.h include/sound_ids.h $(HEADERS) | build
+	$(HOST_CXX) $(COMMON) tools/campaign_audio_export.cpp -o $@

@@ -148,7 +148,7 @@ Find and rescue Raynor, build a Barracks, and reach 10 Marines while keeping
 Raynor alive. The original map units, fog, resource triggers, unit restrictions,
 victory and defeat conditions are used. Top HUD shows objective counters;
 deselect units to see current objectives below. Conversations show subtitles.
-Original music/effects remain enabled. Campaign speech, animated portraits,
+Original music/effects and in-mission speech are enabled. Briefing narration, animated portraits,
 movies and exact cinematic unit-freeze presentation are not implemented yet.
 
 Save Game / Load Game also work in this mission. Winning records completion
@@ -156,3 +156,11 @@ in campaign/progress.cfg and returns to the campaign menu; later missions
 are not unlocked yet. This build's saves require this exact executable.
 Campaign assets are privately extracted from the purchased StarCraft.mpq:
 campaign/terran01.chk and campaign/terran01.brief. Keep both with the build.
+
+
+Raynor audio fix (2026-10-25): the shared bank now includes both hero Raynor
+response sets and Wasteland's five scripted WAVs (SCV, Raynor, Advisor, beeps).
+Install the matching executable AND audio/effects-all.bin/effects-all.json.
+Existing race music and the fixed 4 MiB SFX cache/eight-voice mixer remain.
+Briefing narration and movies are separate pending work. Saves require the
+matching source build as before; completion progress is a separate file.

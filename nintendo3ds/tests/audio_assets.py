@@ -9,12 +9,12 @@ assert magic in (b'OBWAUD1\0',b'OBWAUD2\0') and width in (1,2) and 0<n<=1200 and
 payload=data[header+20*n:];ids=set();end=0
 for i in range(n):
     ident,offset,samples,priority,flags=struct.unpack_from('<IIIII',data,header+20*i)
-    assert ident not in ids and ident<1200 and offset==end and 0<samples*width<=256*1024
+    assert ident not in ids and ident<(2300 if race=="campaign" else 1200) and offset==end and 0<samples*width<=256*1024
     pcm=payload[offset:offset+samples*width];assert len(pcm)==samples*width and any(pcm)
     ref=subprocess.check_output(['ffmpeg','-v','error','-i',str(src/f'{ident}.wav'),'-f','s8' if width==1 else 's16le','-ac','1','-ar','22050','-'])
     assert ref==pcm;ids.add(ident);end=offset+len(pcm)
 assert end==size
-for i in range(1,4):
+for i in ([] if race=="campaign" else range(1,4)):
     ref=subprocess.check_output(['ffmpeg','-v','error','-i',str(src/f'{race}{i}.wav'),'-f','s16le','-ac','2','-ar','22050','-'])
     music=(out/f'{race}{i}.pcm').read_bytes();assert len(music)%4==0 and any(music) and music==ref
-print(f'Audio assets PASS: {n} complete effects, 3 complete non-silent music tracks, exact PCM equality')
+print(f'Audio assets PASS: {n} complete effects, '+('campaign speech' if race=='campaign' else '3 complete non-silent music tracks')+', exact PCM equality')

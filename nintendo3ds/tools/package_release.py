@@ -3,6 +3,7 @@
 import argparse
 import hashlib
 import json
+import struct
 from pathlib import Path
 import zipfile
 
@@ -46,6 +47,11 @@ for name, expected in observer_manifest['maps'].items():
 audio_manifest=json.loads((a.source/'audio/effects-all.json').read_text())
 if hashlib.sha256((a.source/'audio/effects-all.bin').read_bytes()).hexdigest()!=audio_manifest['sha256']:
     p.error('Changed combined private audio bank')
+bank=(a.source/'audio/effects-all.bin').read_bytes()
+count=struct.unpack_from('<I',bank,8)[0]
+sound_ids={struct.unpack_from('<I',bank,20+i*20)[0] for i in range(count)}
+if not {423,427,1357,1532,1604}.issubset(sound_ids):
+    p.error('Combined bank lacks Raynor responses or Wasteland speech')
 ui_manifest=json.loads((a.source/'ui/manifest.json').read_text())
 for name in ('menu','hud','animations'):
     if hashlib.sha256((a.source/f'ui/{name}.bin').read_bytes()).hexdigest()!=ui_manifest[name]['sha256']:

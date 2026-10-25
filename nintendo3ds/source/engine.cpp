@@ -6,6 +6,7 @@
 #include "creep_graphics.h"
 #include "fog_memory.h"
 #include "source_id.h"
+#include "sound_ids.h"
 #include <cmath>
 #include "command_icons.h"
 #include "campaign_runtime.h"
@@ -33,13 +34,14 @@ struct Engine::Impl {
             case 5:case 30:campaign.cinematic=true;return true;
             case 6:case 31:campaign.cinematic=false;return true;
             case 7:{
-                if(!(ra.flags&1)){campaign.message=a.string_index;campaign.message_until=st.current_frame+std::max(96,a.time_n*24/1000);}
+                if(!(ra.flags&1)){if(a.sound_index>0 && campaign_sound_base+unsigned(a.sound_index)<audio_sound_limit)play_sound(campaign_sound_base+a.sound_index,{},nullptr,false);campaign.message=a.string_index;campaign.message_until=st.current_frame+std::max(96,a.time_n*24/1000);}
                 auto wait=a;wait.type=4;wait.time_n=std::max(1000,a.time_n);return state_functions::execute_trigger_action(ets,owner,rt,ra,wait);
             }
             case 9:campaign.message=a.string_index;campaign.message_until=st.current_frame+240;return true;
             case 10:camera();return true;
             case 12:campaign.objective=a.string_index;return true;
-            case 8:case 17:case 32:return true; // voice/leaderboard presentation comes later
+            case 8:if(a.sound_index>0 && campaign_sound_base+unsigned(a.sound_index)<audio_sound_limit)play_sound(campaign_sound_base+a.sound_index,{},nullptr,false);return true;
+            case 17:case 32:return true; // leaderboard presentation uses the objective HUD
             default:return state_functions::execute_trigger_action(ets,owner,rt,ra,a);
             }
         }

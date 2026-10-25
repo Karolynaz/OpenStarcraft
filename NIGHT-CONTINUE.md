@@ -698,3 +698,23 @@ campaign-2026-10-25; see reports/CAMPAIGN_1_VALIDATION.md and CONTROLS.md.
 Limits: first mission only; speech/portraits/movies and exact cinematic unit
 freeze deferred (subtitles/waits present). Later campaign AI/opcodes/missions
 still needed. Completion recorded, no mission2unlock. Saves build-specific.
+
+## 2026-10-25 — Raynor speech and responses
+
+User completed Wasteland and reported no mission/selection speech. Added
+private campaign-audio-export + prepare_campaign_audio.py; merge_audio keeps
+optional campaign bank.24owned hero Marine/Vulture responses +5TRIG WAVs.
+Transmission7 and PlayWAV8 now emit reserved1200+STR sound IDs; once per
+transmission before Wait. Shared606effects/23,204,191PCMbytes, fixed4MiB cache/
+8voices; IDtable extended2300. Packaging checks key hero/mission IDs.
+ASan full paid mission (frame7649), explicit1357/1532/1604 scripted and423/427
+hero select/ack, savegame regressions allPASS. All606effects byte-exact atDSP
+double (413streamed),29ownedWAV PCM exact, audio pause/memory/cancel testsPASS.
+Original3DS model CPU100 emulator real rescue + Raynor select/move produced
+3->5playbacks, missing/drop/IO/gaps0,59.83FPS/23.93TPS shortsample; heap30,741,760.
+No human listening or physical performance claim. Model/profile restored.
+Final src-29f5fa8e6b3d1c6f, binary SHA256
+55ea5a4b256fb7b10c7d7e60f14eed07df6a7329bfb01de11b278e8fc126dad8.
+Private raynor-audio-{update-,}2026-10-25.zip under local-data/releases; evidence
+under local-data/raynor-audio-2026-10-25. No physicalSD/publication. Briefing
+narration/movies stillpending; active speech not restored midway onLoad.
