@@ -15,7 +15,7 @@ int main(){using namespace port3ds;
  Frontend f;f.init(root.c_str());assert(f.hit(int(f.x),int(f.y))==3);assert(f.brood && f.race==1 && f.maps.size()==8 && f.maps[0].name=="folder/nested.scm");
  f.activate(4);f.activate(30);assert(!f.brood);Frontend saved;saved.init(root.c_str());assert(!saved.brood && !saved.save_failed);
  f.activate(0);assert(f.dialog==Frontend::Dialog::unsupported);f.activate(31);assert(f.dialog==Frontend::Dialog::unsupported);f.back();
- for(unsigned i=0;i<3;++i){const auto r=Frontend::campaign_button(i);assert(r.w>=140 && r.h>=26 && r.y+r.h<=240 && f.hit(r.x+2,r.y+2)==(i==0?4:i==1?3:5));}
+ for(unsigned i=0;i<3;++i){const auto r=Frontend::campaign_button(i);assert(r.w>=130 && r.h>=24 && r.y+r.h<=240 && f.hit(r.x+2,r.y+2)==(i==0?5:i==1?3:4));}
  f.activate(3);assert(f.leaving && f.screen==Frontend::Screen::campaign && f.hit(80,220)==-1);f.advance(.19f);assert(f.screen==Frontend::Screen::campaign && f.slide()>0);f.activate(4);assert(f.dialog==Frontend::Dialog::none);f.advance(.19f);assert(f.screen==Frontend::Screen::custom && f.slide()==1 && f.hit(290,97)==-1);f.stick(0,0,.19f);assert(f.slide()>.12f && f.slide()<.13f);f.stick(0,0,.19f);assert(f.slide()==0 && f.hit(290,97)==45);
  assert(f.hit(20,198)==13 && f.hit(180,198)==10 && f.hit(20,230)==-1);
  assert(f.hit(200,74)==60);f.activate(60);assert(f.dialog==Frontend::Dialog::map_list);f.activate(91);assert(f.scroll==5);f.activate(71);assert(f.selected_map==6 && f.preview_dirty && f.dialog==Frontend::Dialog::none);f.activate(60);f.direction(2);assert(f.hover==72);f.activate(f.hover);assert(f.selected_map==7);f.selected_map=0;

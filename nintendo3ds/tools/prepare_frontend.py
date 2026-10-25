@@ -35,11 +35,9 @@ add('campaign_right',bg.crop((160,0,320,240)))
 custom=bg.copy()
 for name,xy in [('glue_create_pListMap2',(0,0)),('glue_create_pInfo',(200,0)),('glue_create_pSlots',(0,142)),('glue_PalNl_pCancel',(236,178)),('glue_PalNl_pOk',(218,168))]:
  im=pcx(name);over(custom,im.resize((im.width//2,im.height//2),Image.Resampling.LANCZOS),xy)
-add('custom',custom)
 add('custom_top',Image.open(a.custom_top))
 add('custom_bottom',Image.open(a.custom_bottom))
 frame=bg.copy();frame.putalpha(Image.eval(frame.convert('L'),lambda v:255 if v else 0))
-add('frame_bottom',frame)
 add('frame_top',frame.resize((400,240),Image.Resampling.LANCZOS))
 # Keep original asymmetric metal mounts, instead of squeezing the entire
 # screen's outer frame into a short flat rectangle.
@@ -56,7 +54,18 @@ for key,operation in [('custom_cancel',Image.Transpose.ROTATE_180),('custom_ok',
  mount.alpha_composite(native.crop((0,0,168,33)).resize((142,28),Image.Resampling.LANCZOS),(0,0))
  mount.alpha_composite(native.crop((0,33,168,91)).resize((142,16),Image.Resampling.LANCZOS),(0,28))
  add(key,mount)
- if key=='custom_ok':add('menu_button',mount.resize((146,34),Image.Resampling.LANCZOS))
+# Separate native metal connectors attach controls to the shared title frame.
+add('title_panel',frame.resize((304,74),Image.Resampling.LANCZOS))
+native=keyed(pcx('glue_PalNl_pCancel'))
+body=Image.new('RGBA',(168,33))
+# Use the straight red/metal edges for a neutral body; connectors stay separate.
+body.alpha_composite(native.crop((0,58,140,91)),(0,0))
+body.alpha_composite(native.crop((0,58,28,91)).transpose(Image.Transpose.FLIP_LEFT_RIGHT),(140,0))
+add('title_button',body.resize((136,24),Image.Resampling.LANCZOS))
+arm=native.crop((130,0,168,58)).transpose(Image.Transpose.ROTATE_90)
+add('title_leg_left',arm.resize((14,20),Image.Resampling.LANCZOS))
+add('title_leg_right',arm.transpose(Image.Transpose.FLIP_LEFT_RIGHT).resize((14,20),Image.Resampling.LANCZOS))
+add('title_leg_bottom',native.crop((130,0,168,58)).transpose(Image.Transpose.FLIP_TOP_BOTTOM).resize((26,9),Image.Resampling.LANCZOS))
 
 add('title',Image.open(a.title))
 logo=pcx('logo-bw')

@@ -4,6 +4,10 @@
 #include "menu_animation.h"
 namespace port3ds {
 inline void ui_text(C2D_TextBuf buf,const char* text,float x,float y,float size,unsigned color,bool center=false){C2D_Text t;C2D_TextParse(&t,buf,text);C2D_TextOptimize(&t);if(center){float w,h;C2D_TextGetDimensions(&t,size,size,&w,&h);x-=w/2;}C2D_DrawText(&t,C2D_WithColor,x,y,0,size,size,color);}
+inline void ui_centered(C2D_TextBuf buf,const char* value,UiRect r,float size,unsigned color){
+ C2D_Text t;C2D_TextParse(&t,buf,value);C2D_TextOptimize(&t);float w,h;C2D_TextGetDimensions(&t,size,size,&w,&h);
+ C2D_DrawText(&t,C2D_WithColor,r.x+(r.w-w)/2,r.y+(r.h-h)/2,0,size,size,color);
+}
 inline void ui_border(UiRect r,unsigned color){C2D_DrawLine(r.x,r.y,color,r.x+r.w,r.y,color,1,0);C2D_DrawLine(r.x,r.y+r.h,color,r.x+r.w,r.y+r.h,color,1,0);C2D_DrawLine(r.x,r.y,color,r.x,r.y+r.h,color,1,0);C2D_DrawLine(r.x+r.w,r.y,color,r.x+r.w,r.y+r.h,color,1,0);}
 // Fit readable text by ellipsis/line limits, keeping the font size fixed.
 inline float ui_width(C2D_TextBuf buf,const char* value,float size){C2D_TextBufClear(buf);C2D_Text t;C2D_TextParse(&t,buf,value);float w,h;C2D_TextGetDimensions(&t,size,size,&w,&h);return w;}
@@ -53,12 +57,16 @@ inline void draw_frontend(Frontend& f,UiArt& art,MenuAnimation& animation,C2D_Te
    if(hover){std::snprintf(key,sizeof key,"v%u_%sOn",f.brood?1:0,races[i]);if(animation.size(key,w,h))animation.draw(key,4+unsigned(i),frame,cx-w/2.f,feet-h);}
    label(names[i],i,cx,130,.57f);ui_text(text,episodes[i],cx,149,.42f,white,true);
   }
-  const char* button_names[]={"Game","Play Custom","Load Saved"};
-  for(unsigned i=0;i<3;++i){auto r=Frontend::campaign_button(i);r.x+=int(i?shift:-shift);
-   C2D_DrawRectSolid(r.x,r.y,0,r.w,r.h,C2D_Color32(2,5,5,255));art.draw("menu_button",r.x,r.y);
+  // A single frame holds both side controls and the centered lower control.
+  C2D_DrawRectSolid(8-shift,164,0,304,74,C2D_Color32(3,7,12,245));
+  art.draw("title_panel",8-shift,164);
+  const char* button_names[]={"Load","Play Custom","Options"};
+  for(unsigned i=0;i<3;++i){auto r=Frontend::campaign_button(i);r.x+=int(i==1?shift:-shift);
+   C2D_DrawRectSolid(r.x,r.y,0,r.w,r.h,C2D_Color32(2,5,5,255));art.draw("title_button",r.x,r.y);
+   art.draw(i==0?"title_leg_left":i==1?"title_leg_right":"title_leg_bottom",i==0?r.x-12:i==1?r.x+r.w:r.x+(r.w-26)/2,i==2?r.y+r.h:r.y+2);
    const bool hovered=!f.leaving && f.transition==1 && f.dialog==Frontend::Dialog::none && Frontend::campaign_button(i).hit(int(f.x),int(f.y));
    const auto color=hovered?bright:green;
-   ui_text(text,button_names[i],r.x+r.w/2,r.y+3,.55f,color,true);
+   ui_centered(text,button_names[i],r,.55f,color);
   }
  }else{
   art.draw("custom_bottom",0,0);
@@ -70,7 +78,7 @@ inline void draw_frontend(Frontend& f,UiArt& art,MenuAnimation& animation,C2D_Te
   char map_name[38]{};std::snprintf(map_name,sizeof map_name,"%.27s",f.preview.title[0]?f.preview.title:f.selected_map<f.maps.size()?f.maps[f.selected_map].name.c_str():"No maps");
   const char* values[]={types[f.game_type],map_name,Frontend::race_name(f.race),f.ai_name(0),f.ai_name(1),f.difficulty?"Medium":"Easy"};
   for(unsigned i=0;i<Frontend::row_count;++i){const bool enabled=i<3 || i==5 || f.ai_available(i-3);const auto color=enabled?green:dim;
-   ui_text(text,labels[i],25-shift,Frontend::row_y(i),.50f,white);
+   ui_text(text,labels[i],35-shift,Frontend::row_y(i),.50f,white);
    ui_text(text,"<",123-shift,Frontend::row_y(i)-1,.58f,f.hover==int(40+i*2)?bright:color,true);
    ui_limited(text,values[i],141-shift,Frontend::row_y(i),.52f,132,1,color);
    ui_text(text,">",288-shift,Frontend::row_y(i)-1,.58f,f.hover==int(41+i*2)?bright:color,true);
@@ -78,7 +86,7 @@ inline void draw_frontend(Frontend& f,UiArt& art,MenuAnimation& animation,C2D_Te
   for(unsigned i=0;i<2;++i){const float x=(i?178:18)+(i?shift:-shift);
    C2D_DrawRectSolid(x,196,0,124,28,C2D_Color32(4,8,15,230));
    art.draw(i?"custom_ok":"custom_cancel",(i?178:0)+(i?shift:-shift),196);
-   ui_text(text,i?"OK":"Cancel",x+62,201,.59f,f.hover==int(i?10:13)?bright:green,true);
+   ui_centered(text,i?"OK":"Cancel",{int(x),196,124,28},.59f,f.hover==int(i?10:13)?bright:green);
   }
 
  }

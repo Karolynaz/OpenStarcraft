@@ -596,3 +596,19 @@ loaded/resumed/paused/exited, no sprite misses or audio IO errors. 3DSX SHA256
 Private menu-pause-{update-,}2026-10-24.zip in local-data/releases; evidence/
 ELF under local-data/menu-pause-stage-2026-10-24. Emulator model/profile restored;
 no physical SD write, publication or automation. Existing battle dips remain.
+
+## 2026-10-25 — shared title controls and centered captions
+
+User authorized queued UI changes. Load left, Play Custom right, Options below
+center in shared title frame, separate left/right/bottom native metal mounts.
+Options still opens game-version dialog. Custom labels x35; Cancel/OK centered
+in both axes using measured glyph dimensions. Pause menu/submenu captions also
+centered; removed > marker (border/yellow still select). Native source
+src-394b0d7f82ecef48; 3DSX SHA256
+f007365608e39d3d083d05a2d1f12e14c3b975cfcc50c5372a383bb8ec622e75.
+ASan frontend, ARM checks, original-model emulator all3title controls/custom/
+load-gameplay/pause/resume/end-return passed. Physical test still needed; no
+save implementation. Private menu-centering-{update-,}2026-10-25.zip under
+local-data/releases; screenshots/ELF/source under local-data/menu-centering-
+2026-10-25. Atlas remains4pages after removing unused entries. Model/profile
+restored. No physical SD write. See reports/MENU_CENTERING_VALIDATION.md.

@@ -26,7 +26,7 @@ struct Frontend {
  char error[192]{};
  bool leaving=false;Screen destination=Screen::campaign;
  MapPreview preview;bool preview_dirty=true;float transition=1;
- float x=237,y=183;int hover=-1;
+ float x=234,y=185;int hover=-1;
  std::string directory,base,settings;
  struct Map{std::string name;bool folder;};std::vector<Map> maps;
  static const char* race_name(unsigned r){return r==0?"Zerg":r==2?"Protoss":"Terran";}
@@ -36,7 +36,7 @@ struct Frontend {
  const char* ai_name(unsigned i)const{return !ai_available(i) || ai[i]==4?"Off":ai[i]==3?"Random":race_name(ai[i]);}
  std::string map_path()const{return selected_map<maps.size()?directory+"/"+maps[selected_map].name:"";}
  MatchSetup match(unsigned seed)const{MatchSetup m;m.enabled=true;m.game_type=game_type;m.difficulty=difficulty?AiDifficulty::medium:AiDifficulty::easy;m.races[0]=int(race);for(unsigned i=0;i<2;++i){seed=seed*1664525u+1013904223u;m.races[i+1]=!ai_available(i) || ai[i]==4?-1:ai[i]==3?int((seed>>16)%3):int(ai[i]);}return m;}
- static UiRect campaign_button(unsigned i){return i==0?UiRect{10,187,146,26}:UiRect{164,170+int(i-1)*34,146,26};}
+ static UiRect campaign_button(unsigned i){return i==2?UiRect{92,205,136,24}:UiRect{18+int(i)*148,174,136,24};}
  void navigate(Screen to){if(leaving || transition<1 || screen==to)return;destination=to;leaving=true;transition=1;}
  void advance(float dt){
   if(leaving){transition=std::max(0.f,transition-dt/.38f);if(transition<.00001f){screen=destination;leaving=false;transition=0;if(screen==Screen::custom)preview_dirty=true;}}
@@ -78,7 +78,7 @@ struct Frontend {
   if(dialog==Dialog::unsupported || dialog==Dialog::error)return UiRect{112,183,96,22}.hit(px,py)?32:-1;
   if(dialog==Dialog::exit){if(UiRect{45,174,100,23}.hit(px,py))return 33;return UiRect{175,174,100,23}.hit(px,py)?32:-1;}
   if(screen==Screen::campaign){
-   static const int ids[]={4,3,5};for(unsigned i=0;i<3;++i)if(campaign_button(i).hit(px,py))return ids[i];
+   static const int ids[]={5,3,4};for(unsigned i=0;i<3;++i)if(campaign_button(i).hit(px,py))return ids[i];
    for(unsigned i=0;i<3;++i)if(UiRect{8+int(i)*104,20,96,143}.hit(px,py))return int(i);
   }else{
    if(transition<1)return -1;

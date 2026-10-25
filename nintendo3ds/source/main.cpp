@@ -424,7 +424,7 @@ int main() {
                     const char* legacy[]={"Zerg AI vs AI","Zerg player vs AI","Protoss AI vs AI","Protoss player vs AI","Gas AI vs AI","Marines AI vs AI","Two Marines","Manual base"};
                     if(menu==Menu::catalogue){option_count=engine.options(option_page,option_rows,8);choice=std::min(choice,option_count?option_count-1:0u);}
                     unsigned used=0;
-                    for(unsigned i=0;i<menu_count();++i)used+=std::snprintf(help+used,sizeof help-used,"%s %s\n",menu==Menu::catalogue?"":i==choice?">":" ",menu==Menu::result?results[i]:menu==Menu::system?system[i]:menu==Menu::options?options[i]:menu==Menu::notice?notice[i]:menu==Menu::end_confirm?ending[i]:menu==Menu::scenarios?modes[i]:menu==Menu::legacy?legacy[i]:option_rows[i].label);
+                    for(unsigned i=0;i<menu_count();++i)used+=std::snprintf(help+used,sizeof help-used,"%s\n",menu==Menu::result?results[i]:menu==Menu::system?system[i]:menu==Menu::options?options[i]:menu==Menu::notice?notice[i]:menu==Menu::end_confirm?ending[i]:menu==Menu::scenarios?modes[i]:menu==Menu::legacy?legacy[i]:option_rows[i].label);
                 }
 
                 std::snprintf(error, sizeof error, "%s\n%.100s", action, !engine.ready()?engine.error():!sound_stats.ready ? sound.error() : graphics.ready() ? engine.error() : graphics.error());
@@ -578,7 +578,8 @@ int main() {
                 for(unsigned i=0;i<menu_count();++i){const auto r=port3ds::PauseMenu::row(i,menu_count());
                     C2D_DrawRectSolid(r.x,r.y,0,r.w,r.h,C2D_Color32(8,16,35,240));
                     port3ds::ui_border(r,i==choice?C2D_Color32(88,130,255,255):C2D_Color32(30,55,125,255));
-                    C2D_DrawText(&menu_rows[i],C2D_WithColor,r.x+8,r.y+2,0,menu_count()>6?.49f:.55f,menu_count()>6?.49f:.55f,i==choice?C2D_Color32(245,240,110,255):white);
+                    const float size=menu_count()>6?.49f:.55f;float w,h;C2D_TextGetDimensions(&menu_rows[i],size,size,&w,&h);
+                    C2D_DrawText(&menu_rows[i],C2D_WithColor,r.x+(r.w-w)/2,r.y+(r.h-h)/2,0,size,size,i==choice?C2D_Color32(245,240,110,255):white);
                 }
                 graphics.cursor(engine.cursor_image(port3ds::CursorKind::arrow,now-cursor_since),menu_x,menu_y,engine);
             }
