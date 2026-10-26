@@ -18990,17 +18990,11 @@ struct state_functions {
 	}
 
 	bool unit_is_at_elevation_flags(const unit_t* u, int elevation_flags) const {
-		int ground_height = get_ground_height_at(u->sprite->position);
-		if (u_flying(u)) {
-			if (ground_height == 0) return (elevation_flags & 1) == 0;
-			if (ground_height == 1) return (elevation_flags & 2) == 0;
-			if (ground_height == 2) return (elevation_flags & 4) == 0;
-		} else {
-			if (ground_height == 0) return (elevation_flags & 8) == 0;
-			if (ground_height == 1) return (elevation_flags & 0x10) == 0;
-			if (ground_height == 2) return (elevation_flags & 0x20) == 0;
-		}
-		return true;
+		// MRGN bits0..2 exclude ground elevations; bits3..5 exclude air.
+		const int height = get_ground_height_at(u->sprite->position);
+		if (height < 0 || height > 2) return true;
+		const int bit = height + (u_flying(u) ? 3 : 0);
+		return (elevation_flags & (1 << bit)) == 0;
 	}
 
 	bool trigger_unit_pred(int owner, const unit_t* u, int player, int uid) const {
@@ -21591,6 +21585,8 @@ struct game_load_functions : state_functions {
 		};
 
 		tag_funcs["UNIT"] = [&](data_reader_le r) {
+			struct initial_link { uint32_t serial, related; unit_t* unit; };
+			a_vector<initial_link> initial_links;
 			while (r.left()) {
 
 				int id = r.get<uint32_t>();
@@ -21615,7 +21611,7 @@ struct game_load_functions : state_functions {
 					owner = 8;
 				}
 
-				(void)id; (void)link; (void)valid_flags; (void)units_in_hangar; (void)flags; (void)related_unit_id;
+				(void)link; (void)units_in_hangar;
 
 				if ((size_t)unit_type_id >= 228) error("UNIT: invalid unit type %d", (int)unit_type_id);
 				if ((size_t)owner >= 12) error("UNIT: invalid owner %d", owner);
@@ -21660,6 +21656,7 @@ struct game_load_functions : state_functions {
 				unit_t* u = create_initial_unit(unit_type, {x, y}, owner);
 
 				if (!u) continue;
+				initial_links.push_back({uint32_t(id), uint32_t(related_unit_id), u});
 
 				if (valid_properties & 0x2) {
 					using tmp_t = fixed_point<32, 8, true>;
@@ -21688,6 +21685,24 @@ struct game_load_functions : state_functions {
 					set_remove_timer(u);
 				}
 
+			}
+
+			// UNIT links use serials within this section, not record order or the
+			// relations word (original campaigns use differing relation bits).
+			// Resolve only after every initial unit exists, including owned addons
+			// and the preplaced Nydus pairs needed to finish BW Zerg1.
+			for (const auto& link : initial_links) {
+				auto* parent = link.unit;
+				if (!link.related || !u_grounded_building(parent) || ut_addon(parent)) continue;
+				for (const auto& other : initial_links) {
+					if (other.serial != link.related || parent->owner != other.unit->owner) continue;
+					if (ut_addon(other.unit) && unit_can_attach_addon(parent, other.unit)) connect_addon(parent, other.unit);
+					else if (unit_is_nydus(parent) && unit_is_nydus(other.unit)) {
+						parent->building.nydus.exit = other.unit;
+						other.unit->building.nydus.exit = parent;
+					}
+					break;
+				}
 			}
 
 			for (unit_t* u : ptr(st.visible_units)) {

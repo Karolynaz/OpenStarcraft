@@ -18,6 +18,7 @@ int main(int argc,char**argv){assert(argc==3);auto assets=data_loading::data_fil
  a={};a.type=26;a.group_n=0;a.extra_n=2;a.num_n=7;a.group2_n=100;f.run(a);a.num_n=9;a.group2_n=40;f.run(a);assert(st.current_minerals[0]==60 && st.current_gas[0]==60);assert(st.total_minerals_gathered[0]==100);
  auto& prop=f.campaign.properties[0];prop[0]=16;prop[2]=2|4|8;prop[5]=25;prop[6]=50;prop[7]=25;prop[14]=16;
  a={};a.type=11;a.location=1;a.group_n=0;a.group2_n=1;a.extra_n=64;a.num_n=1;a.flags=8;f.run(a);unit_t* probe=nullptr;for(auto* u:ptr(st.player_units[0]))if(f.unit_is(u,UnitTypes::Protoss_Probe))probe=u;assert(probe && f.u_invincible(probe) && probe->hp.integer_part()==5 && probe->shield_points.integer_part()==10);
+ assert(f.unit_is_at_elevation_flags(probe,56) && !f.unit_is_at_elevation_flags(probe,7));auto* air=f.trigger_create_unit(f.get_unit_type(UnitTypes::Terran_Wraith),xy(700,700),0);assert(air && f.unit_is_at_elevation_flags(air,7) && !f.unit_is_at_elevation_flags(air,56));
  a={};a.type=43;a.location=1;a.group_n=0;a.extra_n=64;a.num_n=5;f.run(a);assert(!f.u_invincible(probe));
  a={};a.type=49;a.location=1;a.group_n=0;a.extra_n=64;a.group2_n=50;f.run(a);assert(probe->hp.integer_part()==10);
  a={};a.type=48;a.location=1;a.group_n=0;a.group2_n=1;a.extra_n=64;f.run(a);assert(probe->owner==1);
@@ -27,7 +28,7 @@ int main(int argc,char**argv){assert(argc==3);auto assets=data_loading::data_fil
  a={};a.type=57;a.group_n=1;a.extra_n=1;f.run(a);assert(st.alliances[0][1]==2);a.extra_n=0;f.run(a);assert(st.alliances[0][1]==0);
  // Original Zer1 must produce an actual paid wave from a sparse town,
  // rather than merely dispatching units that were placed in the map.
- st.game->triggers.clear();for(auto& list:st.running_triggers)list.clear();
+ st.game->triggers.clear();for(auto& list:st.running_triggers)list.clear();f.hide_unit(air);f.kill_unit(air);
  st.players[1].race=race_t::terran;st.current_minerals[1]=4000;st.current_gas[1]=1000;
  unit_t* cc=nullptr;for(int y=512;y<int(st.game->map_height)-320 && !cc;y+=96)for(int x=512;x<int(st.game->map_width)-320 && !cc;x+=96)cc=loader.create_initial_unit(f.get_unit_type(UnitTypes::Terran_Command_Center),xy(x,y),1);assert(cc);auto town=cc->sprite->position;
  for(unsigned i=0;i<4;++i)assert(f.trigger_create_unit(f.get_unit_type(UnitTypes::Terran_SCV),town+xy(-64+i*32,144),1));

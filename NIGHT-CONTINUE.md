@@ -884,3 +884,36 @@ Emulator57f63 SCProtoss startup completed, screenshot/log in validationfolder.
 Emulator STOPPED and original config/profile restored. No emu still running.
 Existing candidate ZIPs contain PRE-initial-flags57f63 build; must regenerate
 before delivering final test package. Report remains historical until updated.
+
+### CURRENT checkpoint — all six original victories verified, 04:25 continuation
+
+Source src-1882ab71e63794f3, native ARMv6K/VFPv2 PASS. Current core adds
+MRGN ground/air mask correction (bits0..2 ground,3..5 air; original was swapped),
+and UNIT serial links for initial addons and Nydus pairs. These were actual
+campaign blockers: BW Terran initial Factory could not train tanks; BW Zerg
+last hive is across an impassable cliff and requires preplaced Nydus transport.
+Contracts: six addon pairs and native paid tank queue PASS; seven invulnerable
+hives,88 burrowed enemies,eight reciprocal Nydus entrances PASS.
+
+All6 NORMAL original victories now ASan PASS using public player orders:
+SC T1 frame7649; SCZ1 22344; SCP1 21393; BWP1 10672; BWT1 37012;
+BWZ1 13725 (seven hive rescues, native Nydus transport, original final attack).
+Original maps/triggers/stats unchanged; navigation fog disabled for repeatability.
+Six EMPTY-HUMAN test fixtures also execute original defeat triggers PASS
+(frame2,2,2,50,2,2). T1 also has explicit hero-death fixture and response voices.
+All6 startup+save/replay48framecontinuation+17248 idle frames PASS on1882.
+Trigger contracts including ground-vs-air masks PASS; Zer1 sparse-town fixture
+trained3 Marines+Barracks, spent600 minerals. Use arena.chk for this fixture.
+Added air fixture must be removed before AI town or it shoots test buildings!
+
+Emulator currently RUNNING at src1882 BWP1 (scenario19), originalmodel/CPU100.
+World/audio load PASS; heap31853576,linearfree123904. Pause bothscreens dim and
+bottom menu PASS. Prior0c70 BWZ1 world/audio PASS heap31743272. Evidenceprivate
+local-data/campaign-six-validation. MUST stop emulator and restore original
+config/profile from this folder before final. Physical SD untouched.
+
+Native/tests/core need current local checkpoint commit; reports/package old
+candidate files remain stale57f63 and MUST regenerate after final validation.
+User authorized further useful work; briefings currently TEXT ONLY, in-mission
+58 dialogue WAVs and hero speech supported. No movies/animated briefing portraits.
+Do not reschedule automation; 03:35 heartbeat already fired, newwindowends08:35.

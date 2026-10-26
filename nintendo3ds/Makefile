@@ -287,3 +287,10 @@ build/campaign-audio-banks-test: tests/campaign_audio_banks.cpp source/audio.cpp
 	$(HOST_CXX) $(COMMON) -Itests/fake3ds -O1 -g -fsanitize=address -pthread tests/campaign_audio_banks.cpp source/audio.cpp -o $@
 build/campaign-bw-routes-test: tests/campaign_bw_routes.cpp source/engine.cpp $(HEADERS) build/source_id.h | build
 	$(HOST_CXX) $(COMMON) -O1 -g -fsanitize=address -fno-omit-frame-pointer tests/campaign_bw_routes.cpp source/engine.cpp -o $@
+
+build/campaign-initial-flags-test: tests/campaign_initial_flags.cpp $(HEADERS) | build
+	$(HOST_CXX) $(COMMON) -O1 -g -fsanitize=address -fno-omit-frame-pointer tests/campaign_initial_flags.cpp -o $@
+build/campaign-initial-links-test: tests/campaign_initial_links.cpp $(HEADERS) | build
+	$(HOST_CXX) $(COMMON) -O1 -g -fsanitize=address -fno-omit-frame-pointer tests/campaign_initial_links.cpp -o $@
+build/campaign-bw-terran-test: tests/campaign_bw_terran.cpp source/engine.cpp $(HEADERS) build/source_id.h | build
+	$(HOST_CXX) $(COMMON) -O1 -g -fsanitize=address -fno-omit-frame-pointer tests/campaign_bw_terran.cpp source/engine.cpp -o $@
