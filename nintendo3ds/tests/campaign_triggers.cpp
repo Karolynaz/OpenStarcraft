@@ -25,6 +25,13 @@ int main(int argc,char**argv){assert(argc==3);auto assets=data_loading::data_fil
  a={};a.type=39;a.location=1;a.group_n=1;a.group2_n=2;a.extra_n=64;f.run(a);assert(probe->sprite->position.x>=768 && probe->sprite->position.y>=768);
  auto* removed=f.trigger_create_unit(f.get_unit_type(UnitTypes::Terran_Marine),xy(384,384),0);assert(removed);a={};a.type=25;a.location=1;a.group_n=0;a.extra_n=0;a.num_n=1;f.run(a);assert(f.campaign.deaths[0][0]==0);
  auto* killed=f.trigger_create_unit(f.get_unit_type(UnitTypes::Terran_Marine),xy(416,416),0);assert(killed);f.kill_unit(killed);assert(f.campaign.deaths[0][0]==1);c={};c.type=15;c.group=0;c.unit_id=0;c.num_n=10;c.count_n=1;assert(f.test_trigger_condition(c,0));
+ // Original CHK countdown fields: seconds in time_n, arithmetic in num_n.
+ a={};a.type=14;a.time_n=2;a.num_n=7;f.run(a);c={};c.type=1;c.num_n=10;c.count_n=2;assert(f.test_trigger_condition(c,0));
+ for(unsigned i=0;i<23;++i)f.campaign.advance();assert(f.campaign.countdown()==2);f.campaign.advance();assert(f.campaign.countdown()==1);
+ a={};a.type=54;f.run(a);for(unsigned i=0;i<48;++i)f.campaign.advance();assert(f.campaign.countdown()==1);a.type=55;f.run(a);for(unsigned i=0;i<24;++i)f.campaign.advance();assert(f.campaign.countdown()==0);
+ a={};a.type=14;a.time_n=0xffffffffu;a.num_n=7;f.run(a);assert(f.campaign.countdown()==0xffffffffu);a.num_n=8;f.run(a);assert(f.campaign.countdown()==0xffffffffu);a.num_n=9;f.run(a);assert(!f.campaign.countdown());
+ c={};c.type=23;assert(!f.test_trigger_condition(c,0));
+ a={};a.type=45;a.group_n=0;a.extra_n=0;a.group2_n=4;a.num_n=7;f.run(a);a.num_n=8;f.run(a);assert(f.campaign.deaths[0][0]==8);a.num_n=9;a.group2_n=20;f.run(a);assert(!f.campaign.deaths[0][0]);
  a={};a.type=57;a.group_n=1;a.extra_n=1;f.run(a);assert(st.alliances[0][1]==2);a.extra_n=0;f.run(a);assert(st.alliances[0][1]==0);
  // Original Zer1 must produce an actual paid wave from a sparse town,
  // rather than merely dispatching units that were placed in the map.

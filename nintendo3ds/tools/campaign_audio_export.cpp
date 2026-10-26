@@ -8,7 +8,7 @@
 #include <sys/stat.h>
 int main(int argc,char**argv){if(argc!=3 && argc!=4)return 2;try{
  unsigned mission=0;if(argc==4){while(mission<port3ds::campaign::count && std::string(argv[3])!=port3ds::campaign::missions[mission].key)++mission;}if(mission>=port3ds::campaign::count)throw std::runtime_error("Unknown campaign opening");const auto& m=port3ds::campaign::missions[mission];
- const char* race=m.race==0?"zerg":m.race==2?"protoss":"terran";const a_string prefix=a_string("campaign/")+(m.brood?"exp":"")+race+"/"+race+"01/";
+ const char* race=m.race==0?"zerg":m.race==2?"protoss":"terran";const a_string prefix=a_string("campaign/")+(m.brood?"exp":"")+race+"/"+a_string(m.key+(m.brood?3:0))+"/";
  data_loading::mpq_file<DiscReader> disc(a_string(argv[1])+(m.brood?"/BroodWar.mpq":"/StarCraft.mpq"));a_vector<uint8_t> chk;if(!extract(disc,prefix+"staredit/scenario.chk",chk))throw std::runtime_error("Missing owned mission");
  std::set<unsigned> roster;for(size_t at=0;at+8<=chk.size();){unsigned n=data_loading::value_at<uint32_t,true>(chk.data()+at+4);const auto* tag=chk.data()+at;at+=8;if(n>chk.size()-at)throw std::runtime_error("CHK bounds");const auto* p=chk.data()+at;if(!memcmp(tag,"UNIT",4))for(unsigned j=0;j+36<=n;j+=36)roster.insert(p[j+8]|p[j+9]<<8);if(!memcmp(tag,"TRIG",4))for(unsigned j=0;j+2400<=n;j+=2400)for(unsigned k=0;k<64;++k){auto* q=p+j+320+k*32;if(q[26]==11 || q[26]==44)roster.insert(q[24]|q[25]<<8);}at+=n;}
  mkdir(argv[2],0777);std::string root=std::string(argv[2])+"/";std::ofstream manifest(root+"manifest.tsv");

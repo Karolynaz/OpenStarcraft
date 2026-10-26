@@ -91,7 +91,7 @@ struct Frontend {
  void stick(int dx,int dy,float dt){auto axis=[](int v){return std::abs(v)<=20?0.f:std::copysign(std::min(1.f,(std::abs(v)-20)/136.f),float(v));};x=std::max(0.f,std::min(319.f,x+axis(dx)*190*dt));y=std::max(0.f,std::min(239.f,y-axis(dy)*190*dt));advance(dt);hover=hit(int(x),int(y));}
  int hit(int px,int py)const{
   if(leaving || transition<1)return -1;
-  if(dialog==Dialog::briefing){if(UiRect{178,198,124,28}.hit(px,py))return 110;return UiRect{18,198,124,28}.hit(px,py)?111:-1;}
+  if(dialog==Dialog::briefing){if(campaign::adjacent(mission,1)!=mission){if(UiRect{15,30,24,24}.hit(px,py))return 112;if(UiRect{281,30,24,24}.hit(px,py))return 113;}if(UiRect{178,198,124,28}.hit(px,py))return 110;return UiRect{18,198,124,28}.hit(px,py)?111:-1;}
   if(dialog==Dialog::ai_tests){for(unsigned i=0;i<4;++i)if(UiRect{34,70+int(i)*28,252,24}.hit(px,py))return 100+i;return UiRect{112,192,96,22}.hit(px,py)?32:-1;}
   if(dialog==Dialog::map_list){
    for(unsigned i=0;i<5;++i)if(scroll+i<maps.size() && UiRect{25,67+int(i)*24,270,23}.hit(px,py))return 70+i;
@@ -117,19 +117,21 @@ struct Frontend {
    if(UiRect{178,196,124,28}.hit(px,py))return 10;
   }return -1;
  }
- void activate(int id){
-  if(id<0 || leaving || transition<1)return;
-  if(dialog==Dialog::briefing){if(id==110){if(briefing_page+1<briefing.size())++briefing_page;else {dialog=Dialog::none;campaign_start=true;play=true;}}else if(id==111)back();return;}
-  if(dialog==Dialog::ai_tests){if(id>=100 && id<104){campaign_start=false;observer_test=unsigned(id-100);dialog=Dialog::none;play=true;}else if(id==32)dialog=Dialog::none;return;}
-  if(dialog==Dialog::map_list){if(id>=70 && id<75 && scroll+unsigned(id-70)<maps.size()){selected_map=scroll+unsigned(id-70);preview_dirty=true;dialog=Dialog::none;}else if(id==90 || id==91){if(id==90)scroll=scroll>=5?scroll-5:0;else if(scroll+5<maps.size())scroll+=5;}else if(id==32)dialog=Dialog::none;return;}
-  if(dialog!=Dialog::none){if(dialog==Dialog::version && (id==30 || id==31)){brood=id==31;save();dialog=Dialog::none;}else if(id==33 && dialog==Dialog::exit)quit=true;else if(id==32)dialog=Dialog::none;return;}
-  if(screen==Screen::campaign){if(id==5){load=true;}else if(id<3){
-   {static const unsigned original_races[]={0,1,2},brood_races[]={1,2,0};mission=campaign::opening(brood,(brood?brood_races:original_races)[id]);briefing.clear();briefing_voices.clear();briefing_page=0;briefing_paginated=false;const auto path=base+"/../campaign/"+campaign::missions[mission].key+".brief";FILE* file=std::fopen(path.c_str(),"rb");
+ void open_briefing(unsigned index){mission=index;briefing.clear();briefing_voices.clear();briefing_page=0;briefing_paginated=false;const auto path=base+"/../campaign/"+campaign::missions[mission].key+".brief";FILE* file=std::fopen(path.c_str(),"rb");
     if(!file){std::snprintf(error,sizeof error,"Install the private campaign data package.");dialog=Dialog::error;return;}
     std::string page;for(unsigned n=0;n<16384;++n){int c=std::fgetc(file);if(c==EOF){if(!page.empty())briefing.push_back(page);break;}if(c=='\f'){briefing.push_back(page);page.clear();}else if(c=='\r'){}else if(c>=32 || c=='\n')page+=char(c);}std::fclose(file);
     if(briefing.empty()){std::snprintf(error,sizeof error,"Campaign briefing is empty.");dialog=Dialog::error;return;}
     briefing_voices.assign(briefing.size(),0);if(FILE* voices=std::fopen((path+"-audio").c_str(),"r")){for(auto& id:briefing_voices){unsigned value=0;if(std::fscanf(voices,"%u",&value)!=1)break;if(value>=1200 && value<2300)id=value;}std::fclose(voices);}
     dialog=Dialog::briefing;x=240;y=210;
+ }
+ void activate(int id){
+  if(id<0 || leaving || transition<1)return;
+  if(dialog==Dialog::briefing){if(id==112 || id==113){open_briefing(campaign::adjacent(mission,id==112?-1:1));return;}if(id==110){if(briefing_page+1<briefing.size())++briefing_page;else {dialog=Dialog::none;campaign_start=true;play=true;}}else if(id==111)back();return;}
+  if(dialog==Dialog::ai_tests){if(id>=100 && id<104){campaign_start=false;observer_test=unsigned(id-100);dialog=Dialog::none;play=true;}else if(id==32)dialog=Dialog::none;return;}
+  if(dialog==Dialog::map_list){if(id>=70 && id<75 && scroll+unsigned(id-70)<maps.size()){selected_map=scroll+unsigned(id-70);preview_dirty=true;dialog=Dialog::none;}else if(id==90 || id==91){if(id==90)scroll=scroll>=5?scroll-5:0;else if(scroll+5<maps.size())scroll+=5;}else if(id==32)dialog=Dialog::none;return;}
+  if(dialog!=Dialog::none){if(dialog==Dialog::version && (id==30 || id==31)){brood=id==31;save();dialog=Dialog::none;}else if(id==33 && dialog==Dialog::exit)quit=true;else if(id==32)dialog=Dialog::none;return;}
+  if(screen==Screen::campaign){if(id==5){load=true;}else if(id<3){
+   {static const unsigned original_races[]={0,1,2},brood_races[]={1,2,0};mission=campaign::opening(brood,(brood?brood_races:original_races)[id]);for(unsigned n=0;n<campaign::count && completed[mission];++n){unsigned next=campaign::adjacent(mission,1);if(next==campaign::opening(brood,(brood?brood_races:original_races)[id]))break;mission=next;}open_briefing(mission);
    }
   }else if(id==3){campaign_start=false;observer_test=~0u;navigate(Screen::custom);}else if(id==4)dialog=Dialog::version;else if(id==6)dialog=Dialog::ai_tests;}
   else if(id==60){scroll=selected_map/5*5;dialog=Dialog::map_list;x=160;y=77+(selected_map-scroll)*24;}
@@ -149,6 +151,7 @@ struct Frontend {
   else if(row==5){difficulty=cycle(difficulty,2);save();}
  }
  void direction(unsigned direction){
+  if(dialog==Dialog::briefing && (direction==1 || direction==3)){activate(direction==1?113:112);return;}
   if(screen==Screen::custom && dialog==Dialog::map_list && !leaving && transition==1){
    if(maps.empty())return;
    if(direction==1 || direction==3){activate(direction==1?91:90);x=160;y=77;}

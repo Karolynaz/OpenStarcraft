@@ -998,3 +998,34 @@ Large maps up to192x192,128x256 still rejectedbyvalidate_map; memory workneeded
 under original3DSlimits. New conditions countdown1/kills5/least7/17/never23 and
 newactions countdown14/nextscenario41/deaths45/doodad42 etc needauditedsupport.
 Do not merelyignore unsupported gameplay actions and claim all missions work.
+
+## 08:40 continuation — seven-stage milestone
+
+Fresh08:40 user heartbeat received; work continues until~13:40. One remaining
+13:45 continuation already exists; do not schedule more. Latest scope remains
+ALL campaigns, not just six openings. No subagents authorized.
+
+Source src-5d5ba6a3954a4350 adds Backwater Station as appended scenario22;
+first6 IDs preserved. Generic exports now use mission keys, per-map sound merger
+accepts --missions. Frontend episode cards resume first uncompleted available
+stage; briefing arrows/D-pad allow replay. Original Terran2 fully won in ASan via
+paid economy/rescue/combat at16967 with Raynor alive and12 transmission requests;
+completed save replay matches. Seven startup/save/replay/17248 idle PASS. Seven
+loss triggers PASS; T2 fixture must remove rescuable Raynor, NOT just human force.
+117 original dialogue WAVs byte-exact through mixer PASS, including20 T2 voices.
+Timer condition/action/pause/resume, Never and SetDeaths now supported; timer
+fixture victory126 and active timer replay PASS; arithmetic edge tests PASS.
+Frontend resume/replay/profile tests and ARM11 architecture PASS.
+
+Original-model CPU100 Azahar T2 startup/menu/briefing/Loading/live world PASS,
+no title strip. Audio ready30,971,408 normal, linear free173,056; briefing
+played4/missing0/IO0; idle~59.8FPS/~23.9TPS emulator only. Not a native full-win
+or physical-console performance claim. Initial virtual-SD prep review rejection
+was resolved with NEW08:40 user instruction explicitly requiring emulator and
+restricting only physical SD; narrow fresh review approved. Emulator stopped,
+original model/profile/both slots restored. Physical SD untouched.
+Report nintendo3ds/reports/CAMPAIGN_SECOND_TERRAN.md. Private screenshots/logs in
+local-data/campaign-six-validation. Latest incremental private package
+local-data/releases/campaign-seven-update-2026-10-26.zip (requires previous six
+asset package); regenerate notes/receipt if status/source changes. Earlier UI-only
+D391 package retained. All campaign work still substantial, do not claim finished.

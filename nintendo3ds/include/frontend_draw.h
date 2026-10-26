@@ -111,7 +111,8 @@ inline void draw_frontend(Frontend& f,UiArt& art,MenuAnimation& animation,C2D_Te
    label("<",90,50,195,.52f);label("Cancel",32,160,195,.47f);label(">",91,270,195,.52f);
   }
   else if(f.dialog==Frontend::Dialog::briefing){
-   ui_text(text,campaign::missions[f.mission].title,160,38,.54f,white,true);
+   ui_text(text,campaign::missions[f.mission].title,160,38,.50f,white,true);
+   if(campaign::adjacent(f.mission,1)!=f.mission){label("<",112,26,38,.52f);label(">",113,294,38,.52f);}
    if(f.briefing_page<f.briefing.size())ui_limited(text,f.briefing[f.briefing_page].c_str(),28,65,.46f,264,9,white);
    label("Back (B)",111,80,205,.48f);label(f.briefing_page+1<f.briefing.size()?"Next (A)":"Begin (A)",110,240,205,.48f);
   }

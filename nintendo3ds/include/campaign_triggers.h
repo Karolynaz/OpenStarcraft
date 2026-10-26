@@ -2,6 +2,8 @@
 // audited opening missions; display-only operations stay in the presentation.
 bool test_trigger_condition(const trigger::condition& c,int owner)const override{
  if(!campaign.active)return state_functions::test_trigger_condition(c,owner);
+ if(c.type==1)return trigger_count_comparison(c,campaign.countdown());
+ if(c.type==23)return false;
  if(c.type==11){if(c.extra_n<0 || unsigned(c.extra_n)>=campaign.switches.size())return false;return c.num_n==2?campaign.switches[c.extra_n]:c.num_n==3?!campaign.switches[c.extra_n]:false;}
  if(c.type==15 || c.type==21){unsigned total=0;for(int p:trigger_players(owner,c.group)){
   if(c.type==15){if(c.unit_id>=0 && c.unit_id<228)total+=campaign.deaths[p][c.unit_id];else for(unsigned id=0;id<228;++id){auto* t=get_unit_type(UnitTypes(id));if(c.unit_id==229 || (c.unit_id==230 && (t->group_flags&GroupFlags::Men)) || (c.unit_id==231 && (t->group_flags&GroupFlags::Building)) || (c.unit_id==232 && (t->group_flags&GroupFlags::Factory)))total+=campaign.deaths[p][id];}}
@@ -23,6 +25,10 @@ bool campaign_action(execute_trigger_struct& ets,int owner,running_trigger& rt,r
  auto location=[&](unsigned id)->const bwgame::location&{if(!id || id>st.locations.size())throw std::runtime_error("Campaign action location bounds");return st.locations[id-1];};
  switch(a.type){
  case 15:case 16:{xy center=st.game->start_locations[owner];if(a.type==16){const auto& l=location(a.location);center=(l.area.from+l.area.to)/2;}campaign_ai.start(*this,unsigned(a.group2_n),unsigned(owner),center);return true;}
+ case 14:campaign.timer(unsigned(a.time_n),a.num_n);return true;
+ case 54:campaign.countdown_paused=true;return true;
+ case 55:campaign.countdown_paused=false;return true;
+ case 45:if(a.extra_n<0 || a.extra_n>=228)throw std::runtime_error("Campaign deaths type bounds");for(int p:trigger_players(owner,a.group_n)){auto& value=campaign.deaths[p][a.extra_n];const unsigned amount=unsigned(a.group2_n);if(a.num_n==7)value=amount;else if(a.num_n==8)value+=amount;else if(a.num_n==9)value=value>amount?value-amount:0;}return true;
  case 13:if(a.group2_n>=campaign.switches.size())throw std::runtime_error("Campaign switch bounds");if(a.num_n==4)campaign.switches[a.group2_n]=true;else if(a.num_n==5)campaign.switches[a.group2_n]=false;else if(a.num_n==6)campaign.switches[a.group2_n]=!campaign.switches[a.group2_n];else if(a.num_n==11)campaign.switches[a.group2_n]=(lcg_rand(16)&1)!=0;return true;
  case 21:case 37:case 47:return true; // leaderboard presentation / author comment
  case 27:if(a.extra_n!=7)throw std::runtime_error("Unsupported campaign score modifier");for(int p:trigger_players(owner,a.group_n))arithmetic(campaign.scores[p],a.group2_n,a.num_n);return true;
