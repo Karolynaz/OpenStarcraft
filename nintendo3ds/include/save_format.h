@@ -12,7 +12,7 @@ struct SaveView {float camera_x=0,camera_y=0,cursor_x=200,cursor_y=120;bool auto
 struct SaveInfo {unsigned frame=0,scenario=0;bool raw_map=false;MatchSetup setup;SaveView view;};
 namespace savegame {
 constexpr unsigned header_size=256,record_size=24,max_map=2*1024*1024,max_events=1000000,max_frames=24*60*60*12;
-enum Op:unsigned {select=1,clear,activate,army,workers,store,recall,command,perform,move,cancel,fog,surrender,elapsed,rectangle,last=rectangle};
+enum Op:unsigned {select=1,clear,activate,army,workers,store,recall,command,perform,move,cancel,fog,surrender,elapsed,rectangle,similar,last=similar};
 inline uint32_t get(const unsigned char* p){return uint32_t(p[0])|uint32_t(p[1])<<8|uint32_t(p[2])<<16|uint32_t(p[3])<<24;}
 inline void put(unsigned char* p,uint32_t v){for(unsigned i=0;i<4;++i)p[i]=v>>(8*i);}
 inline uint32_t hash(uint32_t h,const void* data,size_t n){auto* p=static_cast<const unsigned char*>(data);while(n--){h^=*p++;h*=16777619u;}return h;}

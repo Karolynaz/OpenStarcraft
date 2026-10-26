@@ -7,6 +7,12 @@ struct InputFrame {
  int direction=-1;std::uint64_t time=0;
 };
 struct InputEvent {InputAction action=InputAction::none;unsigned slot=0;bool center=false;};
+class UnitDoubleClick {
+ std::uint32_t unit_=0;std::uint64_t time_=0;
+public:
+ void reset(){unit_=0;time_=0;}
+ bool tap(std::uint32_t unit,std::uint64_t time){const bool twice=unit && unit==unit_ && time>=time_ && time-time_<=350000;unit_=twice?0:unit;time_=time;return twice;}
+};
 class InputRouter {
  int last_group_=-1;std::uint64_t last_time_=0;
 public:

@@ -957,3 +957,42 @@ Limits: six openings only; no further mission progression, movies or animated
 briefing portraits. AI is audited original opening-script subset, not full
 StarCraft computer AI. Future missions need opcode/trigger audit. Saves match
 exact source build. No physical-device performance claim. User can now test6.
+
+### ACTIVE NEW REQUEST — all campaign missions, 2026-10-26 ~07:40
+
+User explicitly expanded scope to ALL original+BW missions and authorized TWO
+new scheduled continuations after08:35 and after the next5h window. Supersedes
+earlier "no new automation" restriction. Existing heartbeat updated to08:40
+(one-timeCOUNT1), new starcraft-kampanijos-13-45 created for13:45(COUNT1), both
+Europe/Vilnius today2026-10-26. Next08:40 workuntil~13:40, last13:45until18:45.
+Do not create a third continuation or change account/model/buy/reset credits.
+
+THREE UI REQUESTS DONE and tested at src-d3916d80e599ff23:
+permanent mission title strip removed; doubleA same generation-aware nativeID
+within350ms selects own same-type visible units, including larvae; all loading
+screens black with green centered Loading below. New Engine.select_similar()
+journalopcode16 and Engine.own_unit_at() reader. First A drag-select preserved.
+ASan3larvae selection+save/replay+48framesPASS; all6startup/replay/17248idlePASS;
+native ARMv6K PASS. Emulator originalmodel realdoubleA showed3larva icons; native
+save reconstructed onhost selected3. Loading screenshotexactblack/greenPASS.
+Emulator STOPPED and originalprofile/model/slots RESTORED. No physicalSDwrite.
+Private binary-only UI update local-data/releases/campaign-ui-update-2026-10-26.zip
+requires previous six-campaign package. Receipt in campaign-six-validation.
+Read reports/CAMPAIGN_UI_NEXT.md. Current UI changes need checkpoint commit.
+
+ALL-MISSION WORK NOW: tools/campaign_inventory.cpp extracts owned raw+normalized
+numbered/alternate maps to ignored local-data/campaign-all-audit. Found60 records,
+14largerthan128limit. Canonical Terran skips cut maps07 and10: retailstoryuses
+01..06,08,09,11,12. Don't assume numerical successor. BW triggerSetNextScenario
+references branches05a/b(Terran),04a..f(Zerg),Bonus.scx(secret). Actual60inventory
+has04a/b only, noBonus; needprobe otherarchivepaths orlistfile. Static AI audit
+/tmp/sc3ds-audit-all-ai.py (read-only format reference/tmp/sc3ds-AIBIN-reference.py;
+never import/execute its implementation) decoded all176referencedAIScript entries,
+no missing orparseerrors. JSONinventory/opcodesprivate in campaign-all-audit.
+Reachable newopcodes include9/10 waits,31suicide,32/33 alliances,37rescue,38DT,
+45nukerate,61guard,64/65call/return,72multirun,75define_max,76train,78wait_train,
+87/88vision,93/94branches,107..112specialactions. CampaignAIcurrentlyfirst6subset.
+Large maps up to192x192,128x256 still rejectedbyvalidate_map; memory workneeded
+under original3DSlimits. New conditions countdown1/kills5/least7/17/never23 and
+newactions countdown14/nextscenario41/deaths45/doodad42 etc needauditedsupport.
+Do not merelyignore unsupported gameplay actions and claim all missions work.

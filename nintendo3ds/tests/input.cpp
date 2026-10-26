@@ -3,6 +3,7 @@
 #include <cstdio>
 using namespace port3ds;
 int main(){
+ UnitDoubleClick clicks;assert(!clicks.tap(7,1000000));assert(clicks.tap(7,1300000));assert(!clicks.tap(7,1350000));assert(!clicks.tap(8,1400000));assert(!clicks.tap(0,1450000));assert(!clicks.tap(8,1500000));assert(!clicks.tap(8,1900000));clicks.reset();assert(!clicks.tap(8,1950000));
  InputRouter r;InputFrame f;f.x=true;assert(r.read(f).action==InputAction::power && r.read(f).slot==0);f.l=true;assert(r.read(f).slot==2);f={};f.r=f.x=true;assert(r.read(f).action==InputAction::army);f.x=false;f.y=true;assert(r.read(f).action==InputAction::workers);
  f={};f.r=f.a=true;assert(r.read(f).action==InputAction::patrol);f.a=false;f.b=true;assert(r.read(f).action==InputAction::stop);
  f={};f.select=true;assert(r.read(f).action==InputAction::all);f={};f.start=true;assert(r.read(f).action==InputAction::system);

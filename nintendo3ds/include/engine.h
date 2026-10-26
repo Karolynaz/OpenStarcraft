@@ -109,6 +109,8 @@ public:
     bool researched(unsigned tech) const;
     unsigned upgrade_level(unsigned upgrade) const;
     bool select(int world_x, int world_y);
+    unsigned own_unit_at(int world_x,int world_y)const;
+    unsigned select_similar(int world_x,int world_y,int camera_x,int camera_y);
     bool activate(int world_x, int world_y);
     void clear_selection();
     unsigned select_army(int camera_x, int camera_y);

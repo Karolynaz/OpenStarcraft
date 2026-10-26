@@ -73,6 +73,11 @@ int main() {
         if (text_buf) C2D_TextBufDelete(text_buf);
         C2D_Fini(); C3D_Fini(); gfxExit(); return 1;
     }
+    auto loading_screen=[&](){
+        C3D_FrameBegin(C3D_FRAME_SYNCDRAW);C2D_TextBufClear(text_buf);
+        C2D_TargetClear(top,C2D_Color32(0,0,0,255));C2D_TargetClear(bottom,C2D_Color32(0,0,0,255));C2D_SceneBegin(bottom);
+        port3ds::ui_centered(text_buf,"Loading",{0,0,320,240},.65f,C2D_Color32(80,255,80,255));C3D_FrameEnd(0);
+    };
     aptHookCookie cookie;
     aptHook(&cookie, lifecycle, nullptr);
     const bool self_test = port3ds::core_self_test();
@@ -138,7 +143,7 @@ int main() {
         unsigned scenario = unsigned(launch_scenario), loaded_scenario = scenario;
         port3ds::UiArt hud_art;hud_art.load("sdmc:/3ds/openbw/ui/hud.bin");
         auto hud_buf=C2D_TextBufNew(4096);
-        port3ds::InputRouter input;
+        port3ds::InputRouter input;port3ds::UnitDoubleClick double_click;
         using Menu=port3ds::PauseMenu::Page;
         auto overlay=[&](Menu p){return port3ds::PauseMenu::overlay(p);};
         float menu_x=160,menu_y=60;
@@ -193,6 +198,7 @@ int main() {
             if(initial_load && self_test) { initial_load=false; pending_load=true; }
             // Present the loading message for one frame before blocking SD IO.
             if (load_now) {
+                loading_screen();double_click.reset();
                 placing = false; attacking=false;drag_pending=drag_box=false;ability_page=catalogue_page=0;menu=Menu::none;result_shown=false;
                 // Release resident PCM and sprite scratch before the core's
                 // temporary MPQ/GRP initialization peak on original hardware.
@@ -209,10 +215,7 @@ int main() {
                 const bool restoring=pending_restore;port3ds::SaveView restored_view;
                 auto progress=[&](unsigned done,unsigned total){
                     if(!aptMainLoop())return false;hidScanInput();if(hidKeysDown()&KEY_B)return false;
-                    C3D_FrameBegin(C3D_FRAME_SYNCDRAW);C2D_TextBufClear(text_buf);
-                    C2D_TargetClear(top,C2D_Color32(4,8,16,255));C2D_SceneBegin(top);port3ds::ui_text(text_buf,"Loading saved game",200,90,.65f,C2D_Color32(220,235,240,255),true);
-                    C2D_TargetClear(bottom,C2D_Color32(4,8,16,255));C2D_SceneBegin(bottom);char label[80];std::snprintf(label,sizeof label,"Rebuilding: %u / %u",done,total);port3ds::ui_text(text_buf,label,160,80,.49f,C2D_Color32(220,235,240,255),true);
-                    C2D_DrawRectSolid(30,115,0,260,12,C2D_Color32(30,50,60,255));C2D_DrawRectSolid(30,115,0,total?260.f*done/total:260,12,C2D_Color32(70,210,100,255));port3ds::ui_text(text_buf,"B cancel",160,150,.5f,C2D_Color32(220,235,240,255),true);C3D_FrameEnd(0);return true;
+                    loading_screen();return true;
                 };
                 mkdir("sdmc:/3ds/openbw/saves",0777);
                 const bool loaded_ok=restoring?engine.load_save(root,restore_path.c_str(),session_path,restore_map,restored_view,progress):engine.load(root, (custom_match || campaign_mode)?launch_map.c_str():arena_mode?arena:map, static_cast<port3ds::Scenario>(scenario),scenario==unsigned(launch_scenario)?&match_setup:nullptr);
@@ -330,6 +333,11 @@ int main() {
                 } else if(menu==Menu::legacy){static const unsigned modes[]={14,15,12,13,5,3,1,2};scenario=modes[choice];pending_load=true;action="Loading skirmish...";} else if(menu==Menu::catalogue) {refresh_catalogue();if(choice<option_count)use_option(option_rows[choice]);else {menu=Menu::none;action="Selection has no available commands";}return;}
                 menu=Menu::none;
             };
+            auto click_unit=[&](bool select_only){const int x=controls.world_x(),y=controls.world_y();
+                if(double_click.tap(engine.own_unit_at(x,y),now))engine.select_similar(x,y,int(controls.camera_x),int(controls.camera_y));
+                else if(select_only)engine.select(x,y);else engine.activate(x,y);
+                action=engine.command_status();
+            };
             port3ds::InputFrame frame;
             frame.a=down&KEY_A; frame.b=down&KEY_B; frame.x=down&KEY_X; frame.y=down&KEY_Y;
             if(overlay(menu)){frame.x=frame.y=false;}
@@ -337,10 +345,10 @@ int main() {
             if(down&KEY_DUP) frame.direction=0; else if(down&KEY_DRIGHT) frame.direction=1;
             else if(down&KEY_DDOWN) frame.direction=2; else if(down&KEY_DLEFT) frame.direction=3;
                         if(menu==Menu::none && !placing && !attacking && !frame.l && !frame.r && !engine.snapshot().selected && (down&KEY_A)){drag_pending=true;drag_box=false;drag_x=controls.world_x();drag_y=controls.world_y();frame.a=false;}
-            if(drag_pending){frame.a=false;if(std::abs(controls.world_x()-drag_x)+std::abs(controls.world_y()-drag_y)>7)drag_box=true;if(hidKeysUp()&KEY_A){if(drag_box)engine.select_area(std::min(drag_x,controls.world_x()),std::min(drag_y,controls.world_y()),std::abs(drag_x-controls.world_x()),std::abs(drag_y-controls.world_y()));else engine.select(controls.world_x(),controls.world_y());drag_pending=drag_box=false;}}
+            if(drag_pending){frame.a=false;if(std::abs(controls.world_x()-drag_x)+std::abs(controls.world_y()-drag_y)>7)drag_box=true;if(hidKeysUp()&KEY_A){if(drag_box)engine.select_area(std::min(drag_x,controls.world_x()),std::min(drag_y,controls.world_y()),std::abs(drag_x-controls.world_x()),std::abs(drag_y-controls.world_y()));else click_unit(true);drag_pending=drag_box=false;}}
             const auto event=input.read(frame,menu!=Menu::none,menu==Menu::catalogue);
             using I=port3ds::InputAction;
-            if(event.action!=I::none && event.action!=I::confirm)drag_pending=drag_box=false;
+            if(event.action!=I::none && event.action!=I::confirm){drag_pending=drag_box=false;double_click.reset();}
             const bool was_overlay=overlay(menu);
             switch(event.action) {
             case I::system:
@@ -362,7 +370,7 @@ int main() {
                 if(menu!=Menu::none)activate_menu();
                 else if(placing){if(engine.perform(placing_code,controls.world_x(),controls.world_y()))placing=false;action=engine.command_status();}
                 else if(attacking){if(engine.perform(target_code,controls.world_x(),controls.world_y()))attacking=false;action=engine.command_status();}
-                else {engine.activate(controls.world_x(),controls.world_y());action=engine.command_status();}
+                else click_unit(false);
                 break;
             case I::previous:case I::next:
                 if(menu_count())choice=menu==Menu::catalogue?port3ds::CommandGrid::move(choice,event.slot,menu_count()):event.action==I::previous?(choice+menu_count()-1)%menu_count():(choice+1)%menu_count();
@@ -571,8 +579,6 @@ int main() {
                 C2D_DrawText(&resource_values[i],C2D_WithColor,x+26,2,0,size,size,C2D_Color32(80,255,80,255));
             }
             if(state.campaign){
-                char objective[96];if(scenario==16)std::snprintf(objective,sizeof objective,"Barracks %u/1  Marines %u/10  Raynor: %s",engine.count_units(0,111),engine.count_units(0,0),engine.count_units(0,19)?"rescued":"find him");else std::snprintf(objective,sizeof objective,"%s",port3ds::campaign::missions[port3ds::campaign::index(scenario)].title);
-                C2D_DrawRectSolid(0,28,0,400,18,C2D_Color32(3,8,15,205));port3ds::ui_text(hud_buf,objective,5,28,.45f,white);
                 if(!state.transmission.empty()){C2D_DrawRectSolid(3,145,0,394,92,C2D_Color32(3,8,15,235));port3ds::ui_limited(hud_buf,state.transmission.c_str(),9,149,.48f,382,6,white);}
             }
             if(placing || attacking || pending_load || !engine.ready())C2D_DrawText(&message,C2D_WithColor|C2D_WordWrap,8,204,0,.46f,.46f,white,384.f);
@@ -653,6 +659,11 @@ int main() {
                     C2D_DrawText(&menu_rows[i],C2D_WithColor,r.x+(r.w-w)/2,r.y+(r.h-h)/2,0,size,size,i==choice?C2D_Color32(245,240,110,255):white);
                 }
                 graphics.cursor(engine.cursor_image(port3ds::CursorKind::arrow,now-cursor_since),menu_x,menu_y,engine);
+            }
+            if(pending_load || warming){
+                C2D_SceneBegin(top);C2D_DrawRectSolid(0,0,0,400,240,C2D_Color32(0,0,0,255));
+                C2D_SceneBegin(bottom);C2D_DrawRectSolid(0,0,0,320,240,C2D_Color32(0,0,0,255));
+                port3ds::ui_centered(text_buf,"Loading",{0,0,320,240},.65f,C2D_Color32(80,255,80,255));
             }
             const u64 end_begin=now_us();
             C3D_FrameEnd(0);

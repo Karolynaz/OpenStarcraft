@@ -549,6 +549,20 @@ bool Engine::select(int x, int y) {savegame::Writer::Guard record(impl_->journal
     }
     return !impl_->selected.empty();
 }
+unsigned Engine::own_unit_at(int x,int y)const{
+    if(!ready())return 0;auto& f=impl_->player->funcs();auto* u=hit_unit(f,x,y,true,impl_->fog);return u?f.get_unit_id_32(u).raw_value:0;
+}
+unsigned Engine::select_similar(int x,int y,int cx,int cy){savegame::Writer::Guard record(impl_->journal,{frame(),savegame::similar,x,y,cx,cy});
+    if(!ready())return 0;auto& f=impl_->player->funcs();auto* target=hit_unit(f,x,y,true,impl_->fog);if(!target)return 0;
+    if(f.ut_building(target)){select(x,y);return impl_->selected.size();}
+    impl_->selected.clear();
+    for(auto* u:ptr(f.st.player_units[0])){
+        if(u->unit_type!=target->unit_type || f.unit_dead(u) || f.ut_turret(u) || f.us_hidden(u) || (impl_->fog && !player_sees(f,u)))continue;
+        const auto pos=u->sprite->position;if(pos.x<cx || pos.y<cy || pos.x>=cx+400 || pos.y>=cy+240)continue;
+        if(impl_->selected.size()==192)break;impl_->selected.push_back(f.get_unit_id_32(u));
+    }
+    impl_->command_message="Matching units on screen selected";return impl_->selected.size();
+}
 void Engine::clear_selection() {savegame::Writer::Guard record(impl_->journal,{frame(),savegame::clear}); impl_->selected.clear(); }
 bool Engine::activate(int x,int y) {savegame::Writer::Guard record(impl_->journal,{frame(),savegame::activate,x,y});
     if(!ready()) return false;
