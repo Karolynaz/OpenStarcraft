@@ -1205,3 +1205,34 @@ restored; physicalSDuntouched.17T4WAVs byteexactindependentStormLib. Mixerall13r
 Hostobj/tmp/sc3ds-thirteen-engine.o, logs/tmp/sc3ds-thirteen-*.log.
 Nativebuilddone/sourcefingerprintstableE811. ProtoP4triallosesstartingarmy1800ticks
 withdirectattackmarch; Tassadar/Raynorstillaliveallied. Needsrealstorm/cohesionroute.
+T4package saved privately campaign-thirteen-update-2026-10-26.zip122616894bytes
+SHA2563d4c21a0939c1b95c5ca4a048b3de058d269fecb11f4cbcceef8747169876562.
+All184originaldialogueWAVs (167+17) mixerbyteexact2MiB/IO0/unloadcleanPASS.
+Z4prototypeinitially"wins"2101beforehatching: rejectedascoverage! CampaignAI.attack
+choosesnearesthostileAI(RaynorCC) insteadhuman0, DukeAI destroys plotCCprematurely.
+NowfixingAIwavehumanprioritywhenhostile, fallbackothersifhumanallied/inactive.
+Thiswillrequirefreshregressions; do notcountZ4asvalidatedorofferinyet.
+
+## 2026-10-26 19:45 Vilnius final checkpoint
+Finalsource src-d309c707e49eb3cc adds SC Protoss4 scenario29,14cataloguemissions.
+ASan publiccontrols paidcolony/army, rescuedTassadar+Raynor, originalambush/beacon
+victory48321; bothheroesalive,21speechevents,completedsavereplaydigestidentical.
+Cleanedtestsame48321. Testcampaign_protoss_fourth.cpp, hostobj/tmp/sc3ds-fourteen-engine.o.
+All14startup/menu/active save/replay/48/17248PASS;205originaldialogueWAVs mixerbyteexact
+2MiB IO0/unloadclean;21P4WAVs independentStormLibbyteexact. NativeARM11PASS;
+originalmodelP4DpadLEFT/brief3missing0IO0/blackLoading/live/notopstripPASS,
+normal31347744 linearfree123904. EmulatorSTOPPED/restoredmodel/profile/bothslots;
+physicalSDuntouched. Evidence local-data/campaign-fourteen-validation andreport
+CAMPAIGN_FOURTEEN_VALIDATION.md. Staged3DSX/latestpackage14sourceD309.
+IMPORTANTCORRECTION: earlierclaimedZ4AInearesttargetcausewasnotestablished.
+Trialhuman-priorityAIchange didNOTfixZ4 (idleCC2disappearsaroundf721, Chrysalis1,
+Kerrigan0,timer571, victory2101), so thatchangeanditsVMtestwereREVERTED.
+NoAIsemanticchangeafterD77exceptdoorstage. Z4notenabledandNOTvalidated.
+NextinvestigateZ4CC2deathcause/forcealliances/guards; do notcountwin2101ascoverage.
+P4bruteforcearmyfailed; finalpaidstrategyvalidandpassesonrevertedAIbackend.
+Remainingallmissionsgoalunfinished:BW T1autoplayerloses46605; AI45nuke_rate/92guard_all
+unsupported;59of64inventoriedbranch/cutrecordsreach1200ticks,NOTcompletionproof.
+Latest13:45windowwaslastscheduledcontinuation; userlaterexplicitlysaid"tęsk".
+No furtherautomationscreated. Stopafterfinalprivatepackage/report/localcommit.
+
+Final14package nintendo3ds/local-data/releases/campaign-fourteen-update-2026-10-26.zip bytes141115051 SHA2561c0e8f75b7a02d896fad4af2d0c9682b89781936f2bb174c3067dea4203f5a97; ZIPCRC/hash/14maps/8banks/exact3DSX/no-profile-progress-savesPASS.
