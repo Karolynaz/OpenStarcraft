@@ -865,3 +865,22 @@ army diagnostics currently lose; improve actual routing/tactics, then inspect
 original triggers if still wrong. Do not change maps just to claim normal wins.
 Final current-source SCProtoss emulator startup is in progress; MUST stop and
 restore config/profile from campaign-six-validation backups before leaving.
+
+### 03:35 scheduled continuation received (2026-10-26)
+
+New5hwindow confirmed0%used. Do NOT create another automation. Continue until
+~08:35 or useful authorized work done. Important discovery since checkpoint:
+root native UNIT loader ignored initial invincibility/burrow/cloak flags. This
+broke BWZerg1 protected hives and ambushes. Implemented valid_flags16 invincible,
+2 burrow and1 cloak in bwgame.h. Native ARMv6K and six ASan startup/replay/extended
+runs PASS at src-754ddd9a610d794a. BWZerg now survives17248 idle frames, rather
+than losing2251. New test campaign_initial_flags.cpp confirms original7hives
+invincible and88enemy units burrowed. Compiled/run directly, no Make target yet.
+Current bwgame.h + initial-flags test still uncommitted (save checkpoint next).
+BWnaive actual routes still lose: expprotoss hero killed2609, expzerg army dies
+2451. Need tactical route improvements and then original victory triggers.
+
+Emulator57f63 SCProtoss startup completed, screenshot/log in validationfolder.
+Emulator STOPPED and original config/profile restored. No emu still running.
+Existing candidate ZIPs contain PRE-initial-flags57f63 build; must regenerate
+before delivering final test package. Report remains historical until updated.

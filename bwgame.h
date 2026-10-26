@@ -21675,6 +21675,14 @@ struct game_load_functions : state_functions {
 				if (valid_flags & 8 && flags & 8) {
 					make_unit_hallucination(u);
 				}
+				// StarEdit initial-unit flags are part of campaign scripting.
+				// In BW Zerg1 the protected hives and ambush forces rely on them.
+				if (valid_flags & 16) u_set_status_flag(u, unit_t::status_flag_invincible, (flags & 16) != 0);
+				if ((valid_flags & 2) && (flags & 2)) {
+					set_unit_burrowed(u);
+					set_unit_order(u, get_order_type(Orders::Burrowed));
+				}
+				if ((valid_flags & 1) && (flags & 1) && !u_cloaked(u)) cloak_unit(u);
 
 				if (unit_is(u, UnitTypes::Zerg_Broodling)) {
 					set_remove_timer(u);

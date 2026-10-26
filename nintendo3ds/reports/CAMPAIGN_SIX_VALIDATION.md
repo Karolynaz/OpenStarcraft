@@ -62,3 +62,13 @@ completion test. Remaining native final-build check, package/manifest review,
 and local checkpoint/handoff must preserve these limits honestly. Continue
 these before adding further missions. Evidence is private under
 local-data/campaign-six-validation and /tmp/sc3ds-* logs.
+
+## Initial-unit flags correction (03:35 continuation)
+
+Native UNIT loading had ignored StarEdit invincibility/burrow/cloak flags. This
+made protected BWZerg hives destructible and placed ambushers immediately active.
+Corrected these three flags. Original-map contract confirms7 invincible hives
+and88 pre-burrowed enemies. All six extended/replay tests PASS at754ddd9a; BWZerg
+now remains running at17248 idle frames. Existing candidate ZIPs predate this
+fix and must be regenerated before final delivery. Last emulator57f63SCProtoss
+startup also passed and settings/profile were restored; no emulator is running.
