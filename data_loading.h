@@ -953,8 +953,12 @@ static const int32_t adpcm_step_table[89] = {
 
 template<bool little_endian = true>
 size_t decompress_adpcm(uint8_t* input, size_t input_size, uint8_t* output, size_t output_size, size_t channels) {
+	if (channels != 1 && channels != 2) error("decompress_adpcm: channel count");
+	if (!output_size) return 0;
 	data_reader<little_endian> r(input, input + input_size);
 	
+	// ADPCM sectors may encode a final sample beyond the declared byte span.
+	// Like Storm, stop at output capacity rather than rejecting the owned WAV.
 	size_t out_pos = 0;
 	
 	a_vector<int16_t> previous_sample(channels);
@@ -962,17 +966,20 @@ size_t decompress_adpcm(uint8_t* input, size_t input_size, uint8_t* output, size
 	
 	r.template get<uint8_t>();
 	auto shift = r.template get<uint8_t>();
+	if (shift >= 32) error("decompress_adpcm: invalid shift");
 	
 	for (size_t i = 0; i != channels; ++i) {
 		auto sample = r.template get<int16_t>();
 		previous_sample[i] = sample;
-		if (out_pos > output_size || output_size - out_pos < 2) error("decompress_adpcm: attempt to write past end");
+		if (out_pos > output_size || output_size - out_pos < 2) return out_pos;
 		set_value_at<little_endian, int16_t>(output + out_pos, sample);
 		out_pos += 2;
 	}
 	
 	while (r.left()) {
 		for (size_t channel = 0; channel != channels; ++channel) {
+			// The final sector may end midway through a stereo frame.
+			if (!r.left()) return out_pos;
 			auto in_value = r.template get<uint8_t>();
 			if (~in_value & 0x80) {
 				int index = step_index[channel];
@@ -993,7 +1000,7 @@ size_t decompress_adpcm(uint8_t* input, size_t input_size, uint8_t* output, size
 				}
 				
 				previous_sample[channel] = sample;
-				if (out_pos > output_size || output_size - out_pos < 2) error("decompress_adpcm: attempt to write past end");
+				if (out_pos > output_size || output_size - out_pos < 2) return out_pos;
 				set_value_at<true, int16_t>(output + out_pos, sample);
 				out_pos += 2;
 				
@@ -1005,7 +1012,7 @@ size_t decompress_adpcm(uint8_t* input, size_t input_size, uint8_t* output, size
 				int n = in_value & 0x7f;
 				if (n == 0) {
 					if (step_index[channel] != 0) --step_index[channel];
-					if (out_pos > output_size || output_size - out_pos < 2) error("decompress_adpcm: attempt to write past end");
+					if (out_pos > output_size || output_size - out_pos < 2) return out_pos;
 					set_value_at<little_endian, int16_t>(output + out_pos, previous_sample[channel]);
 					out_pos += 2;
 				} else if (n == 1) {

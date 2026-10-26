@@ -14,5 +14,5 @@ int main(int argc,char**argv){assert(argc==3);
   auto s=e.snapshot();printf("%s startup frame%u units%u winner%d objectives%zu\n",m.key,e.frame(),s.units,s.winner,s.objectives.size());fflush(stdout);assert(s.winner!=1 && !s.objectives.empty());
   for(unsigned n=0;n<16000 && e.snapshot().winner<0;++n)if(!e.tick()){fprintf(stderr,"%s extended frame%u: %s\n",m.key,e.frame(),e.error());return 1;}printf("%s extended frame%u units%u winner%d\n",m.key,e.frame(),e.snapshot().units,e.snapshot().winner);fflush(stdout);
  }
- puts("Nine original maps / menu routing / trigger startup PASS");
+ printf("%u original maps / menu routing / trigger startup PASS\n",campaign::count);
 }

@@ -1115,3 +1115,29 @@ private runtime-vm.csv. Still NOTallmissionsverified. Next: native menu Dpad cal
 are missing even though Frontend::direction has stage support; wire actual main
 input. MoreAIops61guards/105randomseed and door/trigger actions needed later.
 No more automations; userauthorized13:45 continuation already exists.
+
+## 2026-10-26 14:03 Vilnius checkpoint; final13:45 window active to18:45
+Commit12 source src-01da4c40a7f6daed: adds SC Zerg3/Protoss3 + ADPCM output bounds.
+Fresh11original victories onexactsource: T1=7649,Z1=21972,P1=23544,BWP1=10771,
+BWZ1=13725,T2=17215,Z2=6460,P2=24517,T3=43442,Z3=21026,P3=38399.
+Z3paidMutaattack + Chrysalisprotect; P3paidScouts clear elevated colonies.
+Completed replay bothmatches. BW T1 still NOT current full-victory verified.
+All12active save/replay/48continuation/17248idle PASS. All167dialogueWAVs mixer
+byte-exact2MiB IO0/unloadclean. ADPCM ASan+UBSan bounds/stereo-tail PASS;28new
+speechWAVs independentStormLibbyteexact. Publicreference built only/tmp, no code
+copied into product. Temporarycmake /tmp/sc3ds-cmake-runtime, referenceCLI
+/tmp/sc3ds-storm-extract (backslashMPQpaths), sourceclone/tmp/sc3ds-stormlib-reference.
+Native01D origmodel P3/Z3 menu/briefing/blackLoading/live/no-top-title checked;
+normal31,288,888/30,971,264 respectively,linearfree123,904. No nativefullwinsclaim.
+Emulator STOPPED, originalmodel/profile/bothslotssame restored; no physicalSD.
+IMPORTANT CORRECTION topreviousNIGHT: main alreadycalled Frontend::direction
+laterinloop. Myduplicate caused doublestagechanges onintermediate797build;
+nativecheckcaughtit, removedbefore01D. Finalmaininputunchanged; nativeDpadLEFT
+opening->P3/Z3 passes. Intermediate797/bc builds are NOT packages to use.
+Currentpackage campaign-twelve-update-2026-10-26.zip, requires previousfullsix;
+private logs/screenshots/ELF/3DSX inlocal-data/campaign-twelve-validation.
+Currenthostobject /tmp/sc3ds-twelve-final-engine.o, tests/logs/tmp/sc3ds-final-*.
+Read report nintendo3ds/reports/CAMPAIGN_TWELVE_VALIDATION.md.
+Latest13:45heartbeat arrivedduringwork, authorizesuntil18:45; no more automations.
+Next: missing latercampaign triggeractions/doorstates/AIguards/branchprogression;
+notallmissionsdone. Preserve package while extending backend, keepclaims honest.
