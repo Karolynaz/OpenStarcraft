@@ -1236,3 +1236,38 @@ Latest13:45windowwaslastscheduledcontinuation; userlaterexplicitlysaid"tęsk".
 No furtherautomationscreated. Stopafterfinalprivatepackage/report/localcommit.
 
 Final14package nintendo3ds/local-data/releases/campaign-fourteen-update-2026-10-26.zip bytes141115051 SHA2561c0e8f75b7a02d896fad4af2d0c9682b89781936f2bb174c3067dea4203f5a97; ZIPCRC/hash/14maps/8banks/exact3DSX/no-profile-progress-savesPASS.
+
+## 2026-10-26 resumed at user's explicit request: AI / Z4 / BW T1 completed
+Finalsource src-5ba4136efbd5aa80. UserexplicitlyaskedforlaterAIactions,Z4progressbug,
+BWT1victorycheck. No newautomation and no physicalSDwrites.
+RootZ4causeCONFIRMED: no defaultcross-Forcecomputeralliance; Duke1 damagesRaynorCC2
+fromf120,kills717, falsewin2101. Enginecampaigncallback nowalliesoriginalOWNR5pairs
+BEFOREconvertingcontrollerstooccupied. Explicit57stilloverrides; syntheticf60CC0
+hurt/CC2full, original3secenemyactionthenCC2hurt+active savereplayPASS.
+NineaddedAIops45/62/89/92/98/102/107/109/110; corrected97kill_thread marks killable
+threadsanddoesnotstopunmarkedcaller.64threads/16stack/128guards/160economyretained.
+Regionmask5000bytes/visiblethreats/idlearmy/activealliedhelp. Nuclear nativeorders,
+real launchtimer, paid200/200normalmissileproduction. Explicitretail107isonefree
+scenario-missilegrant(empty silo,noqueuedmissile/no duplicate), NOTnormalAIcheat.
+ASan tests campaign_ai_later/campaign_ai_vm/campaign_alliances allPASS, nativeARM11PASS.
+FreshALL15originalhostvictories onexactfinalsource: T1/2/3/4=7649/17215/43442/27129;
+Z1/2/3/4=21972/6460/21026/78808; P1/2/3/4=23544/24517/31703/129293;
+BWP1/T1/Z1=10771/48606/13605. BWT1nowDuranalive+completedreplayexact. Z4hatch14477,
+changedobjectives, livingKerrigan,paidMutaattack14voices+completedreplayexact.
+EarlierZ4transportexperimentsdidNOTprovelanding; finaltestusesairfleet. No transport
+coverageclaimfromZ4. Coretactics transport hadseparateearliertests.
+P4initialregressiondriverlostwithcorrectCPUalliances (Zerg3/7notfightingnow);
+newpaidcannonpriority+hero-preservationdriverwins129293 withoutweakeningAI.
+All15 menu/startup/active save/replay/48/17248PASS;222dialogueWAVs mixerbyteexact2MiB
+IO0/unloadclean,17newZ4WAVs independentStormLibbyteexact. Nativeoriginalmodel final5ba:
+Z4DpadLEFT/brief2missing0IO0/Loading/world/countdown/noTopTitlePASS,normal31079712,
+linearfree123904. EmulatorSTOPPED/restoredmodel/profile/bothslots; physicalSDuntouched.
+Privateevidence local-data/campaign-fifteen-validation; hostobj/tmp/sc3ds-ai-final2-engine.o.
+Hostlogs/tmp/sc3ds-ai2-paid-*.log, /tmp/sc3ds-ai2-zerg04.log, /tmp/sc3ds-ai-final2-later.log.
+Broaderaudit64records62startup1200ticks;58reach6000. LatermissingAI103(BWP3),108(BWT5a),
+111(BWZ6),38(SCZ8); unusedSCT7/T10formatreject. Auditsarenotfullmissioncoverage.
+Toolcampaign_runtime_audit nowoptional limit(arg3),default1200,max36000.
+Report CAMPAIGN_AI_PROGRESSION_VALIDATION.md. Prepare/verifyprivate15updateZIP next,
+localcommitallverifiedwork,thenfinalsummary. No further scheduledworkcreated.
+
+Final15package nintendo3ds/local-data/releases/campaign-fifteen-update-2026-10-26.zip bytes160270635 SHA256c0cff31c73c8419d4f9fa3e0ba4cc53b2924f6d05c79fcf892a9050bd8609b9a; ZIPCRC/hash/15maps/9banks/exact5ba3DSX/no-profile-progress-savesPASS. Finalreportandallsource/testsreadyforlocalcommit.

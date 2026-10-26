@@ -1,5 +1,5 @@
 // Original Protoss4: evacuate the initial force to the rescuable colony,
-// protect both heroes, build a paid army and clear the path to the beacon.
+// protect both heroes, prioritize paid cannon defense and build the army.
 // Uses public controls and native restrictions, resources and placement only.
 // Fog is disabled for repeatable test navigation; no map/triggers/unit stats edited.
 #include "engine.h"
@@ -12,12 +12,12 @@
 using namespace port3ds;
 int main(int argc,char**argv){assert(argc==3);const auto& m=campaign::missions[campaign::key_index("protoss04")];Engine e;assert(e.load(argv[1],argv[2],Scenario(m.scenario)));assert(e.start_recording((std::string("/tmp/sc3ds-campaign-playthrough-")+m.key).c_str()));e.set_fog_enabled(false);
  const bool z=false;const unsigned worker=z?41:64,base=z?131:154,supply=z?42:156,gas=z?149:157;
- unsigned build_pending=0,build_at=0,build_count=0;bool attack=false;unsigned voices=0;int home_x=0,home_y=0;
+ unsigned build_pending=0,build_at=0,build_count=0;unsigned cast_after=0;bool attack=false;unsigned voices=0;int home_x=0,home_y=0;
  for(unsigned frame=0;frame<220000 && e.snapshot().winner<0;++frame){if(!e.tick()){fprintf(stderr,"%s frame%u: %s\n",m.key,e.frame(),e.error());return 1;}SoundEvent events[256];auto ns=e.drain_sounds(events,256);for(unsigned i=0;i<ns;++i)voices+=events[i].id>=1200;if(frame%48)continue;
   UnitView list[1700];unsigned n=e.visible_units(list,1700);auto state=e.snapshot();std::vector<UnitView> workers,parents;std::vector<UnitView> minerals;std::vector<UnitView> enemies;
   for(unsigned i=0;i<n;++i){auto& u=list[i];if(u.owner==0){if(u.type==worker && u.completed)workers.push_back(u);if(u.type==base){home_x=u.x;home_y=u.y;}if(u.completed)parents.push_back(u);}if(u.mineral)minerals.push_back(u);if(u.owner==3 || u.owner==7)enemies.push_back(u);}
   bool rescued=e.count_units(0,79)>0 && e.count_units(0,19)>0;
-if(!e.count_units(0,154)){for(unsigned i=0;i<n;++i)if(list[i].owner==0 && list[i].type<106 && e.select(list[i].x,list[i].y))e.move_selected(736,496);continue;}
+if(!home_x && !e.count_units(0,154)){for(unsigned i=0;i<n;++i)if(list[i].owner==0 && list[i].type<106 && e.select(list[i].x,list[i].y))e.move_selected(736,496);continue;}
 if(rescued && frame%240==0)for(unsigned i=0;i<n;++i)if(list[i].owner==0 && (list[i].type==79 || list[i].type==19) && e.select(list[i].x,list[i].y))e.move_selected(384,288);
 if(!home_x)continue;
   
@@ -42,6 +42,9 @@ if(!home_x)continue;
   if(!z)for(const auto& p:parents)if(p.type==160 && p.disabled){want=supply;anchor_x=p.x;anchor_y=p.y;break;}
   if(!want && state.supply_max-state.supply<5 && !z)want=supply;
   if(!want && !e.count_units(0,z?142:160))want=z?142:160;
+  if(!want && e.count_units(0,156,false)<7)want=156;
+  if(!want && e.count_units(0,162,false)<4)want=162;
+  if(want==156 || want==162){anchor_x=home_x+160;anchor_y=home_y+128;}
   if(!want && !e.count_units(0,gas))want=gas;
   if(!want && z && !e.count_units(0,135))want=135;
   if(!want && !z && !e.count_units(0,164))want=164;
@@ -56,9 +59,13 @@ if(!home_x)continue;
   }
   for(const auto& p:parents){if(!e.select(p.x,p.y))continue;if(z && p.type==35){unsigned next=state.supply_max-state.supply<5?42:e.count_units(0,worker)<18?worker:e.count_units(0,141)?43:e.count_units(0,135)?38:37;e.perform(option_code(OptionKind::morph,next));}
    else if(z && p.type==131 && !e.count_units(0,132,false))e.perform(option_code(OptionKind::morph,132));
-   else if(!z && p.type==base && e.count_units(0,worker)<20)e.perform(option_code(OptionKind::train,worker));
+   else if(!z && p.type==base && e.count_units(0,worker)<14 && state.minerals>250)e.perform(option_code(OptionKind::train,worker));
    else if(!z && p.type==167)e.perform(option_code(OptionKind::train,70));
-   else if(!z && p.type==160 && e.count_units(0,65)+e.count_units(0,66)<18){unsigned next=e.count_units(0,164) && e.count_units(0,66)<30?66:65;if(!e.perform(option_code(OptionKind::train,next)) && next==66)e.perform(option_code(OptionKind::train,65));}
+   else if(!z && p.type==160 && e.count_units(0,65)+e.count_units(0,66)<12 && state.minerals>250){unsigned next=e.count_units(0,164) && e.count_units(0,66)<30?66:65;if(!e.perform(option_code(OptionKind::train,next)) && next==66)e.perform(option_code(OptionKind::train,65));}
+  }
+  if(frame>=cast_after)for(const auto& caster:parents)if(caster.type==67 && caster.energy>=75 && caster.order!=unsigned(bwgame::Orders::CastPsionicStorm)){
+   unsigned score=0;const UnitView* target=nullptr;for(const auto& enemy:enemies){int dx=enemy.x-caster.x,dy=enemy.y-caster.y;if(dx*dx+dy*dy>320*320)continue;unsigned count=0;for(const auto& nearby:enemies){int x=nearby.x-enemy.x,y=nearby.y-enemy.y;if(x*x+y*y<72*72)++count;}if(count>score){score=count;target=&enemy;}}
+   if(target && score>=2 && e.select(caster.x,caster.y) && e.perform(option_code(OptionKind::order,unsigned(bwgame::Orders::CastPsionicStorm)),target->x,target->y)){cast_after=frame+96;break;}
   }
   if(frame%4800==0){if(!z)printf("Scouts%u Stargates%u enemies%zu ",e.count_units(0,70),e.count_units(0,167),enemies.size());printf("%s frame%u minerals%d gas%d workers%u army%u buildings%u/%u pending%u attack%d\n",m.key,e.frame(),state.minerals,state.gas,e.count_units(0,worker),army,e.count_units(0,z?142:160),e.count_units(0,z?135:164),build_pending,attack);fflush(stdout);}
  }

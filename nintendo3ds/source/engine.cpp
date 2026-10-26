@@ -276,6 +276,12 @@ bool Engine::load(const char* data_root, const char* map_path, Scenario scenario
             const bool melee=scenario==Scenario::melee || scenario==Scenario::ai_battle || scenario==Scenario::versus_ai || scenario==Scenario::gas_battle || scenario==Scenario::protoss_ai_battle || scenario==Scenario::protoss_versus_ai || scenario==Scenario::zerg_ai_battle || scenario==Scenario::zerg_versus_ai;
             if(campaign){
                 loader.setup_info.create_no_units=false;loader.setup_info.victory_condition=0;loader.setup_info.starting_units=0;loader.setup_info.resource_type=0;
+                // UMS computer slots begin allied across Force boundaries. Preserve
+                // that relationship before replacing the retail AI controller;
+                // original alliance/AI triggers may change it during the mission.
+                std::array<bool,8> computers{};
+                for(unsigned i=0;i<8;++i)computers[i]=player.st().players[i].controller==player_t::controller_computer;
+                for(unsigned i=0;i<8;++i)for(unsigned j=0;j<8;++j)if(i!=j && computers[i] && computers[j])player.st().alliances[i][j]=2;
                 for(unsigned i=0;i<12;++i){auto& p=player.st().players[i];p.race=static_cast<race_t>(campaign_races[i]);if(p.controller==player_t::controller_open || p.controller==player_t::controller_computer)p.controller=player_t::controller_occupied;}
                 return;
             }
