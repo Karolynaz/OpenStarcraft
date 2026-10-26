@@ -86,6 +86,7 @@ int main() {
 
     {
         port3ds::UiArt art;port3ds::MenuAnimation animation;const bool art_ok=art.load("sdmc:/3ds/openbw/ui/menu.bin") && animation.load("sdmc:/3ds/openbw/ui/animations.bin");
+        port3ds::Audio briefing_audio;unsigned spoken_mission=~0u,spoken_page=~0u,spoken_voice=~0u;
         C2D_Prepare();u64 last=now_us();
         while(aptMainLoop()){
             hidScanInput();const u32 down=hidKeysDown();circlePosition stick{};hidCircleRead(&stick);
@@ -93,6 +94,26 @@ int main() {
             if(down&KEY_TOUCH){touchPosition t{};hidTouchRead(&t);front.x=t.px;front.y=t.py;front.hover=front.hit(t.px,t.py);front.activate(front.hover);}
             if(down&KEY_A)front.activate(front.hit(int(front.x),int(front.y)));
             if(down&KEY_B)front.back();
+            if(front.dialog==port3ds::Frontend::Dialog::briefing && !front.briefing_paginated){
+                if(auto measure=C2D_TextBufNew(160)){front.paginate_briefing([&](const char* line){return port3ds::ui_width(measure,line,.46f);},264,9);C2D_TextBufDelete(measure);}
+            }
+            // Briefing audio is owned by this menu scope, and fully released
+            // before the world/terrain/audio allocations of a mission begin.
+            if(front.dialog==port3ds::Frontend::Dialog::briefing){
+                if(spoken_mission!=front.mission){briefing_audio.unload();spoken_mission=front.mission;spoken_page=spoken_voice=~0u;}
+                const auto voice=front.briefing_sound();
+                if(voice && !briefing_audio.stats().ready && spoken_page!=front.briefing_page){
+                    const auto& mission=port3ds::campaign::missions[front.mission];
+                    const auto bank=std::string(root)+"campaign/"+mission.key+"-effects.bin";
+                    const char* prefix=mission.race==0?"zerg":mission.race==2?"protoss":"terran";
+                    const auto audio_root=std::string(root)+"audio"+(mission.race==0?"/zerg":mission.race==2?"/protoss":"");
+                    briefing_audio.load(audio_root.c_str(),R_SUCCEEDED(audio),prefix,bank.c_str());last=now_us();
+                    load_stage(mission.scenario,briefing_audio.stats().ready?"briefing-audio-ready":"briefing-audio-off",briefing_audio.error());
+                }
+                if(spoken_page!=front.briefing_page && spoken_voice!=voice){briefing_audio.reset();port3ds::SoundEvent event{voice,0,0};briefing_audio.update(&event,voice?1:0,0,0,false);spoken_voice=voice;}
+                else briefing_audio.update(nullptr,0,0,0,false);
+                spoken_page=front.briefing_page;
+            }else if(spoken_mission!=~0u){const auto stats=briefing_audio.stats();char detail[96];std::snprintf(detail,sizeof detail,"played=%u missing=%u IO=%u",stats.played,stats.missing,stats.io_errors);load_stage(port3ds::campaign::missions[spoken_mission].scenario,"briefing-audio-done",detail);briefing_audio.unload();spoken_mission=spoken_page=spoken_voice=~0u;}
             if(front.quit)break;
             if(front.screen==port3ds::Frontend::Screen::custom && front.preview_dirty){front.preview_dirty=false;port3ds::Engine::preview_map(root,front.map_path().c_str(),front.preview);if(front.preview.valid)art.preview(front.preview.pixels.data());last=now_us();}
             if(down&KEY_DUP)front.direction(0);if(down&KEY_DRIGHT)front.direction(1);if(down&KEY_DDOWN)front.direction(2);if(down&KEY_DLEFT)front.direction(3);

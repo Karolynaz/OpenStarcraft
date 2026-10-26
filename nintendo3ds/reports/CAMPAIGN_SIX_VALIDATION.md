@@ -1,74 +1,118 @@
-# Six campaign openings — 2026-10-26 checkpoint
+# Six playable campaign openings — 2026-10-26
 
-Implemented all six race/version entry points using the owner's original maps,
-restrictions, forces, objectives, triggers and placed units. Owned data remains
-ignored/private. Campaign indices16–21 preserve existing scenario numbers.
-Human slots1/3/7/2/5/3 are normalized to zero, including restrictions and trigger
-references. The menu maps the displayed race cards correctly in each version.
-Briefings are paged text; movies and animated/speaking briefing portraits are
-not implemented. Completion is recorded independently for each opening.
+Final native source: **src-aece41334bc62432**. ARMv6K/VFPv2 build and architecture
+verification PASS. Original 3DS limits remain 36MiB heap, 8MiB linear and 24TPS.
+All purchased maps, graphics, dialogue and data remain private/ignored.
 
-Additional CHK semantics: switches, deaths, custom score, unit properties,
-invincibility, ownership, relocation, HP/shield/energy/resource modifiers,
-alliances and minimap pings. Correct native CHK Exactly comparison10 and resource
-Subtract9. Single Entity flag no longer aborts beacons/powerups on map load.
-Resource-depot rescue transfers the entire rescuable owner's colony, fixing the
-Nexus-without-pylons deadlock. Individual actors still rescue individually.
-Behavior checked against primary reverse-engineering reference:
-https://github.com/BoomerangAide/GPTP/blob/master/GPTP/hooks/orders/rescuable_order.cpp
+## Verified original victories
 
-Bounded adapter interprets the audited original opening AIScripts Zer1, Pro1,
-TB1A, PB1A/PB1B, EnBk and Suic. Requests use native paid mining, placement,
-production, upgrades and orders. This is an opening-mission subset, not a full
-replacement for StarCraft's complete computer-player AI. Unsupported opcodes
-fail explicitly. Later missions need a fresh opcode audit.
+These ASan host playthroughs issue public player commands on the original maps,
+unit stats and triggers. Economy missions use paid native mining, construction,
+production and research. Fog is disabled for repeatable test navigation; these
+are automated players, not six complete manual console playthroughs.
 
-Each mission has its own bank so local CHK speech IDs cannot collide. All
-original in-mission dialogue (5/11/6/17/10/9 WAVs) and placed hero response ranges
-are included. Long dialogue streams through two reused128KiB halves; SFX cache
-remains4MiB and long-voice allocation256KiB. Banks24.0–28.1MB are disk files,
-not resident allocations. A31-second synthetic voice and all58 real dialogue
-WAVs pass byte equality through the bounded mixer with zero IO errors. Audio
-pause/reload/fragmented-cache tests also pass.
+| Version | Race | Mission | Original victory frame |
+| --- | --- | --- | ---: |
+| Original | Terran | Wasteland | 7649 |
+| Original | Zerg | Among the Ruins | 22344 |
+| Original | Protoss | First Strike | 21393 |
+| Brood War | Protoss | Escape from Aiur | 10672 |
+| Brood War | Terran | First Strike | 37012 |
+| Brood War | Zerg | Vile Disruption | 13725 |
 
-## Tests at checkpoint
+BW Protoss escorts Zeratul and rescues reinforcements. BW Terran rescues Duran,
+mines gas, trains tanks, researches siege and destroys the original objective.
+BW Zerg rescues all seven hives, recruits the original scripted units, crosses
+the preplaced Nydus network and completes the final scripted combat.
 
-- ARMv6K/VFPv2 native build PASS. Source src-57f63c0be9bfa4b8.
-- ASan six-menu routing, original map/objective startup, save/replay and48-frame
-  deterministic continuation PASS. Extended runs reach17248frames for five
-  missions. Idle BWZerg loses at2251 after Exactly was corrected.
-- Wasteland paid rescue/mining/construction/training victory frame7649, hero
-  speech and defeat branches PASS (prior source; same campaign path).
-- Original Zerg1 paid Spawning Pool/Extractor/Hydralisk Den, mining, hydralisks
-  and combat victory frame22344 PASS on current source.
-- Original Protoss1 rescue, paid workers/production/tech/combat victory
-  frame21393 PASS on current source.
-- Native trigger contract test covered switches, custom score, resource
-  subtraction, UPRP/invincibility, HP, ownership, relocation, deaths versus
-  removal and alliances. Sparse-town original Zer1 test built a Barracks and trained3 Marines with600 native minerals spent, including ongoing mining: PASS.
-- Original-model/100%CPU emulator reviewed Zerg1 and all three BW openings at
-  src-8d48a2f1fe3868da (before rescue/Exactly refinements). All loaded terrain,
-  sprites, objectives and mission audio. Largest128x96 map audio-ready heap
-  31853576bytes, linear free123904bytes. BW96x128 also fits. This does not prove
-  physical hardware performance. Latest binary needs final emulator pass.
-- Emulator stopped and previous settings/profile restored. No physical SD write.
+All six empty-human **test fixtures** execute original defeat branches at
+frames2/2/2/50/2/2. Wasteland also tests the original hero-death loss condition.
+All six menu/race/version routes, objective startup, save/replay digest equality,
+48-frame deterministic continuation and idle runs through frame17248 PASS.
+Fixture maps are never included in the release.
 
-## Outstanding work
+## Campaign blockers corrected
 
-Brood War win paths have not been completed with normal player orders. Naive
-fixed-army route tests lose; distinguish bad tactics from trigger/AI issues
-before claiming full playthrough coverage. BW Terran also needs a paid combat
-completion test. Remaining native final-build check, package/manifest review,
-and local checkpoint/handoff must preserve these limits honestly. Continue
-these before adding further missions. Evidence is private under
-local-data/campaign-six-validation and /tmp/sc3ds-* logs.
+- Native Exactly comparison uses CHK value10; resource Subtract uses9.
+- Resource-depot rescue transfers the rescuable colony, including the pylons
+  needed to use the rescued Protoss base. Individual actors still rescue alone.
+- Initial UNIT valid flags preserve invincibility, burrow and cloak. Contract
+  confirms seven protected BW Zerg hives and88 pre-burrowed enemies.
+- MRGN ground and air exclusion masks were swapped. Ground-only Bring conditions
+  now trigger hive rescue and scripted reinforcements correctly.
+- Initial addon/Nydus serial links were ignored. Contract confirms six Terran
+  addon pairs, paid player tank training, and eight reciprocal Nydus entrances.
+  The final BW Zerg region cannot be reached by an ordinary ground path.
+- Selected opening heroes now show Jim Raynor, Fenix, Zeratul, Samir Duran,
+  Hunter Killer or Dark Templar instead of the generic Unit label.
 
-## Initial-unit flags correction (03:35 continuation)
+Primary format/behavior references:
+[UNIT serial links](https://docs.scmjs.dev/chk/unit/),
+[MRGN exclusion bits](https://docs.scmjs.dev/chk/mrgn/),
+[rescuable order behavior](https://github.com/BoomerangAide/GPTP/blob/master/GPTP/hooks/orders/rescuable_order.cpp).
+The fixes retain the existing OpenBW simulation; reference implementations were
+not imported as replacement engines.
 
-Native UNIT loading had ignored StarEdit invincibility/burrow/cloak flags. This
-made protected BWZerg hives destructible and placed ambushers immediately active.
-Corrected these three flags. Original-map contract confirms7 invincible hives
-and88 pre-burrowed enemies. All six extended/replay tests PASS at754ddd9a; BWZerg
-now remains running at17248 idle frames. Existing candidate ZIPs predate this
-fix and must be regenerated before final delivery. Last emulator57f63SCProtoss
-startup also passed and settings/profile were restored; no emulator is running.
+## Original script AI and audio
+
+The bounded adapter interprets audited opening AIScripts Zer1, Pro1, TB1A,
+PB1A/PB1B, EnBk and Suic. Requests use native paid mining, placement, production,
+research and combat. A sparse-town original Zer1 test constructs a Barracks and
+three Marines, spending600 minerals while mining continues. Trigger contracts
+also cover switches, custom score, properties, ownership, relocation, HP,
+deaths versus removal, alliances and ground/air location masks.
+
+Each opening has a private bank, avoiding collisions between map-local speech
+IDs. **All97 original dialogue WAVs** (8/15/9/28/14/23 per mission, including39
+briefing lines and58 in-mission lines) are byte-exact through the bounded mixer,
+with IO0. Placed/created hero selection and acknowledgement sounds are included.
+Long speech streams through two reused128KiB halves; the long-voice allocation
+is256KiB and SFX cache4MiB. Bank files are25.5–30.8MB on disk, not resident RAM.
+Fragmented16KiB-cache fallback, cancel/unload, read-failure recovery and long
+stream tests PASS.
+
+Briefing pages use actual renderer font widths. Long paragraphs are split into
+continuation pages without cutting text or restarting the same spoken line.
+Next/Back changes pages; changing dialogue lines starts their original voices.
+Briefing audio is destroyed before allocating the mission world and its audio.
+Frontend ASan checks cover voice IDs, text preservation/pagination, old progress
+compatibility, settings, map navigation and menu transitions.
+
+## Original-model emulator evidence
+
+Emulator set to original model and100%CPU. Native instruction/graphics/audio
+startup was reviewed for all six openings during the work. Largest128x96
+opening loaded with heap31853576bytes and linear free123904bytes. Final named
+hero build also restores the BW Zerg checkpoint. No physical performance claim.
+
+At src-f31e3d3cbb6b4374 (same simulation; before the final hero-name labels):
+
+- BW Terran briefing played4 voices, missing0, IO0, then loaded its world.
+  Briefing heap≈4.5MB was released before world allocation.
+- Full BW Zerg save restored at frame11233. A/context sent the selected Hunter
+  Killer through Nydus. Its native save replayed in ASan with digest equality:
+  selected type53 at1352,3664, beyond the impassable cliff, frame15023.
+  Repeated on the final src-aece41334bc62432 build: same successful native
+  transfer and cross-platform replay digest, frame13374; Hunter Killer label shown.
+- BW Terran and BW Zerg sampled median59.83FPS/23.93TPS; missing sprites0,
+  audio IO0 and DSP drops0. Largest observed gameplay heap31821432bytes.
+- Pause dims both screens and shows the centered menu on the lower screen.
+
+Private evidence, logs, screenshots, original preference/profile/save backups
+and machine-readable receipts are under local-data/campaign-six-validation.
+The emulator is stopped and original preferences, profile and both save slots
+are restored before delivery. Physical SD is unchanged.
+
+## Test packages and limits
+
+Private full package: local-data/releases/campaign-six-tested-2026-10-26.zip.
+Private update: local-data/releases/campaign-six-tested-update-2026-10-26.zip.
+Extract the 3ds folder to SD root and merge. The update requires the previously
+installed base MPQs/graphics/race music. Packages contain no player profile,
+progress or save slots. ZIP CRCs, staged file hashes and executable identity
+are verified; exact receipts are in the private validation directory.
+
+Six openings are enabled. Later missions/progression are not included yet;
+new missions need their original trigger/opcode audit. This is an opening-script
+adapter, not complete StarCraft computer AI. Movies and animated briefing
+portraits remain unimplemented. Saves require an exact matching source build.

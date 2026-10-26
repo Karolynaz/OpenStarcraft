@@ -13,7 +13,9 @@ for key,race in [('terran01',1),('zerg01',0),('protoss01',2),('expprotoss01',2),
  owners=chunks[b'OWNR'];side=chunks[b'SIDE'];dim=struct.unpack('<HH',chunks[b'DIM '])
  assert owners[0]==6 and owners[:8].count(6)==1 and side[0]==race and max(dim)<=128
  assert len(chunks[b'TRIG'])%2400==0 and len(chunks[b'UNIT'])%36==0
- for suffix in ('.chk','.brief'):
+ pages=(a.directory/f'{key}.brief').read_text().split('\f');voices=[int(v) for v in (a.directory/f'{key}.brief-audio').read_text().splitlines()]
+ assert len(pages)==len(voices) and all(v==0 or 1200<=v<2300 for v in voices)
+ for suffix in ('.chk','.brief','.brief-audio'):
   name=key+suffix;b=(a.directory/name).read_bytes();assert b
   manifest[name]={'sha256':hashlib.sha256(b).hexdigest(),'bytes':len(b)}
  manifest[key+'.chk'].update({'dimensions':dim,'human':0,'race':race})

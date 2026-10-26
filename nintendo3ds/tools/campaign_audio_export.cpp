@@ -24,9 +24,9 @@ int main(int argc,char**argv){if(argc!=3 && argc!=4)return 2;try{
  auto get=[](const uint8_t* p){return data_loading::value_at<uint32_t,true>(p);};
  for(size_t at=0;at+8<=chk.size();){const auto* tag=chk.data()+at;unsigned n=get(tag+4);at+=8;if(n>chk.size()-at)throw std::runtime_error("CHK bounds");const auto* p=chk.data()+at;
   if(!memcmp(tag,"STR ",4)){unsigned count=p[0]|p[1]<<8;if(2+2*count>n)throw std::runtime_error("STR bounds");strings.resize(count+1);for(unsigned i=0;i<count;++i){unsigned off=p[2+i*2]|p[3+i*2]<<8;if(off<n){unsigned end=off;while(end<n && p[end])++end;strings[i+1]=std::string((char*)p+off,end-off);}}}
-  if(!memcmp(tag,"TRIG",4)){if(n%2400)throw std::runtime_error("TRIG bounds");for(unsigned j=0;j<n;j+=2400)for(unsigned a=0;a<64;++a){const auto* r=p+j+320+a*32;if((r[26]==7 || r[26]==8) && !(r[28]&2) && get(r+8))speech.insert(get(r+8));}}
+  if(!memcmp(tag,"TRIG",4) || !memcmp(tag,"MBRF",4)){const bool briefing=!memcmp(tag,"MBRF",4);if(n%2400)throw std::runtime_error("TRIG bounds");for(unsigned j=0;j<n;j+=2400)for(unsigned a=0;a<64;++a){const auto* r=p+j+320+a*32;if((r[26]==8 || (!briefing && r[26]==7)) && !(r[28]&2) && get(r+8))speech.insert(get(r+8));}}
   at+=n;
  }
  for(auto id:speech){if(id>=strings.size() || port3ds::campaign_sound_base+id>=port3ds::audio_sound_limit)throw std::runtime_error("Speech ID bounds");a_string name=strings[id];for(auto& c:name)if(c=='\\')c='/';const auto nested=prefix+name;if(!extract(disc,nested,b))throw std::runtime_error("Missing owned mission speech: "+std::string(nested.c_str()));write(port3ds::campaign_sound_base+id,200,16,nested,b);}
- if(!manifest)throw std::runtime_error("Manifest write failed");printf("Exported %zu hero responses and %zu in-mission WAVs\n",ids.size(),speech.size());
+ if(!manifest)throw std::runtime_error("Manifest write failed");printf("Exported %zu hero responses and %zu mission/briefing WAVs\n",ids.size(),speech.size());
 }catch(const std::exception&e){fprintf(stderr,"%s\n",e.what());return 1;}}

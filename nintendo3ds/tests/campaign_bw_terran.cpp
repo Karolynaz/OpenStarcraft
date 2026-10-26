@@ -27,7 +27,7 @@ int main(int argc,char**argv){assert(argc==3);Engine e;assert(e.load(argv[1],arg
    else if(p.type==122){e.perform(option_code(OptionKind::upgrade,unsigned(UpgradeTypes::Terran_Infantry_Weapons)));}
   }
   if(phase==0 && e.count_units(0,0)>=12 && e.count_units(0,5)+e.count_units(0,30)>=2)phase=1;
-  if(e.count_units(0,99)){phase=std::max(phase,2u);if(!duran_safe && duran && e.select(duran->x,duran->y)){e.perform(option_code(OptionKind::cloak,0));e.move_selected(home_x,home_y);duran_safe=true;}}
+  if(e.count_units(0,99)){phase=std::max(phase,2u);if(!duran_safe && duran && e.select(duran->x,duran->y)){assert(std::string(e.selection_info().name)=="Samir Duran");e.perform(option_code(OptionKind::cloak,0));e.move_selected(home_x,home_y);duran_safe=true;}}
   if(phase==2 && (e.count_units(0,5)+e.count_units(0,30)>=8 || e.count_units(0,0)>=40))phase=3;
   int tx=home_x,ty=home_y;if(phase==1 && duran){tx=duran->x;ty=duran->y;}else if(phase==3 && enemy_cc){tx=enemy_cc->x;ty=enemy_cc->y;}
   for(const auto& u:army){const UnitView* near=nullptr;int distance=0x7fffffff;for(const auto& v:enemies){int dx=u.x-v.x,dy=u.y-v.y,d=dx*dx+dy*dy;if(d<distance){distance=d;near=&v;}}

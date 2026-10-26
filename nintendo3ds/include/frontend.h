@@ -20,7 +20,25 @@ struct Frontend {
  bool brood=true,play=false,load=false,quit=false,save_failed=false;
  bool saved_notice=false,campaign_start=false;
  unsigned mission=0;std::array<bool,campaign::count> completed{};
- std::vector<std::string> briefing;unsigned briefing_page=0;
+ std::vector<std::string> briefing;std::vector<unsigned> briefing_voices;unsigned briefing_page=0;bool briefing_paginated=false;
+ unsigned briefing_sound()const{return briefing_page<briefing_voices.size()?briefing_voices[briefing_page]:0;}
+ // The renderer supplies real font widths, so no spoken paragraph is cut by
+ // the dialog's line limit. Continuation pages retain the same voice ID.
+ void paginate_briefing(const std::function<float(const char*)>& measure,float width,unsigned rows){
+  if(briefing_paginated || !rows)return;
+  std::vector<std::string> pages;std::vector<unsigned> voices;
+  for(unsigned i=0;i<briefing.size();++i){const unsigned voice=i<briefing_voices.size()?briefing_voices[i]:0;const char* at=briefing[i].c_str();std::string page;unsigned line_count=0;
+   while(*at){while(*at==' ' || *at=='\n' || *at=='\r')++at;if(!*at)break;std::string line;unsigned n=0,space=0;
+    while(at[n] && at[n]!='\n' && n<150){line+=at[n];if(measure(line.c_str())>width){line.pop_back();break;}if(at[n]==' ')space=n;++n;}
+    if(!n){line.assign(1,*at);n=1;}else if(at[n] && at[n]!='\n' && space){n=space;line.assign(at,n);}
+    if(!page.empty())page+='\n';page+=line;at+=n;
+    if(++line_count==rows){pages.push_back(page);voices.push_back(voice);page.clear();line_count=0;}
+   }
+   if(!page.empty()){pages.push_back(page);voices.push_back(voice);}
+  }
+  briefing.swap(pages);briefing_voices.swap(voices);briefing_page=0;briefing_paginated=true;
+ }
+
  unsigned race=1,speed=4,game_type=0,subtype=0,scroll=0,selected_map=0;
  std::array<unsigned,2> ai{{3,3}};
  unsigned difficulty=0,observer_test=~0u;
@@ -106,10 +124,11 @@ struct Frontend {
   if(dialog==Dialog::map_list){if(id>=70 && id<75 && scroll+unsigned(id-70)<maps.size()){selected_map=scroll+unsigned(id-70);preview_dirty=true;dialog=Dialog::none;}else if(id==90 || id==91){if(id==90)scroll=scroll>=5?scroll-5:0;else if(scroll+5<maps.size())scroll+=5;}else if(id==32)dialog=Dialog::none;return;}
   if(dialog!=Dialog::none){if(dialog==Dialog::version && (id==30 || id==31)){brood=id==31;save();dialog=Dialog::none;}else if(id==33 && dialog==Dialog::exit)quit=true;else if(id==32)dialog=Dialog::none;return;}
   if(screen==Screen::campaign){if(id==5){load=true;}else if(id<3){
-   {static const unsigned original_races[]={0,1,2},brood_races[]={1,2,0};mission=campaign::opening(brood,(brood?brood_races:original_races)[id]);briefing.clear();briefing_page=0;const auto path=base+"/../campaign/"+campaign::missions[mission].key+".brief";FILE* file=std::fopen(path.c_str(),"rb");
+   {static const unsigned original_races[]={0,1,2},brood_races[]={1,2,0};mission=campaign::opening(brood,(brood?brood_races:original_races)[id]);briefing.clear();briefing_voices.clear();briefing_page=0;briefing_paginated=false;const auto path=base+"/../campaign/"+campaign::missions[mission].key+".brief";FILE* file=std::fopen(path.c_str(),"rb");
     if(!file){std::snprintf(error,sizeof error,"Install the private campaign data package.");dialog=Dialog::error;return;}
     std::string page;for(unsigned n=0;n<16384;++n){int c=std::fgetc(file);if(c==EOF){if(!page.empty())briefing.push_back(page);break;}if(c=='\f'){briefing.push_back(page);page.clear();}else if(c=='\r'){}else if(c>=32 || c=='\n')page+=char(c);}std::fclose(file);
     if(briefing.empty()){std::snprintf(error,sizeof error,"Campaign briefing is empty.");dialog=Dialog::error;return;}
+    briefing_voices.assign(briefing.size(),0);if(FILE* voices=std::fopen((path+"-audio").c_str(),"r")){for(auto& id:briefing_voices){unsigned value=0;if(std::fscanf(voices,"%u",&value)!=1)break;if(value>=1200 && value<2300)id=value;}std::fclose(voices);}
     dialog=Dialog::briefing;x=240;y=210;
    }
   }else if(id==3){campaign_start=false;observer_test=~0u;navigate(Screen::custom);}else if(id==4)dialog=Dialog::version;else if(id==6)dialog=Dialog::ai_tests;}

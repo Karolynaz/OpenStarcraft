@@ -15,7 +15,7 @@ required = ['openbw-3ds.3dsx', 'StarDat.mpq', 'BrooDat.mpq', 'Patch_rt.mpq',
             'graphics.bin', 'graphics-arena.bin', 'maps/probe.scx', 'maps/arena.chk',
             'README.txt', 'campaign/terran01.chk', 'campaign/terran01.brief', 'maps/AI/islands.scm', 'maps/AI/three-islands.scm', 'observer-maps.json', 'ui/menu.bin', 'ui/hud.bin', 'ui/manifest.json', 'ui/animations.bin', 'audio/effects-all.bin', 'audio/effects-all.json']
 for mission in ('terran01','zerg01','protoss01','expprotoss01','expterran01','expzerg01'):
-    for suffix in ('.chk','.brief','-effects.bin'):
+    for suffix in ('.chk','.brief','.brief-audio','-effects.bin'):
         name=f'campaign/{mission}{suffix}'
         if name not in required: required.append(name)
 required += ['campaign/maps-manifest.json','campaign/audio-manifest.json']

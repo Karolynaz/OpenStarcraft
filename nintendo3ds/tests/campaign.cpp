@@ -15,7 +15,7 @@ int main(int argc,char**argv){assert(argc==3);Engine e;assert(e.load(argv[1],arg
  e.select_army(0,0);assert(e.command(Command::attack,1014,1031));e.select_workers();assert(e.move_selected(1014,1031));{SaveView approach;assert(e.save_game("/tmp/sc3ds-raynor-approach.ob3",approach));}ticks(e,1600);
  printf("after travel rescued%u workers%u winner%d frame%u\n",e.count_units(0,19),e.count_units(0,7),e.snapshot().winner,e.frame());fflush(stdout);
  assert(e.count_units(0,19)==1);assert(heard.count(1357) && heard.count(1532));ticks(e,240);assert(e.snapshot().objectives.find("Raynor must survive")!=std::string::npos);
- {UnitView units[512];auto count=e.visible_units(units,512);bool selected=false;for(unsigned i=0;i<count;++i)if(units[i].owner==0 && units[i].type==19){selected=e.select(units[i].x,units[i].y);break;}assert(selected);ticks(e,1);assert(heard.count(423));assert(e.command(Command::context,1100,1100));ticks(e,1);assert(heard.count(427));}
+ {UnitView units[512];auto count=e.visible_units(units,512);bool selected=false;for(unsigned i=0;i<count;++i)if(units[i].owner==0 && units[i].type==19){selected=e.select(units[i].x,units[i].y);break;}assert(selected);assert(std::string(e.selection_info().name)=="Jim Raynor");ticks(e,1);assert(heard.count(423));assert(e.command(Command::context,1100,1100));ticks(e,1);assert(heard.count(427));}
  SaveView view;assert(e.save_game("/tmp/sc3ds-campaign-slot",view));Engine loaded;SaveView returned;
  assert(loaded.load_save(argv[1],"/tmp/sc3ds-campaign-slot","/tmp/sc3ds-campaign-loaded","/tmp/sc3ds-campaign-map",returned));assert(e.state_digest()==loaded.state_digest());
  for(unsigned i=0;i<120;++i){ticks(e,1);ticks(loaded,1);assert(e.state_digest()==loaded.state_digest());}

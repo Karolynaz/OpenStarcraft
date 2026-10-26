@@ -92,7 +92,20 @@ struct Engine::Impl {
 };
 
 namespace {
-const char* unit_name(const unit_t* u) {if(const char* n=zerg::name(u->unit_type->id))return n;if(const char* n=protoss::name(u->unit_type->id))return n;return terran::name(u->unit_type->id);}
+const char* unit_name(const unit_t* u) {
+    switch(u->unit_type->id){
+    case UnitTypes::Hero_Jim_Raynor_Vulture:case UnitTypes::Hero_Jim_Raynor_Marine:return "Jim Raynor";
+    case UnitTypes::Hero_Fenix_Zealot:case UnitTypes::Hero_Fenix_Dragoon:return "Fenix";
+    case UnitTypes::Hero_Zeratul:return "Zeratul";
+    case UnitTypes::Hero_Samir_Duran:return "Samir Duran";
+    case UnitTypes::Hero_Hunter_Killer:return "Hunter Killer";
+    case UnitTypes::Hero_Dark_Templar:return "Dark Templar";
+    default:break;
+    }
+    if(const char* n=zerg::name(u->unit_type->id))return n;
+    if(const char* n=protoss::name(u->unit_type->id))return n;
+    return terran::name(u->unit_type->id);
+}
 // Use the engine collision box with a small thumbstick tolerance. Prefer
 // the nearest center when two boxes overlap; never select dead/hidden units.
 unit_t* hit_unit(state_functions& funcs, int x, int y, bool own_only,bool fog=false) {

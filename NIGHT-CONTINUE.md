@@ -917,3 +917,43 @@ candidate files remain stale57f63 and MUST regenerate after final validation.
 User authorized further useful work; briefings currently TEXT ONLY, in-mission
 58 dialogue WAVs and hero speech supported. No movies/animated briefing portraits.
 Do not reschedule automation; 03:35 heartbeat already fired, newwindowends08:35.
+
+### FINAL delivered milestone — 2026-10-26, source src-aece41334bc62432
+
+All SIX opening victories verified with public paid/player orders and unchanged
+original maps/triggers/stats: SC T1 7649, Z1 22344, P1 21393, BW P1 10672,
+T1 37012, Z1 13725. ASan all6 original defeat fixtures + startup/save/replay/
+48-framecontinuation/17248 idle frames PASS. Navigation fog disabled in the
+normal win tests; this is not six full manual console playthroughs.
+
+Also added original BRIEFING VOICES: all97 dialogue WAVs (39 briefing+58 in-game)
+byte-exact through bounded mixer, IO0. Briefing paragraphs are paginated using
+actual font widths, with continuous voice across text continuation pages. Scope
+releases briefing4MiB cache before mission allocations. Corrected selected hero
+names: Raynor/Fenix/Zeratul/Duran/Hunter Killer/Dark Templar. Frontend pagination/
+voice metadata ASan PASS; obsolete preflight limit expectation updated to128,
+real oversized/duplicate/truncated/missing-asset recovery PASS.
+
+Final ARMv6K/VFPv2 native PASS. Original-model emulator finalAECE restores BWZ1
+11233-frame checkpoint, A/context Nydus transfer, native save replayed on ASan
+with digest equality: selectedHunter type53 at1352,3664 frame13374 PASS. Final
+screenshot shows Hunter Killer label. Priorf31 Terran briefing4voices missing0
+IO0 and world load PASS; largest opening heap31853576, linearfree123904.
+
+EMULATOR STOPPED. Original model settings/profile and both save slots restored
+byte-exact. Physical SD untouched. No further automation created/rescheduled.
+
+FINAL PRIVATE PACKAGES (supersede earlier candidates):
+local-data/releases/campaign-six-tested-update-2026-10-26.zip
+145files200540403bytes SHA256645acc04ec5edc283dcc37d88616170d8077d8fddbcd5588e657cbeebf665641
+Requires already-installed base MPQs/graphics/race music; merge3ds toSDroot.
+local-data/releases/campaign-six-tested-2026-10-26.zip
+260files549802010bytes SHA256472f416940d22c906d4ed9fdbd68fcf5ea4e2c17b10c24ee8a5fc42ed2d147e6
+Complete private owned-data package. Neither includes profile/progress/saves.
+ZIPCRC/file hashes/executable source identity PASS. Receipts/screenshots/logs
+local-data/campaign-six-validation. Read reports/CAMPAIGN_SIX_VALIDATION.md.
+
+Limits: six openings only; no further mission progression, movies or animated
+briefing portraits. AI is audited original opening-script subset, not full
+StarCraft computer AI. Future missions need opcode/trigger audit. Saves match
+exact source build. No physical-device performance claim. User can now test6.
