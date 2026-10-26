@@ -1155,3 +1155,23 @@ Currenthostobject/tmp/sc3ds-routes-engine.o; test/tmp/sc3ds-campaign-routes,
 (the tested12release). Emulator STOPPED/restored since12stage, no physicalSD.
 Next implementboundedoriginalAIguardrequests/op105seed/op94enemyresourcejump,
 then door/trapstate; don'tsilentlyskipfunctionalops. Lastwindowuntil18:45active.
+
+## 2026-10-26 14:29 AI guard checkpoint
+Source d77a6bf557d8ccee adds bounded128paidguardrequests/three-death retirement,
+83/94own/enemyresource branches,93enemyowns,105seed,digest andinvalidracebounds.
+ASan VM PASS incl2realpaidMarine replacements50+50 andno third replacement;
+queuecounts preventendlessduplicateorders. Fixture originallyraceNone5 caused
+wrong-supplyreads/autodepot; fixedfixturetoTerran andaddedruntimeboundscheck.
+All12 startup/save/replay/48/17248PASS, nativeARM11buildPASS, NO nativeruntime
+check/packageforthisstage. ReportCAMPAIGN_AI_GUARDS.md. Hostobj/tmp/sc3ds-guards-engine.o.
+Broader runtime-guards.csv51startup/6loadreject/3tickreject; tickerrorsAI45nukerate
+(BWT5a),92guardall(BWT8/BWZ6). Fourdoormaploadrejects(T4,Z5,P6,BWT7)and2unusedcutmaps.
+NEXT implementnative doors/traps. PublicGPTPprimaryreferencecloned read-onlyunder
+/tmp/sc3ds-gptp-reference, hooks/orders/doodad_orders.cpp hasoriginalordersemantics.
+Do NOT copy implementation; usefacts forindependentOpenBWstate functions.
+Doors waitiscript order_signal1; Disable animation opens, Enablecloses; nocollide
+setonlyafteropenanim. HiddenGun collapses/cloaks/nocollide, searches15ticktarget,
+Reveal specialstate1 thenqueuedattack thenHide specialstate2 thenHiddenGun.
+Existingnativeflags disabled0x400/nocollide0x200000, methodsqueue_order_back,
+find_acquire_random_target,order_done,sprite_run_anim. THG2flag0x80 currentlythrows.
+Latestnative-testedpackage12source01Dpreserved. Emulatoroff/restored. Windowto18:45.

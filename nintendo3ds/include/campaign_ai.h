@@ -8,13 +8,14 @@ namespace port3ds { namespace detail {
 using namespace bwgame;
 class CampaignAI {
  struct Thread {unsigned pc=0,wake=0,owner=0;bool brood=false,active=false;xy center{};std::array<unsigned,16> calls{};unsigned depth=0;};
+ struct Guard {bool active=false;unsigned owner=0,type=0,deaths=0;unit_id_32 unit{};xy position{};};
  struct Side {
   bool enabled=false,suicide=false,target_expansion=false;xy center{};unsigned search=0,build_frame=0;unit_id_32 builder{};
   std::array<unsigned,228> desired{},defense{},attack{},maximum{};
   Side(){maximum.fill(255);}
   std::array<unsigned,61> upgrades{};std::array<bool,44> tech{};
  };
- std::array<unsigned,1700> committed_{};a_vector<uint8_t> original_,brood_;std::array<Thread,64> threads_{};std::array<Side,8> sides_{};
+ std::array<unsigned,1700> committed_{};a_vector<uint8_t> original_,brood_;std::array<Thread,64> threads_{};std::array<Side,8> sides_{};std::array<Guard,128> guards_{};
  unsigned read(const a_vector<uint8_t>& b,unsigned at,unsigned n)const{if(at>b.size() || n>b.size()-at)throw std::runtime_error("Campaign AI bytecode bounds");unsigned v=0;for(unsigned i=0;i<n;++i)v|=unsigned(b[at+i])<<(i*8);return v;}
  unsigned entry(unsigned id,bool& expansion)const{
   const auto table=read(original_,0,4);for(unsigned at=table;at+16<=original_.size();at+=16){unsigned key=read(original_,at,4);if(!key)break;if(key==id){auto pc=read(original_,at+4,4);if(pc){expansion=false;return pc;}break;}}
@@ -36,6 +37,9 @@ class CampaignAI {
    a.action_select(owner,u);if(a.action_order(owner,a.get_order_type(Orders::AttackMove),target->sprite->position,nullptr,nullptr,false)){if(u->index<committed_.size())committed_[u->index]=f.get_unit_id_32(u).raw_value;if(remaining[type])--remaining[type];}
   }
  }
+ bool hostile(state_functions& f,unsigned owner,unsigned other)const{const auto c=f.st.players[other].controller;return owner!=other && !f.st.alliances[owner][other] && c!=player_t::controller_inactive && c!=player_t::controller_neutral && c!=player_t::controller_rescue_passive;}
+ void place_guard(state_functions& f,unsigned owner,unsigned type,unsigned location,xy center){if(type>=228 || location>2)throw std::runtime_error("Campaign guard request bounds");xy position=center;if(location){int nearest=0x7fffffff;for(auto* u:ptr(f.st.visible_units))if(!f.unit_dying(u) && (location==1?f.unit_is_mineral_field(u):f.unit_is(u,UnitTypes::Resource_Vespene_Geyser) || (u->owner==owner && f.unit_is_refinery(u)))){auto d=u->sprite->position-center;int n=d.x*d.x+d.y*d.y;if(n<600*600 && n<nearest){nearest=n;position=u->sprite->position;}}}for(auto& g:guards_)if(!g.active){g={true,owner,type,0,{},position};return;}throw std::runtime_error("Campaign guard capacity");}
+ void update_guards(state_functions& f){if(f.st.current_frame%24)return;action_state state;action_functions a(f.st,state);for(auto& g:guards_)if(g.active){auto* unit=f.get_unit(g.unit);if(g.unit.raw_value && (!unit || f.unit_dying(unit) || unit->owner!=g.owner || (unit->index<committed_.size() && committed_[unit->index]==g.unit.raw_value))){if(!unit || f.unit_dying(unit)){if(++g.deaths>=3){g.active=false;continue;}}g.unit={};unit=nullptr;}if(!unit){for(auto* candidate:ptr(f.st.player_units[g.owner]))if(unsigned(candidate->unit_type->id)==g.type && f.u_completed(candidate) && !f.unit_dying(candidate) && !f.us_hidden(candidate) && !f.ut_turret(candidate) && !(candidate->index<committed_.size() && committed_[candidate->index]==f.get_unit_id_32(candidate).raw_value)){auto id=f.get_unit_id_32(candidate);bool used=false;for(const auto& other:guards_)if(other.active && other.unit==id){used=true;break;}if(!used){unit=candidate;g.unit=id;break;}}}if(unit && idle(unit)){auto d=unit->sprite->position-g.position;if(d.x*d.x+d.y*d.y>96*96){a.action_select(g.owner,unit);a.action_order(g.owner,a.get_order_type(Orders::AttackMove),g.position,nullptr,nullptr,false);}}}}
  unsigned unit_count(state_functions& f,unsigned owner,unsigned type,bool completed)const{
   unsigned n=0;for(auto* u:ptr(f.st.player_units[owner]))if(!f.unit_dying(u) && !f.ut_turret(u)){
    if(unsigned(u->unit_type->id)==type && (!completed || f.u_completed(u)))++n;
@@ -69,6 +73,7 @@ class CampaignAI {
    case 35:case 56:break;
    case 36:case 97:t.active=false;break;
    case 37:side.enabled=false;f.st.players[t.owner].controller=player_t::controller_rescue_passive;for(auto& child:threads_)if(child.owner==t.owner)child.active=false;break;
+   case 61:{unsigned type=word(),location=byte();place_guard(f,t.owner,type,location,t.center);break;}
    case 64:{unsigned address=word();if(t.depth==t.calls.size())throw std::runtime_error("Campaign AI call depth");t.calls[t.depth++]=t.pc;t.pc=address;break;}
    case 65:if(!t.depth)throw std::runtime_error("Campaign AI return without call");t.pc=t.calls[--t.depth];break;
    case 72:{unsigned address=word();launch(address,t.owner,t.brood,t.center,f.st.current_frame);break;}
@@ -76,6 +81,9 @@ class CampaignAI {
    case 76:{unsigned n=byte(),id=word();if(id>=228)throw std::runtime_error("Campaign AI train bounds");side.desired[id]=std::max(side.desired[id],n);break;}
    case 77:side.target_expansion=true;break;
    case 87:case 88:{unsigned p=byte();if(p>=8)throw std::runtime_error("Campaign AI shared vision bounds");if(op==87)f.st.shared_vision[p]|=1<<t.owner;else f.st.shared_vision[p]&=~(1<<t.owner);f.st.shared_vision[p]|=1<<p;f.st.update_tiles_countdown=1;break;}
+   case 83:case 94:{unsigned minerals=word(),gas=word(),address=word();bool enough=false;for(unsigned p=0;p<8;++p)if((op==83?p==t.owner:hostile(f,t.owner,p)) && f.st.current_minerals[p]>=int(minerals) && f.st.current_gas[p]>=int(gas))enough=true;if(enough)t.pc=address;break;}
+   case 93:{unsigned type=word(),address=word();if(type>=228)throw std::runtime_error("Campaign enemy ownership bounds");for(unsigned p=0;p<8;++p)if(hostile(f,t.owner,p) && unit_count(f,p,type,false)){t.pc=address;break;}break;}
+   case 105:f.st.lcg_rand_state=read(bytes,t.pc,4);t.pc+=4;break;
    case 41:{action_state state;action_functions a(f.st,state);for(auto* bunker:ptr(f.st.player_units[t.owner]))if(f.unit_is(bunker,UnitTypes::Terran_Bunker))for(auto* u:ptr(f.st.player_units[t.owner]))if(f.unit_is(u,UnitTypes::Terran_Marine) && !f.us_hidden(u)){auto d=u->sprite->position-bunker->sprite->position;if(d.x*d.x+d.y*d.y<256*256){a.action_select(t.owner,u);a.action_default_order(t.owner,bunker->sprite->position,bunker,nullptr,false);}}break;}
    case 46:word();break; // Original force limits exceed our bounded unit request cap.
    default:throw std::runtime_error("Unsupported campaign AI opcode "+std::to_string(op));
@@ -84,12 +92,13 @@ class CampaignAI {
  }
  void economy(state_functions& f,unsigned owner){
   auto& side=sides_[owner];if(!side.enabled || f.st.current_frame%24)return;auto& st=f.st;action_state state;action_functions a(st,state);
+  if(unsigned(st.players[owner].race)>=3)throw std::runtime_error("Campaign AI race bounds");
   const bool z=st.players[owner].race==race_t::zerg,p=st.players[owner].race==race_t::protoss;
   const auto worker=z?UnitTypes::Zerg_Drone:p?UnitTypes::Protoss_Probe:UnitTypes::Terran_SCV;
   const auto supply=z?UnitTypes::Zerg_Overlord:p?UnitTypes::Protoss_Pylon:UnitTypes::Terran_Supply_Depot;
   const auto gas=z?UnitTypes::Zerg_Extractor:p?UnitTypes::Protoss_Assimilator:UnitTypes::Terran_Refinery;
-  std::array<unsigned,228> counts{};static_vector<unit_t*,128> workers,parents;unit_t* refinery=nullptr;unsigned live=0;
-  for(auto* u:ptr(st.player_units[owner]))if(!f.unit_dying(u) && !f.ut_turret(u)){++live;unsigned id=unsigned(u->unit_type->id);if(id<228 && !(u->index<committed_.size() && committed_[u->index]==f.get_unit_id_32(u).raw_value))++counts[id];for(auto* q:u->build_queue)if(unsigned(q->id)<228)counts[unsigned(q->id)]+=q->id==UnitTypes::Zerg_Zergling?2:1;
+  std::array<unsigned,228> counts{},training{};static_vector<unit_t*,128> workers,parents;unit_t* refinery=nullptr;unsigned live=0;
+  for(auto* u:ptr(st.player_units[owner]))if(!f.unit_dying(u) && !f.ut_turret(u)){++live;unsigned id=unsigned(u->unit_type->id);if(id<228 && !(u->index<committed_.size() && committed_[u->index]==f.get_unit_id_32(u).raw_value))++counts[id];for(auto* q:u->build_queue)if(unsigned(q->id)<228){unsigned n=q->id==UnitTypes::Zerg_Zergling?2:1;counts[unsigned(q->id)]+=n;training[unsigned(q->id)]+=n;}
    if(f.u_completed(u)){if(f.unit_is(u,worker))workers.push_back(u);else if((f.ut_building(u) || f.unit_is(u,UnitTypes::Zerg_Larva)) && parents.size()<128)parents.push_back(u);if(f.unit_is(u,gas))refinery=u;}}
   auto* builder=f.get_unit(side.builder);if(builder && (f.unit_dying(builder) || f.ut_building(builder) || (st.current_frame>side.build_frame+96 && builder->order_type->id!=Orders::PlaceBuilding && builder->order_type->id!=Orders::PlaceProtossBuilding && builder->order_type->id!=Orders::DroneStartBuild && builder->order_type->id!=Orders::ConstructingBuilding && builder->order_type->id!=Orders::DroneLand))){side.builder={};builder=nullptr;}
   unsigned gas_workers=0;for(auto* w:workers){auto o=w->order_type->id;if(o==Orders::HarvestGas || o==Orders::ReturnGas || o==Orders::MoveToGas || o==Orders::WaitForGas)++gas_workers;}
@@ -105,6 +114,7 @@ class CampaignAI {
   if(!workers.empty())wants[unsigned(worker)]=std::max(wants[unsigned(worker)],8u);
   for(unsigned id=0;id<228;++id)if(wants[id]>counts[id] && f.get_unit_type(UnitTypes(id))->gas_cost)wants[unsigned(gas)]=std::max(wants[unsigned(gas)],1u);
   for(unsigned id=0;id<228;++id)wants[id]=std::min(wants[id],side.maximum[id]);
+  for(unsigned id=0;id<228;++id){unsigned pending=0;for(const auto& g:guards_)if(g.active && g.owner==owner && g.type==id && !g.unit.raw_value)++pending;if(pending>training[id])wants[id]=std::max(wants[id],counts[id]+pending-training[id]);}
   for(unsigned id=0;id<228;++id)if(wants[id]>counts[id]){
    auto* type=f.get_unit_type(UnitTypes(id));if(!f.has_available_resources_for(owner,type))continue;
    if(f.ut_building(type) && !f.ut_addon(type)){
@@ -125,7 +135,7 @@ public:
   if(id==0x63697553u){auto& s=sides_[owner];s.enabled=true;s.suicide=true;s.center=center;attack(f,owner,true);return;} // Suic
   bool expansion=false;unsigned pc=entry(id,expansion);if(!pc)throw std::runtime_error("Missing original campaign AI script");auto& thread=launch(pc,owner,expansion,center,f.st.current_frame);interpret(f,thread);
  }
- void step(state_functions& f){for(auto& t:threads_)if(t.active && f.st.current_frame>=t.wake)interpret(f,t);for(unsigned p=0;p<8;++p)economy(f,p);}
- template<class Add>void digest(Add add)const{for(auto id:committed_)add(id);for(const auto& t:threads_){add(t.pc);add(t.wake);add(t.owner);add(t.brood);add(t.active);add(t.center.x);add(t.center.y);add(t.depth);for(auto pc:t.calls)add(pc);}for(const auto& s:sides_){add(s.enabled);add(s.suicide);add(s.target_expansion);add(s.center.x);add(s.center.y);add(s.search);add(s.build_frame);add(s.builder.raw_value);for(auto n:s.maximum)add(n);for(auto n:s.desired)add(n);for(auto n:s.defense)add(n);for(auto n:s.attack)add(n);for(auto n:s.upgrades)add(n);for(auto n:s.tech)add(n);}}
+ void step(state_functions& f){for(auto& t:threads_)if(t.active && f.st.current_frame>=t.wake)interpret(f,t);update_guards(f);for(unsigned p=0;p<8;++p)economy(f,p);}
+ template<class Add>void digest(Add add)const{for(const auto& g:guards_){add(g.active);add(g.owner);add(g.type);add(g.deaths);add(g.unit.raw_value);add(g.position.x);add(g.position.y);}for(auto id:committed_)add(id);for(const auto& t:threads_){add(t.pc);add(t.wake);add(t.owner);add(t.brood);add(t.active);add(t.center.x);add(t.center.y);add(t.depth);for(auto pc:t.calls)add(pc);}for(const auto& s:sides_){add(s.enabled);add(s.suicide);add(s.target_expansion);add(s.center.x);add(s.center.y);add(s.search);add(s.build_frame);add(s.builder.raw_value);for(auto n:s.maximum)add(n);for(auto n:s.desired)add(n);for(auto n:s.defense)add(n);for(auto n:s.attack)add(n);for(auto n:s.upgrades)add(n);for(auto n:s.tech)add(n);}}
 };
 }}
