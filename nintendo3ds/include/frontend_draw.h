@@ -24,6 +24,15 @@ inline void ui_limited(C2D_TextBuf buf,const char* value,float x,float y,float s
  C2D_TextBufDelete(measure);
 }
 inline void draw_frontend_top(const Frontend& f,UiArt& art,C2D_TextBuf text){
+ if(f.dialog==Frontend::Dialog::briefing){
+  art.draw("custom_top",0,0);
+  C2D_DrawRectSolid(8,8,0,384,224,C2D_Color32(4,8,14,245));
+  art.draw("frame_top",8,8,.96f,224.f/240);
+  const auto white=C2D_Color32(183,185,241,255);
+  ui_text(text,"Mission briefing",200,22,.60f,white,true);
+  if(f.briefing_page<f.briefing.size())ui_limited(text,f.briefing[f.briefing_page].c_str(),26,56,Frontend::briefing_font,Frontend::briefing_width,Frontend::briefing_rows,white);
+  return;
+ }
  if(f.screen==Frontend::Screen::campaign){art.draw("title",0,0);return;}
  art.draw("custom_top",0,0);const float slide=420*f.slide();
  // One continuous backing covers text and map, inside a padded metal frame.
@@ -42,6 +51,22 @@ inline void draw_frontend_top(const Frontend& f,UiArt& art,C2D_TextBuf text){
 inline void draw_frontend(Frontend& f,UiArt& art,MenuAnimation& animation,C2D_TextBuf text,unsigned frame){
  const auto green=C2D_Color32(104,180,68,255),bright=C2D_Color32(195,255,146,255),white=C2D_Color32(183,185,241,255),dim=C2D_Color32(76,88,69,255);
  auto label=[&](const char* text_,int id,float x,float y,float size=.40f){ui_text(text,text_,x,y,size,f.hover==id?bright:green,true);};
+ if(f.dialog==Frontend::Dialog::briefing){
+  // The touch screen owns navigation; objectives and speech live only above.
+  art.draw("custom_bottom",0,0);
+  C2D_DrawRectSolid(14,24,0,292,164,C2D_Color32(4,8,14,235));
+  art.draw("frame_top",14,24,292.f/400,164.f/240);
+  ui_limited(text,campaign::missions[f.mission].title,47,63,.65f,226,3,white);
+  if(campaign::adjacent(f.mission,1)!=f.mission){label("<",112,26,38,.62f);label(">",113,294,38,.62f);}
+  char page[48];std::snprintf(page,sizeof page,"%u / %u",f.briefing_page+1,unsigned(f.briefing.size()));
+  ui_text(text,page,160,151,.58f,white,true);
+  for(unsigned i=0;i<2;++i){const UiRect r={i?178:18,198,124,28};
+   C2D_DrawRectSolid(r.x,r.y,0,r.w,r.h,C2D_Color32(4,8,15,245));
+   art.draw(i?"custom_ok":"custom_cancel",i?178:0,198);
+   ui_centered(text,i?(f.briefing_page+1<f.briefing.size()?"Next (A)":"Begin (A)"):"Back (B)",r,.56f,f.hover==int(i?110:111)?bright:green);
+  }
+  art.draw("cursor",f.x,f.y);return;
+ }
  const bool campaign=f.screen==Frontend::Screen::campaign;
  if(campaign){
   const float shift=340*f.slide();art.draw("campaign_left",-shift,0);art.draw("campaign_right",160+shift,0);
@@ -109,12 +134,6 @@ inline void draw_frontend(Frontend& f,UiArt& art,MenuAnimation& animation,C2D_Te
     ui_limited(text,title.c_str(),30,69+i*24,.49f,258,1,color);
    }
    label("<",90,50,195,.52f);label("Cancel",32,160,195,.47f);label(">",91,270,195,.52f);
-  }
-  else if(f.dialog==Frontend::Dialog::briefing){
-   ui_text(text,campaign::missions[f.mission].title,160,38,.50f,white,true);
-   if(campaign::adjacent(f.mission,1)!=f.mission){label("<",112,26,38,.52f);label(">",113,294,38,.52f);}
-   if(f.briefing_page<f.briefing.size())ui_limited(text,f.briefing[f.briefing_page].c_str(),28,65,.46f,264,9,white);
-   label("Back (B)",111,80,205,.48f);label(f.briefing_page+1<f.briefing.size()?"Next (A)":"Begin (A)",110,240,205,.48f);
   }
   else if(f.dialog==Frontend::Dialog::version){ui_text(text,"Select Game",160,43,.55f,white,true);art.draw("logo_sc",37,63);label("Original",30,160,108,.42f);art.draw("logo_bw",37,123);label("Expansion",31,160,173,.42f);label("Cancel",32,160,194);}
   else if(f.dialog==Frontend::Dialog::error){ui_text(text,"Cannot start match",160,51,.50f,white,true);C2D_Text t;C2D_TextParse(&t,text,f.error);C2D_DrawText(&t,C2D_WithColor|C2D_WordWrap,29,85,0,.42f,.42f,white,260.f);label("OK",32,160,185,.45f);}

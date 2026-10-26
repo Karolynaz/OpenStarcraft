@@ -21,6 +21,10 @@ struct Frontend {
  bool saved_notice=false,campaign_start=false;
  unsigned mission=0;std::array<bool,campaign::count> completed{};std::array<std::string,6> next_missions{};
  std::vector<std::string> briefing;std::vector<unsigned> briefing_voices;unsigned briefing_page=0;bool briefing_paginated=false;
+ // Shared by pagination and drawing: top-screen text must never be clipped
+ // using the old, smaller bottom-screen paragraph dimensions.
+ static constexpr float briefing_font=.65f,briefing_width=348.f;
+ static constexpr unsigned briefing_rows=8;
  unsigned briefing_sound()const{return briefing_page<briefing_voices.size()?briefing_voices[briefing_page]:0;}
  // The renderer supplies real font widths, so no spoken paragraph is cut by
  // the dialog's line limit. Continuation pages retain the same voice ID.

@@ -1271,3 +1271,17 @@ Report CAMPAIGN_AI_PROGRESSION_VALIDATION.md. Prepare/verifyprivate15updateZIP n
 localcommitallverifiedwork,thenfinalsummary. No further scheduledworkcreated.
 
 Final15package nintendo3ds/local-data/releases/campaign-fifteen-update-2026-10-26.zip bytes160270635 SHA256c0cff31c73c8419d4f9fa3e0ba4cc53b2924f6d05c79fcf892a9050bd8609b9a; ZIPCRC/hash/15maps/9banks/exact5ba3DSX/no-profile-progress-savesPASS. Finalreportandallsource/testsreadyforlocalcommit.
+
+## Latest requested UI update: dual-screen campaign briefing
+Source src-83ddecfdb581c29c. Objectives/dialogue pages moved to top screen,
+.65 font (previously .46), 348px width / eight rows shared with pagination.
+Bottom has mission title/chapter navigation/page counter/Back/Next/Begin only.
+No new assets required; original speaker portraits/briefing-room video not added.
+ASan frontend PASS (fixed stale Terran4 navigation fixture), native ARM11 PASS;
+original-model emulator verified objectives/speech/A/B/chapter navigation.
+Emulator STOPPED/config byte-restored, profile/saves/physical SD untouched.
+Report BRIEFING_DUAL_SCREEN.md + briefing-dual-screen.png. Out/staged3DSX current;
+older fifteen-mission ZIP remains5ba, do not call it current UI build.
+No campaign victory reruns for this UI-only update. Earlier timer inset/larger
+in-game objective text/empty-selection icons request was explicitly held by user
+and remains pending; this request authorized only briefing layout changes.

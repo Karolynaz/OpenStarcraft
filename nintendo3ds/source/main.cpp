@@ -100,7 +100,7 @@ int main() {
             if(down&KEY_A)front.activate(front.hit(int(front.x),int(front.y)));
             if(down&KEY_B)front.back();
             if(front.dialog==port3ds::Frontend::Dialog::briefing && !front.briefing_paginated){
-                if(auto measure=C2D_TextBufNew(160)){front.paginate_briefing([&](const char* line){return port3ds::ui_width(measure,line,.46f);},264,9);C2D_TextBufDelete(measure);}
+                if(auto measure=C2D_TextBufNew(160)){front.paginate_briefing([&](const char* line){return port3ds::ui_width(measure,line,port3ds::Frontend::briefing_font);},port3ds::Frontend::briefing_width,port3ds::Frontend::briefing_rows);C2D_TextBufDelete(measure);}
             }
             // Briefing audio is owned by this menu scope, and fully released
             // before the world/terrain/audio allocations of a mission begin.
