@@ -73,9 +73,12 @@ int main() {
         if (text_buf) C2D_TextBufDelete(text_buf);
         C2D_Fini(); C3D_Fini(); gfxExit(); return 1;
     }
+    port3ds::Frontend front;port3ds::BriefingArt presentation_art;
     auto loading_screen=[&](){
         C3D_FrameBegin(C3D_FRAME_SYNCDRAW);C2D_TextBufClear(text_buf);
-        C2D_TargetClear(top,C2D_Color32(0,0,0,255));C2D_TargetClear(bottom,C2D_Color32(0,0,0,255));C2D_SceneBegin(bottom);
+        C2D_TargetClear(top,C2D_Color32(0,0,0,255));C2D_TargetClear(bottom,C2D_Color32(0,0,0,255));
+        if(front.briefing_loading){C2D_SceneBegin(top);port3ds::draw_campaign_top(front,presentation_art,text_buf,true);}
+        C2D_SceneBegin(bottom);
         port3ds::ui_centered(text_buf,"Loading",{0,0,320,240},.65f,C2D_Color32(80,255,80,255));C3D_FrameEnd(0);
     };
     aptHookCookie cookie;
@@ -83,7 +86,7 @@ int main() {
     const bool self_test = port3ds::core_self_test();
     const Result audio = ndspInit();
     if (R_SUCCEEDED(audio)) ndspSetOutputMode(NDSP_OUTPUT_STEREO);
-    port3ds::Frontend front;front.init(root);
+    front.init(root);
     while(!front.quit){
     int launch_scenario=-1;port3ds::MatchSetup match_setup;
     std::string launch_map,restore_path;bool return_custom=false,pending_restore=false;port3ds::SaveInfo restore_info;
@@ -91,22 +94,31 @@ int main() {
 
     {
         port3ds::UiArt art;port3ds::MenuAnimation animation;const bool art_ok=art.load("sdmc:/3ds/openbw/ui/menu.bin") && animation.load("sdmc:/3ds/openbw/ui/animations.bin");
-        port3ds::Audio briefing_audio;unsigned spoken_mission=~0u,spoken_page=~0u,spoken_voice=~0u;
+        port3ds::Audio briefing_audio;unsigned spoken_mission=~0u,spoken_page=~0u,spoken_voice=~0u,spoken_serial=~0u,spoken_group=~0u;int touch_y=-1;
         C2D_Prepare();u64 last=now_us();
         while(aptMainLoop()){
             hidScanInput();const u32 down=hidKeysDown();circlePosition stick{};hidCircleRead(&stick);
-            const auto now=now_us();front.stick(stick.dx,stick.dy,std::min<u64>(now-last,50000)/1000000.f);last=now;
+            const auto now=now_us();const float menu_dt=std::min<u64>(now-last,50000)/1000000.f;front.stick(stick.dx,stick.dy,menu_dt);last=now;
+            if(front.dialog==port3ds::Frontend::Dialog::story && std::abs(stick.dy)>20)front.scroll_story(-stick.dy*menu_dt);
+            if(front.dialog==port3ds::Frontend::Dialog::story && (hidKeysHeld()&KEY_TOUCH)){touchPosition t{};hidTouchRead(&t);if(touch_y>=0 && t.py<198)front.scroll_story(touch_y-int(t.py));touch_y=t.py;}else touch_y=-1;
             if(down&KEY_TOUCH){touchPosition t{};hidTouchRead(&t);front.x=t.px;front.y=t.py;front.hover=front.hit(t.px,t.py);front.activate(front.hover);}
-            if(down&KEY_A)front.activate(front.hit(int(front.x),int(front.y)));
+            if(down&KEY_A)front.activate(front.dialog==port3ds::Frontend::Dialog::story?115:front.hit(int(front.x),int(front.y)));
+            if((down&KEY_START) && front.rich_briefing && front.dialog==port3ds::Frontend::Dialog::briefing)front.activate(116);
+            if(down&KEY_Y)front.replay_briefing();
             if(down&KEY_B)front.back();
             if(front.dialog==port3ds::Frontend::Dialog::briefing && !front.briefing_paginated){
                 if(auto measure=C2D_TextBufNew(160)){front.paginate_briefing([&](const char* line){return port3ds::ui_width(measure,line,port3ds::Frontend::briefing_font);},port3ds::Frontend::briefing_width,port3ds::Frontend::briefing_rows);C2D_TextBufDelete(measure);}
             }
+            if(front.dialog==port3ds::Frontend::Dialog::story && front.story_lines.empty()){
+                if(auto measure=C2D_TextBufNew(160)){front.layout_story([&](const char* line){return port3ds::ui_width(measure,line,port3ds::Frontend::story_font);},282);C2D_TextBufDelete(measure);}
+            }
+            if(!presentation_art.sync(front,root)){std::snprintf(front.error,sizeof front.error,"Install the updated private campaign presentation assets.");front.dialog=port3ds::Frontend::Dialog::error;front.play=false;front.briefing_loading=false;}
             // Briefing audio is owned by this menu scope, and fully released
             // before the world/terrain/audio allocations of a mission begin.
             if(front.dialog==port3ds::Frontend::Dialog::briefing){
-                if(spoken_mission!=front.mission){briefing_audio.unload();spoken_mission=front.mission;spoken_page=spoken_voice=~0u;}
+                if(spoken_mission!=front.mission || spoken_serial!=front.briefing_serial){if(spoken_mission!=front.mission)briefing_audio.unload();spoken_mission=front.mission;spoken_serial=front.briefing_serial;spoken_page=spoken_voice=spoken_group=~0u;briefing_audio.reset();}
                 const auto voice=front.briefing_sound();
+                const auto group=front.briefing_page<front.briefing_groups.size()?front.briefing_groups[front.briefing_page]:front.briefing_page;
                 if(voice && !briefing_audio.stats().ready && spoken_page!=front.briefing_page){
                     const auto& mission=port3ds::campaign::missions[front.mission];
                     const auto bank=std::string(root)+"campaign/"+mission.key+"-effects.bin";
@@ -115,20 +127,21 @@ int main() {
                     briefing_audio.load(audio_root.c_str(),R_SUCCEEDED(audio),prefix,bank.c_str());last=now_us();
                     load_stage(mission.scenario,briefing_audio.stats().ready?"briefing-audio-ready":"briefing-audio-off",briefing_audio.error());
                 }
-                if(spoken_page!=front.briefing_page && spoken_voice!=voice){briefing_audio.reset();port3ds::SoundEvent event{voice,0,0};briefing_audio.update(&event,voice?1:0,0,0,false);spoken_voice=voice;}
+                if(spoken_page!=front.briefing_page && (spoken_voice!=voice || spoken_group!=group)){briefing_audio.reset();port3ds::SoundEvent event{voice,0,0};briefing_audio.update(&event,voice?1:0,0,0,false);spoken_voice=voice;}
                 else briefing_audio.update(nullptr,0,0,0,false);
-                spoken_page=front.briefing_page;
+                spoken_page=front.briefing_page;spoken_group=group;
             }else if(spoken_mission!=~0u){const auto stats=briefing_audio.stats();char detail[96];std::snprintf(detail,sizeof detail,"played=%u missing=%u IO=%u",stats.played,stats.missing,stats.io_errors);load_stage(port3ds::campaign::missions[spoken_mission].scenario,"briefing-audio-done",detail);briefing_audio.unload();spoken_mission=spoken_page=spoken_voice=~0u;}
+            front.update_presentation(menu_dt,briefing_audio.stats().voices>0);
             if(front.quit)break;
             if(front.screen==port3ds::Frontend::Screen::custom && front.preview_dirty){front.preview_dirty=false;port3ds::Engine::preview_map(root,front.map_path().c_str(),front.preview);if(front.preview.valid)art.preview(front.preview.pixels.data());last=now_us();}
             if(down&KEY_DUP)front.direction(0);if(down&KEY_DRIGHT)front.direction(1);if(down&KEY_DDOWN)front.direction(2);if(down&KEY_DLEFT)front.direction(3);
             if(front.load){front.load=false;if(find_save(restore_path,restore_info,front.error,sizeof front.error)){launch_scenario=int(restore_info.scenario);match_setup=restore_info.setup;pending_restore=true;break;}front.dialog=port3ds::Frontend::Dialog::error;}
-            if(front.play){launch_scenario=int(front.scenario());match_setup=front.match(unsigned(now));launch_map=front.map_path();front.observer_test=~0u;break;}
+            if(front.play){if(front.briefing_loading)presentation_art.release_room();launch_scenario=int(front.scenario());match_setup=front.match(unsigned(now));launch_map=front.map_path();front.observer_test=~0u;break;}
             C3D_FrameBegin(C3D_FRAME_SYNCDRAW);C2D_TextBufClear(text_buf);
             C2D_TargetClear(top,C2D_Color32(0,0,0,255));C2D_SceneBegin(top);C3D_DepthTest(false,GPU_ALWAYS,GPU_WRITE_COLOR);
-            port3ds::draw_frontend_top(front,art,text_buf);
+            if(front.rich_briefing && front.presentation())port3ds::draw_campaign_top(front,presentation_art,text_buf);else port3ds::draw_frontend_top(front,art,text_buf);
             C2D_TargetClear(bottom,C2D_Color32(0,0,0,255));C2D_SceneBegin(bottom);
-            if(art_ok)port3ds::draw_frontend(front,art,animation,text_buf,unsigned(now/125000));
+            if(art_ok){if(front.rich_briefing && front.presentation())port3ds::draw_campaign_bottom(front,presentation_art,art,text_buf);else port3ds::draw_frontend(front,art,animation,text_buf,unsigned(now/125000));}
             else {port3ds::ui_text(text_buf,"Missing menu art / animations",160,90,.55f,C2D_Color32(255,200,180,255),true);port3ds::ui_text(text_buf,"Install the complete SD package.",160,120,.40f,C2D_Color32(255,255,255,255),true);if(down&KEY_START)break;}
             C3D_FrameEnd(0);
         }
@@ -229,6 +242,11 @@ int main() {
                 // Reserve the contiguous sprite scratch before segmented PCM
                 // fills smaller holes left by the native core initialization.
                 if(custom_match && !engine.ready()){std::snprintf(front.error,sizeof front.error,"%s",engine.error());front.dialog=port3ds::Frontend::Dialog::error;return_custom=true;break;}
+                // Release before atlas allocation as well: otherwise the early
+                // photo splits the contiguous block later required by ndsp.
+                // The already presented objectives remain on screen during IO.
+                const bool loading_photo=front.briefing_loading;
+                if(loading_photo)presentation_art.clear();
                 bool terrain_ok=true;
                 if(custom_match || campaign_mode || restoring){load_stage(scenario,"terrain-cache-start",launch_map.c_str());terrain_ok=engine.write_terrain(root,"sdmc:/3ds/openbw/map-terrain.bin");if(terrain_ok)graphics.load("sdmc:/3ds/openbw/map-terrain.bin",engine.terrain_signature());}
                 else if (engine.ready()) graphics.load(arena_mode?"sdmc:/3ds/openbw/graphics-arena.bin":"sdmc:/3ds/openbw/graphics.bin", engine.terrain_signature());
@@ -237,6 +255,7 @@ int main() {
                 if((custom_match || campaign_mode) && (!terrain_ok || !graphics.ready())){std::snprintf(front.error,sizeof front.error,"%s",terrain_ok?graphics.error():engine.error());front.dialog=port3ds::Frontend::Dialog::error;return_custom=true;break;}
                 std::string effect_path="sdmc:/3ds/openbw/audio/effects-all.bin";if(campaign_mode)effect_path=std::string("sdmc:/3ds/openbw/campaign/")+port3ds::campaign::missions[port3ds::campaign::index(scenario)].key+"-effects.bin";
                 if(engine.ready())sound.load(next_race==0?"sdmc:/3ds/openbw/audio/zerg":next_race==2?"sdmc:/3ds/openbw/audio/protoss":"sdmc:/3ds/openbw/audio",R_SUCCEEDED(audio),next_race==0?"zerg":next_race==2?"protoss":"terran",effect_path.c_str(),engine.snapshot().width*engine.snapshot().height>128*128?2*1024*1024:4*1024*1024);
+                if(loading_photo && !presentation_art.load_shot(front,root))front.briefing_loading=false;
                 load_stage(scenario,sound.stats().ready?"audio-ready":"audio-off",sound.error());
                 // Atlas descriptors keep their addresses across reloads, while
                 // their GPU buffers can move. Invalidate Citro2D's texture cache.
@@ -662,6 +681,7 @@ int main() {
             }
             if(pending_load || warming){
                 C2D_SceneBegin(top);C2D_DrawRectSolid(0,0,0,400,240,C2D_Color32(0,0,0,255));
+                if(front.briefing_loading)port3ds::draw_campaign_top(front,presentation_art,text_buf,true);
                 C2D_SceneBegin(bottom);C2D_DrawRectSolid(0,0,0,320,240,C2D_Color32(0,0,0,255));
                 port3ds::ui_centered(text_buf,"Loading",{0,0,320,240},.65f,C2D_Color32(80,255,80,255));
             }
@@ -674,6 +694,7 @@ int main() {
                 // The first present can include GPU uploads and SD cache work.
                 // Start the simulation clock only after that loading frame.
                 C3D_FrameSync();
+                presentation_art.clear();front.briefing_loading=false;front.dialog=port3ds::Frontend::Dialog::none;
                 warming=false;scheduler.reset();previous=interval=now_us();
                 renders=ticks=0;tick_sum=tick_max=0;
                 render_sum=wait_sum=collect_sum=sprite_sum=end_sum=gpu_sum=0;
@@ -686,6 +707,7 @@ int main() {
     front.screen=(match_setup.observer || port3ds::campaign::scenario(unsigned(launch_scenario)))?port3ds::Frontend::Screen::campaign:port3ds::Frontend::Screen::custom;front.transition=0;front.preview_dirty=true;front.x=240;front.y=218;
     C2D_Prepare();
     }
+    presentation_art.clear();
     if (R_SUCCEEDED(audio)) ndspExit();
     aptUnhook(&cookie);
     C2D_TextBufDelete(text_buf);

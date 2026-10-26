@@ -1285,3 +1285,32 @@ older fifteen-mission ZIP remains5ba, do not call it current UI build.
 No campaign victory reruns for this UI-only update. Earlier timer inset/larger
 in-game objective text/empty-selection icons request was explicitly held by user
 and remains pending; this request authorized only briefing layout changes.
+
+## 2026-10-27 completed campaign presentation sequence
+Source src-d8212ce708a062eb. All15 offered chapters now have original establishing
+shots/mission-location labels, green scrolling history below (original introductions
+where present, authored short summaries for9laterchapters), A->briefing. Original
+race room and flipped rightmost portrait frame below, unflipped original static
+speaker face; large Start, Cancel; no lower dialogue/objective boxes. Upper shot
+20%black dim and dialogue panel; original MBRF speech timings/slots/voices drive
+auto advance; completion Y replay prompt. Y restarts cached audio. Start/Afocused
+or touchStart -> bottomblackLoading, topshot+originalobjectives retained.
+ASan all15 presentation state tests and existing frontend PASS; nativeARM11 PASS.
+Originalmodel emulator naturalcomplete/prompt, Yreplay(aftertemporarymatching
+emulatorkeyboardbinding), Start/loading/world startup verified. FinalsourceT2
+core/graphics/audio ready; heap30989208,linearfree107520 with64KiBshot retained.
+Intermediateaudioallocationfailure FIXED by freeing shot BEFOREterrain/atlas,
+reloading afterndspallocation. Clear afterwarming; budgets36MiB/8MiB unchanged.
+64KiB256x128photo mapped400x240 preserves crop/aspect. Room released beforeload.
+63newprivate resources from40originalpresentationassets+MBRF+existingportraits.
+Tools campaign_presentation_export/prepare_campaign_presentation/
+package_campaign_presentation; trackedpathlist reproducible byteexact. Fullpackage
+script now verifies presentationmanifest. Privateupdate
+nintendo3ds/local-data/releases/campaign-presentation-update-2026-10-27.zip
+1172459bytes SHA2560d741b8bc6bbc44fcb03c4fdbf57da7934e124b92bb8809cc2a8c9bdeb0f3d81.
+CRC/resourcehashes/exactexe PASS; requires existingfullcampaigninstall, no saves,
+profiles/progress. Out/staged3DSX current. EmulatorSTOPPED/settings/profile/progress/
+saves byte-restored; physicalSD untouched. ReportCAMPAIGN_PRESENTATION_VALIDATION.md,
+UIcaptures inreports, private loadlogevidence campaign-presentation/emulator-load.log.
+No fullmissionvictory reruns forpresentation-onlychange. EarlierheldHUDtimer/font/
+emptyselectionicon requests remain pending; campaignAI limitations unchanged.

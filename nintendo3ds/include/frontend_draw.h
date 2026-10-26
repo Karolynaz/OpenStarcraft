@@ -2,6 +2,7 @@
 #include "frontend.h"
 #include "ui_art.h"
 #include "menu_animation.h"
+#include "briefing_art.h"
 namespace port3ds {
 inline void ui_text(C2D_TextBuf buf,const char* text,float x,float y,float size,unsigned color,bool center=false){C2D_Text t;C2D_TextParse(&t,buf,text);C2D_TextOptimize(&t);if(center){float w,h;C2D_TextGetDimensions(&t,size,size,&w,&h);x-=w/2;}C2D_DrawText(&t,C2D_WithColor,x,y,0,size,size,color);}
 inline void ui_centered(C2D_TextBuf buf,const char* value,UiRect r,float size,unsigned color){
@@ -22,6 +23,39 @@ inline void ui_limited(C2D_TextBuf buf,const char* value,float x,float y,float s
   ui_text(buf,line,x,y+row*line_height,size,color);at+=n;
  }
  C2D_TextBufDelete(measure);
+}
+inline void draw_campaign_top(const Frontend& f,BriefingArt& art,C2D_TextBuf text,bool loading=false){
+ art.shot();const auto green=C2D_Color32(104,205,68,255),white=C2D_Color32(183,185,241,255);
+ if(f.dialog==Frontend::Dialog::story && !loading){
+  // The photo is already a centered 400px-wide crop, with no baked-in labels.
+  C2D_DrawRectSolid(0,130,0,400,110,C2D_Color32(0,0,0,135));
+  ui_limited(text,f.location.c_str(),16,138,.64f,368,5,green);return;
+ }
+ C2D_DrawRectSolid(0,0,0,400,240,C2D_Color32(0,0,0,51));
+ C2D_DrawRectSolid(12,18,0,376,206,C2D_Color32(4,8,14,215));
+ ui_border({12,18,376,206},C2D_Color32(135,42,25,255));
+ if(loading){ui_text(text,"Mission objectives",200,30,.64f,white,true);ui_limited(text,f.objectives.c_str(),26,61,.65f,348,8,white);}
+ else if(f.briefing_done)ui_limited(text,"Press (Y) to replay briefing",32,92,.70f,336,3,green);
+ else if(f.briefing_page<f.briefing.size())ui_limited(text,f.briefing[f.briefing_page].c_str(),26,42,Frontend::briefing_font,Frontend::briefing_width,Frontend::briefing_rows,white);
+}
+inline void draw_campaign_bottom(const Frontend& f,BriefingArt& art,UiArt& menu,C2D_TextBuf text){
+ const auto green=C2D_Color32(104,205,68,255),bright=C2D_Color32(195,255,146,255);
+ if(f.dialog==Frontend::Dialog::story){
+  C2D_DrawRectSolid(0,0,0,320,240,C2D_Color32(0,0,0,255));
+  for(unsigned i=0;i<f.story_lines.size();++i){float y=20+i*Frontend::story_line_height-f.story_scroll;if(y>=18 && y+Frontend::story_line_height<=198)ui_text(text,f.story_lines[i].c_str(),18,y,Frontend::story_font,green);}
+  if(f.story_lines.size()*Frontend::story_line_height>174){const float extent=f.story_lines.size()*Frontend::story_line_height;C2D_DrawRectSolid(311,20,0,2,174,C2D_Color32(25,55,25,255));C2D_DrawRectSolid(311,20+f.story_scroll/extent*174,0,2,174*174/extent,green);}
+  ui_centered(text,"<",{15,0,24,18},.55f,green);ui_centered(text,">",{281,0,24,18},.55f,green);
+  ui_centered(text,"Cancel (B)",{14,208,136,28},.55f,green);ui_centered(text,"Briefing (A)",{170,208,136,28},.55f,green);return;
+ }
+ art.room();art.portrait();
+ const UiRect start={152,140,156,50},cancel={14,198,130,32};
+ C2D_DrawRectSolid(start.x,start.y,0,start.w,start.h,C2D_Color32(3,7,12,225));
+ menu.draw("title_button",start.x,start.y,start.w/136.f,start.h/24.f);
+ ui_centered(text,"Start",start,.95f,f.hover==116?bright:green);
+ C2D_DrawRectSolid(cancel.x,cancel.y,0,cancel.w,cancel.h,C2D_Color32(3,7,12,230));
+ menu.draw("custom_cancel",0,cancel.y,148.f/142,cancel.h/28.f);
+ ui_centered(text,"Cancel",cancel,.65f,f.hover==111?bright:green);
+ menu.draw("cursor",f.x,f.y);
 }
 inline void draw_frontend_top(const Frontend& f,UiArt& art,C2D_TextBuf text){
  if(f.dialog==Frontend::Dialog::briefing){

@@ -19,6 +19,14 @@ for mission in ('terran01','zerg01','protoss01','expprotoss01','expterran01','ex
         name=f'campaign/{mission}{suffix}'
         if name not in required: required.append(name)
 required += ['campaign/maps-manifest.json','campaign/audio-manifest.json']
+# Presentation metadata contains original prose and must remain private too.
+presentation=json.loads((a.source/'campaign/presentation-manifest.json').read_text())
+for name, expected in presentation.items():
+    path=a.source/'campaign'/name
+    if path.stat().st_size!=expected['bytes'] or hashlib.sha256(path.read_bytes()).hexdigest()!=expected['sha256']:
+        p.error(f'Changed private presentation resource: {name}')
+    required.append(f'campaign/{name}')
+required.append('campaign/presentation-manifest.json')
 for race in ('terran', 'protoss', 'zerg'):
     folder = 'audio' if race == 'terran' else f'audio/{race}'
     required += [f'{folder}/effects.bin', f'{folder}/manifest.json']
