@@ -26,10 +26,12 @@ struct Frontend {
  static constexpr float briefing_font=.65f,briefing_width=348.f;
  static constexpr unsigned briefing_rows=8;
  std::string story,location,objectives;std::vector<std::string> story_lines;
- std::vector<unsigned> briefing_portraits,briefing_times,briefing_groups;
+ std::vector<unsigned> briefing_portraits,briefing_times,briefing_groups,briefing_slots;
+ std::vector<std::array<unsigned,4>> briefing_cast;
  bool rich_briefing=false,briefing_done=false,briefing_loading=false;
  unsigned briefing_serial=0;float briefing_elapsed=0,story_scroll=0,story_pause=3;
  static constexpr float story_font=.62f,story_line_height=18.6f;
+ unsigned briefing_slot()const{return !briefing_done && briefing_page<briefing_slots.size()?briefing_slots[briefing_page]:4;}
  unsigned briefing_portrait()const{return !briefing_done && briefing_page<briefing_portraits.size()?briefing_portraits[briefing_page]:110;}
  bool presentation()const{return dialog==Dialog::story || dialog==Dialog::briefing;}
  static std::string read_text(const std::string& path){std::string value;if(FILE* f=std::fopen(path.c_str(),"rb")){for(unsigned n=0;n<16384;++n){int c=std::fgetc(f);if(c==EOF)break;if(c!='\r')value+=char(c);}std::fclose(f);}return value;}
@@ -45,7 +47,7 @@ struct Frontend {
   }
  }
  void scroll_story(float delta){story_scroll=std::max(0.f,std::min(std::max(0.f,float(story_lines.size())*story_line_height-174.f),story_scroll+delta));story_pause=3;}
- void begin_briefing(){dialog=Dialog::briefing;x=230;y=165;hover=116;briefing_page=0;briefing_done=briefing.empty();briefing_elapsed=0;++briefing_serial;}
+ void begin_briefing(){dialog=Dialog::briefing;x=270;y=194;hover=116;briefing_page=0;briefing_done=briefing.empty();briefing_elapsed=0;++briefing_serial;}
  void replay_briefing(){if(rich_briefing && dialog==Dialog::briefing)begin_briefing();}
  void update_presentation(float dt,bool speaking){
   if(dialog==Dialog::story){story_pause=std::max(0.f,story_pause-dt);if(!story_pause)story_scroll=std::min(std::max(0.f,float(story_lines.size())*story_line_height-174.f),story_scroll+dt*9);}
@@ -60,7 +62,7 @@ struct Frontend {
  // the dialog's line limit. Continuation pages retain the same voice ID.
  void paginate_briefing(const std::function<float(const char*)>& measure,float width,unsigned rows){
   if(briefing_paginated || !rows)return;
-  std::vector<std::string> pages;std::vector<unsigned> voices,portraits,times,groups;
+  std::vector<std::string> pages;std::vector<unsigned> voices,portraits,times,groups,slots;std::vector<std::array<unsigned,4>> casts;
   for(unsigned i=0;i<briefing.size();++i){const unsigned voice=i<briefing_voices.size()?briefing_voices[i]:0;const auto begin=pages.size();const char* at=briefing[i].c_str();std::string page;unsigned line_count=0;
    while(*at){while(*at==' ' || *at=='\n' || *at=='\r')++at;if(!*at)break;std::string line;unsigned n=0,space=0;
     while(at[n] && at[n]!='\n' && n<150){line+=at[n];if(measure(line.c_str())>width){line.pop_back();break;}if(at[n]==' ')space=n;++n;}
@@ -70,9 +72,9 @@ struct Frontend {
    }
    if(!page.empty()){pages.push_back(page);voices.push_back(voice);}
    const auto count=pages.size()-begin;
-   for(unsigned n=0;n<count;++n){groups.push_back(i);portraits.push_back(i<briefing_portraits.size()?briefing_portraits[i]:110);const unsigned original=i<briefing_times.size()?briefing_times[i]:5000;times.push_back(std::max(4000u,unsigned(original/std::max(size_t(1),count))));}
+   for(unsigned n=0;n<count;++n){groups.push_back(i);slots.push_back(i<briefing_slots.size()?briefing_slots[i]:3);casts.push_back(i<briefing_cast.size()?briefing_cast[i]:std::array<unsigned,4>{{110,110,110,i<briefing_portraits.size()?briefing_portraits[i]:110}});portraits.push_back(i<briefing_portraits.size()?briefing_portraits[i]:110);const unsigned original=i<briefing_times.size()?briefing_times[i]:5000;times.push_back(std::max(4000u,unsigned(original/std::max(size_t(1),count))));}
   }
-  briefing.swap(pages);briefing_voices.swap(voices);briefing_portraits.swap(portraits);briefing_times.swap(times);briefing_groups.swap(groups);briefing_page=0;briefing_paginated=true;
+  briefing.swap(pages);briefing_voices.swap(voices);briefing_portraits.swap(portraits);briefing_times.swap(times);briefing_groups.swap(groups);briefing_slots.swap(slots);briefing_cast.swap(casts);briefing_page=0;briefing_paginated=true;
  }
 
  unsigned race=1,speed=4,game_type=0,subtype=0,scroll=0,selected_map=0;
@@ -129,7 +131,7 @@ struct Frontend {
  int hit(int px,int py)const{
   if(leaving || transition<1)return -1;
   if(dialog==Dialog::story){if(UiRect{15,12,24,24}.hit(px,py))return 112;if(UiRect{281,12,24,24}.hit(px,py))return 113;return UiRect{170,208,136,28}.hit(px,py)?115:UiRect{14,208,136,28}.hit(px,py)?111:-1;}
-  if(dialog==Dialog::briefing && rich_briefing){if(UiRect{152,140,156,50}.hit(px,py))return 116;return UiRect{14,198,130,32}.hit(px,py)?111:-1;}
+  if(dialog==Dialog::briefing && rich_briefing){if(UiRect{237,209,68,12}.hit(px,py))return 111;if(UiRect{153,203,69,13}.hit(px,py))return 117;return UiRect{237,188,68,14}.hit(px,py)?116:-1;}
   if(dialog==Dialog::briefing){if(campaign::adjacent(mission,1)!=mission){if(UiRect{15,30,24,24}.hit(px,py))return 112;if(UiRect{281,30,24,24}.hit(px,py))return 113;}if(UiRect{178,198,124,28}.hit(px,py))return 110;return UiRect{18,198,124,28}.hit(px,py)?111:-1;}
   if(dialog==Dialog::ai_tests){for(unsigned i=0;i<4;++i)if(UiRect{34,70+int(i)*28,252,24}.hit(px,py))return 100+i;return UiRect{112,192,96,22}.hit(px,py)?32:-1;}
   if(dialog==Dialog::map_list){
@@ -156,7 +158,7 @@ struct Frontend {
    if(UiRect{178,196,124,28}.hit(px,py))return 10;
   }return -1;
  }
- void open_briefing(unsigned index){mission=index;briefing.clear();briefing_voices.clear();briefing_portraits.clear();briefing_times.clear();briefing_groups.clear();story.clear();story_lines.clear();location.clear();objectives.clear();rich_briefing=briefing_done=briefing_loading=false;story_scroll=0;story_pause=3;briefing_elapsed=0;briefing_page=0;++briefing_serial;briefing_paginated=false;const auto path=base+"/../campaign/"+campaign::missions[mission].key+".brief";FILE* file=std::fopen(path.c_str(),"rb");
+ void open_briefing(unsigned index){mission=index;briefing.clear();briefing_voices.clear();briefing_portraits.clear();briefing_times.clear();briefing_groups.clear();briefing_cast.clear();briefing_slots.clear();story.clear();story_lines.clear();location.clear();objectives.clear();rich_briefing=briefing_done=briefing_loading=false;story_scroll=0;story_pause=3;briefing_elapsed=0;briefing_page=0;++briefing_serial;briefing_paginated=false;const auto path=base+"/../campaign/"+campaign::missions[mission].key+".brief";FILE* file=std::fopen(path.c_str(),"rb");
     if(!file){std::snprintf(error,sizeof error,"Install the private campaign data package.");dialog=Dialog::error;return;}
     std::string page;for(unsigned n=0;n<16384;++n){int c=std::fgetc(file);if(c==EOF){if(!page.empty())briefing.push_back(page);break;}if(c=='\f'){briefing.push_back(page);page.clear();}else if(c=='\r'){}else if(c>=32 || c=='\n')page+=char(c);}std::fclose(file);
     if(briefing.empty()){std::snprintf(error,sizeof error,"Campaign briefing is empty.");dialog=Dialog::error;return;}
@@ -164,18 +166,20 @@ struct Frontend {
     const auto stem=base+"/../campaign/"+campaign::missions[mission].key;
     story=read_text(stem+".intro");location=read_text(stem+".location");
     if(!story.empty()){if(FILE* meta=std::fopen((stem+".brief-info").c_str(),"r")){
-      std::vector<std::string> spoken;std::vector<unsigned> voices;bool valid=true;
+      std::vector<std::string> spoken;std::vector<unsigned> voices;bool valid=true;FILE* cast_file=std::fopen((stem+".brief-cast").c_str(),"r");
       for(unsigned i=0;i<briefing.size();++i){unsigned type,portrait,ms;if(std::fscanf(meta,"%u%u%u",&type,&portrait,&ms)!=3){valid=false;break;}
+       std::array<unsigned,4> cast{{110,110,110,portrait}};unsigned slot=3;
+       if(cast_file && std::fscanf(cast_file,"%u%u%u%u%u",&cast[0],&cast[1],&cast[2],&cast[3],&slot)!=5){valid=false;break;}
        if(type==4){if(!objectives.empty())objectives+='\n';objectives+=briefing[i];}
-       else {spoken.push_back(briefing[i]);voices.push_back(briefing_voices[i]);briefing_portraits.push_back(portrait);briefing_times.push_back(std::max(4000u,std::min(ms,120000u)));}}
-      std::fclose(meta);if(valid){briefing.swap(spoken);briefing_voices.swap(voices);rich_briefing=true;}
+       else {briefing_cast.push_back(cast);briefing_slots.push_back(slot);spoken.push_back(briefing[i]);voices.push_back(briefing_voices[i]);briefing_portraits.push_back(portrait);briefing_times.push_back(std::max(4000u,std::min(ms,120000u)));}}
+      if(cast_file)std::fclose(cast_file);std::fclose(meta);if(valid){briefing.swap(spoken);briefing_voices.swap(voices);rich_briefing=true;}
     }}
     dialog=rich_briefing?Dialog::story:Dialog::briefing;x=240;y=215;
  }
  void activate(int id){
   if(id<0 || leaving || transition<1)return;
   if(dialog==Dialog::story){if(id==112 || id==113)open_briefing(campaign::adjacent(mission,id==112?-1:1));else if(id==115 || id==110)begin_briefing();else if(id==111)dialog=Dialog::none;return;}
-  if(dialog==Dialog::briefing && rich_briefing){if(id==116){briefing_loading=true;campaign_start=true;play=true;}else if(id==111)dialog=Dialog::none;return;}
+  if(dialog==Dialog::briefing && rich_briefing){if(id==116){briefing_loading=true;campaign_start=true;play=true;}else if(id==117)replay_briefing();else if(id==111)dialog=Dialog::none;return;}
   if(dialog==Dialog::briefing){if(id==112 || id==113){open_briefing(campaign::adjacent(mission,id==112?-1:1));return;}if(id==110){if(briefing_page+1<briefing.size())++briefing_page;else {dialog=Dialog::none;campaign_start=true;play=true;}}else if(id==111)back();return;}
   if(dialog==Dialog::ai_tests){if(id>=100 && id<104){campaign_start=false;observer_test=unsigned(id-100);dialog=Dialog::none;play=true;}else if(id==32)dialog=Dialog::none;return;}
   if(dialog==Dialog::map_list){if(id>=70 && id<75 && scroll+unsigned(id-70)<maps.size()){selected_map=scroll+unsigned(id-70);preview_dirty=true;dialog=Dialog::none;}else if(id==90 || id==91){if(id==90)scroll=scroll>=5?scroll-5:0;else if(scroll+5<maps.size())scroll+=5;}else if(id==32)dialog=Dialog::none;return;}

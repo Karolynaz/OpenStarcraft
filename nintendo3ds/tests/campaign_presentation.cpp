@@ -5,17 +5,18 @@
 int main(int argc,char**argv){using namespace port3ds;assert(argc==2);
  for(unsigned i=0;i<campaign::count;++i){Frontend f;f.base=std::string(argv[1])+"/maps";f.open_briefing(i);
   assert(f.rich_briefing && f.dialog==Frontend::Dialog::story && !f.story.empty() && !f.location.empty() && !f.objectives.empty());
-  assert(f.briefing.size()==f.briefing_voices.size() && f.briefing.size()==f.briefing_portraits.size());
+  assert(f.briefing.size()==f.briefing_voices.size() && f.briefing.size()==f.briefing_portraits.size() && f.briefing.size()==f.briefing_cast.size() && f.briefing.size()==f.briefing_slots.size());
+  if(i==0)assert(f.briefing_cast[0][3]==17 && f.briefing_slots[0]==3);
   f.layout_story([](const char* t){return std::strlen(t)*7.f;},282);assert(!f.story_lines.empty());
   f.scroll_story(100000);assert(f.story_scroll>=0);f.scroll_story(-100000);assert(f.story_scroll==0);
   f.update_presentation(4,false);assert(f.story_scroll>=0 && !f.play);
   f.paginate_briefing([](const char* t){return std::strlen(t)*8.f;},348,8);
-  for(unsigned j=0;j<f.briefing.size();++j){assert(f.briefing_portraits[j]<=110);assert(std::count(f.briefing[j].begin(),f.briefing[j].end(),'\n')<8);}
+  for(unsigned j=0;j<f.briefing.size();++j){assert(f.briefing_portraits[j]<=110 && f.briefing_slots[j]<=4);for(auto id:f.briefing_cast[j])assert(id<=110);assert(std::count(f.briefing[j].begin(),f.briefing[j].end(),'\n')<8);}
   f.activate(115);assert(f.dialog==Frontend::Dialog::briefing && f.briefing_page==0 && !f.play);
   for(unsigned n=0;n<2000 && !f.briefing_done;++n)f.update_presentation(1,false);
   assert(f.briefing_done && f.briefing_sound()==0 && f.briefing_portrait()==110 && !f.play);
   auto serial=f.briefing_serial;f.replay_briefing();assert(f.briefing_serial!=serial && !f.briefing_done && f.briefing_page==0);
-  assert(f.hit(220,160)==116 && f.hit(60,210)==111);f.activate(116);
+  assert(f.hit(270,194)==116 && f.hit(260,214)==111 && f.hit(180,208)==117);f.activate(117);assert(f.briefing_page==0 && !f.briefing_done);f.activate(116);
   assert(f.briefing_loading && f.campaign_start && f.play && f.scenario()==campaign::missions[i].scenario);
   f.play=false;f.back();assert(f.dialog==Frontend::Dialog::none);
  }

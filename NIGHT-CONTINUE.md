@@ -1314,3 +1314,29 @@ saves byte-restored; physicalSD untouched. ReportCAMPAIGN_PRESENTATION_VALIDATIO
 UIcaptures inreports, private loadlogevidence campaign-presentation/emulator-load.log.
 No fullmissionvictory reruns forpresentation-onlychange. EarlierheldHUDtimer/font/
 emptyselectionicon requests remain pending; campaignAI limitations unchanged.
+
+## 2026-10-27 original lower briefing layout correction
+Source src-2dc0b1b024abc416. User requested full original lower scene at320x240,
+with only speech text omitted. Prepare tool now reads owned glurdy{t,p,z}.bin
+positions/visibility/movie offsets, composes original PCX/SMKstills at640x480,
+then uniformly halves. All4portraitframes, emptycentraltextframe, nativeobjective
+window and Start/Replay/Cancel restored. Originalnormalmissions hide tutorialonly
+controls. Objectives again shown below per latest request. No mirrored/movedparts.
+New private .brief-cast sidecars retain all4 original speaker-slot assignments
+throughpagination; runtime renders unmirrored portraits and nativeactivehighlight.
+Original campaign metal decorations restored around upperdialog andloadingobjectives.
+Room+4highlights shareone512x256page; retainedshot64KiB+frame32KiB, releasedbefore
+terrain and reuploadedadterndsp. ASanall15cast/state/replay/hitboxes+frontendPASS,
+79resourcehashes/3native320x240banks/nativeARM11PASS. Originalmodel Z4 room/portraits/
+upperframe/loading/liveworld/audio-ready verified:heap31081384,linearfree25600
+with96KiBtemporaryart. Notfullmissionvictoryrerun. NativeUI movies/portraits static.
+New private overlay campaign-original-briefing-update-2026-10-27.zip,1145476bytes,
+SHA2567b0547def339e021bcadccfe738b94e8bc5bd5115916a2b6a8b36782f3728020.
+CRC/79hashes/exact3DSX PASS; oldpresentationZIP remains earlier layout.
+Report ORIGINAL_BRIEFING_LAYOUT.md. Finish Terranvisualcheck, stopemulator/restore
+config/profile/progress/saves from /tmp/sc3ds-presentation-emulator-backup, commit.
+Original-layout final: Terran2visualcheckPASS, original4slots/Raynor+Adjutant,
+emptycentraltextframe/nativebuttons/objectives/uppermetalframe. Bcancel native;
+briefaudio played5/missing0/IO0. EmulatorSTOPPED/config/profile/progress/saves
+byte-restored; physicalSDuntouched. Evidenceoriginal-layout-emulator.log inprivate
+campaign-presentationfolder; 3original-briefing*.png reports. Readyforlocalcommit.

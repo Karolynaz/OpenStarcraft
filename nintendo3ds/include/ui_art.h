@@ -17,7 +17,7 @@ public:
  bool load(const char* path){
   clear();FILE* f=std::fopen(path,"rb");if(!f)return false;
   char magic[8];unsigned header[4];bool ok=std::fread(magic,1,8,f)==8 && !std::memcmp(magic,"OB3UI001",8) && std::fread(header,4,4,f)==4;
-  if(ok)ok=((header[0]==512 && (header[1]==256 || header[1]==512)) || (header[0]==256 && header[1]==128)) && header[2]>0 && header[2]<=9 && header[3]<=256;
+  if(ok)ok=((header[0]==512 && (header[1]==256 || header[1]==512)) || ((header[0]==256 || header[0]==128) && header[1]==128)) && header[2]>0 && header[2]<=9 && header[3]<=256;
   if(ok){width_=header[0];height_=header[1];entries_.resize(header[3]);ok=std::fread(entries_.data(),sizeof(Entry),entries_.size(),f)==entries_.size();}
   if(ok)for(const auto& e:entries_)if(!std::memchr(e.name,0,40) || e.page>=header[2] || !e.w || !e.h || e.x+e.w>width_ || e.y+e.h>height_)ok=false;
   if(ok){pages_.resize(header[2]);for(auto& p:pages_){if(!C3D_TexInit(&p,width_,height_,GPU_RGBA5551)){ok=false;break;}if(std::fread(p.data,2,width_*height_,f)!=width_*height_){ok=false;break;}C3D_TexSetFilter(&p,GPU_NEAREST,GPU_NEAREST);C3D_TexSetWrap(&p,GPU_CLAMP_TO_EDGE,GPU_CLAMP_TO_EDGE);C3D_TexFlush(&p);}}

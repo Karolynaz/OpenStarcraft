@@ -33,7 +33,7 @@ inline void draw_campaign_top(const Frontend& f,BriefingArt& art,C2D_TextBuf tex
  }
  C2D_DrawRectSolid(0,0,0,400,240,C2D_Color32(0,0,0,51));
  C2D_DrawRectSolid(12,18,0,376,206,C2D_Color32(4,8,14,215));
- ui_border({12,18,376,206},C2D_Color32(135,42,25,255));
+ art.frame();
  if(loading){ui_text(text,"Mission objectives",200,30,.64f,white,true);ui_limited(text,f.objectives.c_str(),26,61,.65f,348,8,white);}
  else if(f.briefing_done)ui_limited(text,"Press (Y) to replay briefing",32,92,.70f,336,3,green);
  else if(f.briefing_page<f.briefing.size())ui_limited(text,f.briefing[f.briefing_page].c_str(),26,42,Frontend::briefing_font,Frontend::briefing_width,Frontend::briefing_rows,white);
@@ -47,14 +47,17 @@ inline void draw_campaign_bottom(const Frontend& f,BriefingArt& art,UiArt& menu,
   ui_centered(text,"<",{15,0,24,18},.55f,green);ui_centered(text,">",{281,0,24,18},.55f,green);
   ui_centered(text,"Cancel (B)",{14,208,136,28},.55f,green);ui_centered(text,"Briefing (A)",{170,208,136,28},.55f,green);return;
  }
- art.room();art.portrait();
- const UiRect start={152,140,156,50},cancel={14,198,130,32};
- C2D_DrawRectSolid(start.x,start.y,0,start.w,start.h,C2D_Color32(3,7,12,225));
- menu.draw("title_button",start.x,start.y,start.w/136.f,start.h/24.f);
- ui_centered(text,"Start",start,.95f,f.hover==116?bright:green);
- C2D_DrawRectSolid(cancel.x,cancel.y,0,cancel.w,cancel.h,C2D_Color32(3,7,12,230));
- menu.draw("custom_cancel",0,cancel.y,148.f/142,cancel.h/28.f);
- ui_centered(text,"Cancel",cancel,.65f,f.hover==111?bright:green);
+ art.room();art.portraits(f);
+ // Native 640x480 BIN coordinates, uniformly halved. Retain the original
+ // central text panel, but its speech text is rendered exclusively above.
+ const auto white=C2D_Color32(183,185,241,255);
+ const bool zerg=campaign::missions[f.mission].race==0;
+ const UiRect start={zerg?237:238,zerg?188:190,66,11},cancel={238,209,66,11},replay={153,203,69,12};
+ ui_centered(text,"Start",start,.40f,f.hover==116?bright:green);
+ ui_centered(text,"Cancel",cancel,.40f,f.hover==111?bright:green);
+ ui_centered(text,"Replay",replay,.40f,f.hover==117?bright:green);
+ ui_text(text,"Objectives",23.5f,153,.40f,white);
+ ui_limited(text,f.objectives.c_str(),23.5f,168,.25f,111,8,white);
  menu.draw("cursor",f.x,f.y);
 }
 inline void draw_frontend_top(const Frontend& f,UiArt& art,C2D_TextBuf text){
