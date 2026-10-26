@@ -4,6 +4,7 @@ bool test_trigger_condition(const trigger::condition& c,int owner)const override
  if(!campaign.active)return state_functions::test_trigger_condition(c,owner);
  if(c.type==1)return trigger_count_comparison(c,campaign.countdown());
  if(c.type==23)return false;
+ if(c.type==6 || c.type==7 || c.type==16 || c.type==17){if(c.unit_id<0 || c.unit_id>232)throw std::runtime_error("Campaign extrema unit bounds");if(c.unit_id==228)return true;auto extrema=[&](const auto& counts){const int own=trigger_command_count(counts,owner,owner,c.unit_id,true);for(unsigned p=0;p<8;++p)if(p!=unsigned(owner) && player_slot_active(p)){const int other=trigger_command_count(counts,owner,p,c.unit_id,true);if((c.type<16 && other>own) || (c.type>=16 && other<own))return false;}return true;};if(c.type==7 || c.type==17){if(c.location<=0 || unsigned(c.location)>st.locations.size())throw std::runtime_error("Campaign extrema location bounds");return extrema(trigger_bring_count(st.locations[c.location-1]));}return extrema(st);}
  if(c.type==11){if(c.extra_n<0 || unsigned(c.extra_n)>=campaign.switches.size())return false;return c.num_n==2?campaign.switches[c.extra_n]:c.num_n==3?!campaign.switches[c.extra_n]:false;}
  if(c.type==5 || c.type==15 || c.type==21){unsigned total=0;for(int p:trigger_players(owner,c.group)){
   if(c.type==5 || c.type==15){const auto& counts=c.type==5?campaign.kills:campaign.deaths;if(c.unit_id>=0 && c.unit_id<228)total+=counts[p][c.unit_id];else for(unsigned id=0;id<228;++id){auto* t=get_unit_type(UnitTypes(id));if(c.unit_id==229 || (c.unit_id==230 && (t->group_flags&GroupFlags::Men)) || (c.unit_id==231 && (t->group_flags&GroupFlags::Building)) || (c.unit_id==232 && (t->group_flags&GroupFlags::Factory)))total+=counts[p][id];}}
@@ -59,6 +60,7 @@ bool campaign_action(execute_trigger_struct& ets,int owner,running_trigger& rt,r
    else if(a.type==51)set_unit_shield_points(u,fp8::integer(u->unit_type->shield_points)*std::max(0,std::min(100,a.group2_n))/100);
    else if(a.type==52)set_unit_resources(u,std::max(0,a.group2_n));
   }return true;}
+ case 42:{const auto& loc=location(a.location);a_vector<unit_t*> targets;for(auto* u:find_units(loc.area))if(campaign_matches(u,a.extra_n) && ((a.group_n==17 && (unit_is_door(u) || unit_is_trap(u))) || trigger_players_pred(owner,a.group_n,u->owner)) && unit_is_at_elevation_flags(u,loc.elevation_flags))targets.push_back(u);for(auto* u:targets){if(a.num_n!=0 && a.num_n!=4 && a.num_n!=5 && a.num_n!=6)throw std::runtime_error("Campaign doodad modifier");const bool disabled=u_disabled(u) || u->order_type->id==Orders::OpenDoor;set_doodad_state(u,a.num_n==4 || ((a.num_n==0 || a.num_n==6) && disabled));}return true;}
  case 57:for(int p:trigger_players(owner,a.group_n))st.alliances[owner][p]=a.extra_n==0?0:2;return true;
  default:handled=false;return true;
  }

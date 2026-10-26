@@ -1436,7 +1436,14 @@ struct state_functions {
 	}
 
 	bool unit_is_trap(unit_type_autocast ut) const {
-		return ut->id >= UnitTypes::Special_Floor_Missile_Trap && ut->id <= UnitTypes::Special_Right_Wall_Flame_Trap;
+		return unit_is(ut, UnitTypes::Special_Floor_Missile_Trap) || (ut->id >= UnitTypes::Special_Floor_Gun_Trap && ut->id <= UnitTypes::Special_Right_Wall_Flame_Trap);
+	}
+
+	bool unit_is_door(unit_type_autocast ut) const {
+		return ut->id >= UnitTypes::Special_Upper_Level_Door && ut->id <= UnitTypes::Special_Right_Pit_Door;
+	}
+	bool unit_is_floor_trap(unit_type_autocast ut) const {
+		return unit_is(ut, UnitTypes::Special_Floor_Missile_Trap) || unit_is(ut, UnitTypes::Special_Floor_Gun_Trap);
 	}
 
 	bool unit_is_zerg_building(unit_type_autocast ut) const {
@@ -5887,6 +5894,92 @@ struct state_functions {
 		}
 	}
 
+	// Installation doodads use native iscript signals, collision and attack orders.
+	void set_doodad_state(unit_t* u, bool enabled) {
+		if (unit_dying(u)) return;
+		auto unit_context = make_thingy_setter(iscript_unit, u);
+		auto flingy_context = make_thingy_setter(iscript_flingy, static_cast<flingy_t*>(u));
+		u_unset_status_flag(u, unit_t::status_flag_disabled);
+		u_unset_status_flag(u, unit_t::status_flag_order_not_interruptible);
+		u_unset_status_flag(u, unit_t::status_flag_iscript_nobrk);
+		u->sprite->flags &= ~sprite_t::flag_iscript_nobrk;
+		u->order_signal &= ~1;
+		if (unit_is_door(u)) {
+			set_unit_order(u, get_order_type(enabled ? Orders::CloseDoor : Orders::OpenDoor));
+			sprite_run_anim(u->sprite, enabled ? iscript_anims::Enable : iscript_anims::Disable);
+			int sound = enabled ? u->unit_type->last_what_sound : u->unit_type->first_what_sound;
+			if (sound) play_sound(sound, u);
+		} else {
+			u_set_status_flag(u, unit_t::status_flag_disabled, !enabled);
+			if (unit_is_trap(u)) {
+				set_unit_order(u, get_order_type(Orders::HiddenGun));
+				u_set_status_flag(u, unit_t::status_flag_no_collide);
+				u_set_status_flag(u, unit_t::status_flag_cloaked);
+				u_set_status_flag(u, unit_t::status_flag_requires_detector);
+				u->detected_flags = 0x80000000;
+				u->secondary_order_timer = 0;
+				if (unit_is_floor_trap(u)) u->sprite->elevation_level = 0;
+			} else order_done(u);
+			sprite_run_anim(u->sprite, enabled ? iscript_anims::Enable : iscript_anims::Disable);
+		}
+	}
+
+	void order_Door(unit_t* u, bool opening) {
+		if (!(u->order_signal & 1)) return;
+		u->order_signal &= ~1;
+		u_set_status_flag(u, unit_t::status_flag_no_collide, opening);
+		u->sprite->elevation_level = opening ? 1 : u->unit_type->elevation_level;
+		// Finish the order before marking the open door disabled.
+		u_unset_status_flag(u, unit_t::status_flag_order_not_interruptible);
+		order_done(u);
+		u_set_status_flag(u, unit_t::status_flag_disabled, opening);
+	}
+
+	void order_HiddenGun(unit_t* u) {
+		if (!u->order_state) {
+			u_set_status_flag(u, unit_t::status_flag_no_collide);
+			u_set_status_flag(u, unit_t::status_flag_cloaked);
+			u_set_status_flag(u, unit_t::status_flag_requires_detector);
+			u->detected_flags = 0x80000000;
+			u->secondary_order_timer = 0;
+			if (unit_is_floor_trap(u)) u->sprite->elevation_level = 0;
+			u->order_state = 1;
+		}
+		if (u->main_order_timer) return;
+		u->main_order_timer = 15;
+		auto* target = find_acquire_random_target(u);
+		if (!target) return;
+		u_unset_status_flag(u, unit_t::status_flag_no_collide);
+		u_unset_status_flag(u, unit_t::status_flag_cloaked);
+		u_unset_status_flag(u, unit_t::status_flag_requires_detector);
+		u->secondary_order_timer = 0;
+		if (unit_is_floor_trap(u)) u->sprite->elevation_level = u->unit_type->elevation_level;
+		set_unit_order(u, get_order_type(Orders::RevealTrap));
+		queue_order_back(u, u->unit_type->attack_unit, {target->sprite->position, target});
+		queue_order_back(u, get_order_type(Orders::HideTrap), {});
+	}
+
+	void order_TrapAnimation(unit_t* u, bool revealing) {
+		if (!u->order_state) {
+			if (!revealing && !unit_is_disabled(u)) {
+				auto* target = find_acquire_random_target(u);
+				if (target) {
+					u_unset_status_flag(u, unit_t::status_flag_order_not_interruptible);
+					set_unit_order(u, u->unit_type->attack_unit, target);
+					queue_order_back(u, get_order_type(Orders::HideTrap), {});
+					return;
+				}
+			}
+			u->order_signal &= ~1;
+			u->order_state = 1;
+			sprite_run_anim(u->sprite, revealing ? iscript_anims::SpecialState1 : iscript_anims::SpecialState2);
+		} else if (u->order_signal & 1) {
+			u->order_signal &= ~1;
+			u_unset_status_flag(u, unit_t::status_flag_order_not_interruptible);
+			order_done(u);
+		}
+	}
+
 	void order_TowerGuard(unit_t* u) {
 		if (unit_is_disabled(u)) return;
 		if (u->main_order_timer == 0) {
@@ -8148,22 +8241,25 @@ struct state_functions {
 			order_InitializePsiProvider(u);
 			break;
 		case Orders::HiddenGun:
-			error("HiddenGun");
+			order_HiddenGun(u);
 			break;
 		case Orders::OpenDoor:
-			error("OpenDoor");
+			order_Door(u, true);
 			break;
 		case Orders::CloseDoor:
-			error("CloseDoor");
+			order_Door(u, false);
 			break;
 		case Orders::HideTrap:
-			error("HideTrap");
+			order_TrapAnimation(u, false);
 			break;
 		case Orders::RevealTrap:
-			error("RevealTrap");
+			order_TrapAnimation(u, true);
 			break;
 		case Orders::EnableDoodad:
-			error("EnableDoodad");
+			set_doodad_state(u, true);
+			break;
+		case Orders::DisableDoodad:
+			set_doodad_state(u, false);
 			break;
 		case Orders::WarpIn:
 			error("WarpIn");
@@ -13180,6 +13276,7 @@ struct state_functions {
 				if (~rt.flags & 1) {
 					for (auto& c : t.conditions) {
 						if (c.type == 0) break;
+						if (c.flags & 2) continue;
 						if (!test_trigger_condition(c, i)) {
 							execute_now = false;
 							break;
@@ -14976,6 +15073,12 @@ struct state_functions {
 				} else {
 					if (iscript_unit) set_unit_heading(iscript_unit, iscript_unit->heading + 8_dir * a);
 				}
+				break;
+
+			case opc_setspawnframe:
+				a = *p++;
+				if (noop) break;
+				if (iscript_flingy) set_next_target_waypoint(iscript_flingy, iscript_flingy->sprite->position + to_xy(direction_xy(8_dir * a, fp8::integer(128))));
 				break;
 
 			case opc_sigorder:
@@ -21467,8 +21570,8 @@ struct game_load_functions : state_functions {
 					if (unit_type == UnitTypes::Special_Pit_Door) owner = 11;
 					if (unit_type == UnitTypes::Special_Right_Pit_Door) owner = 11;
 					if (use_map_settings || owner == 11) {
-						create_initial_unit(get_unit_type(unit_type), xy(x, y), owner);
-						if (flags & 0x80) error("disable thingy unit");
+						auto* unit = create_initial_unit(get_unit_type(unit_type), xy(x, y), owner);
+						if (unit && (flags & 0x80)) set_doodad_state(unit, false);
 					}
 				}
 			}

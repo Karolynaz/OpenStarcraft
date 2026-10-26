@@ -22,6 +22,7 @@ template<class Bytes> void normalize(Bytes& bytes,unsigned human=1){
    unsigned width=is("UPGR")?46:is("PUPx")?61:is("PTEC")?24:44;rows(0,width);rows(12*width,width);rows(26*width,width);
   }else if(is("MASK"))for(unsigned j=0;j<n;++j)p[j]=(p[j]&~(1u|(1u<<human)))|((p[j]&1)<<human)|((p[j]>>human)&1);
   else if(is("UNIT")){if(n%36)throw std::runtime_error("Campaign unit bounds");for(unsigned j=0;j<n;j+=36)p[j+16]=swap_player(p[j+16],human);}
+  else if(is("THG2")){if(n%10)throw std::runtime_error("Campaign doodad bounds");for(unsigned j=0;j<n;j+=10)p[j+6]=swap_player(p[j+6],human);}
   else if(is("TRIG") || is("MBRF")){
    if(n%2400)throw std::runtime_error("Campaign trigger bounds");
    for(unsigned j=0;j<n;j+=2400){auto* t=p+j;std::swap(t[2372],t[2372+human]);

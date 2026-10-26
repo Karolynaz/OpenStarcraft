@@ -1175,3 +1175,20 @@ Reveal specialstate1 thenqueuedattack thenHide specialstate2 thenHiddenGun.
 Existingnativeflags disabled0x400/nocollide0x200000, methodsqueue_order_back,
 find_acquire_random_target,order_done,sprite_run_anim. THG2flag0x80 currentlythrows.
 Latestnative-testedpackage12source01Dpreserved. Emulatoroff/restored. Windowto18:45.
+
+## 2026-10-26 ~16:40 installation checkpoint
+Source95f9442b1bb571c4: doors/traps/iscript/state42, disabled originalconditions,
+commandmost/least, THG2owner normalization, richerorderdigest. HostASan door4cycles/
+collision/traprealweapon/reveal/hidePASS, extremaPASS, routesdisabledBringloc0PASS.
+All12startup/savereplay/48/17248PASS. Fresh11victories: T1 7649,T2 17215,T3 43442,
+Z1 21972,Z2 6460,Z3 21026,P1 23544,P2 24517,P3 38399,BWP1 10771,BWZ1 13605.
+BWT1 loses46605, still no victoryclaim. Full logs /tmp/sc3ds-doorpaid-*.log.
+Native95F originalmodel BWZ1brief12missing0IO0, blackLoading/live/notopstripPASS;
+normal31754464 linearfree123904. EmulatorSTOPPED/restoredprofile/model/bothslots;
+no physicalSD. ReportCAMPAIGN_DOODADS_VALIDATION.md. Last13:45windowto18:45active.
+Broader64inventoryrecords59startup/3AI45or92tickreject/2unusedcutmapreject;1200ticks
+isnotcompletion. NewTHGnormalizationchanged11of12stagedmaps, old01DZIPpreserved.
+T4trial4 all12teleportedfirstpad butroute976,192stuckaround2272,1137; no menuT4yet.
+Temporarytrial /tmp/sc3ds-terran04-trial.cpp, terrainmapguide.png helpsfindroute.
+CurrentASanobj/tmp/sc3ds-doors-ready-engine.o. Nativeout95F; staged3DSXstill01D.
+Latestprivatepackage still campaign-twelve-update-2026-10-26.zip (01D), not95F.
