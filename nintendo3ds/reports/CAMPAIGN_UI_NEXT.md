@@ -13,8 +13,10 @@ Checkpoint source src-d3916d80e599ff23.
 - Loading/reconstruction/warmup shows black screens and centered green Loading
   on the lower screen. Native GPU preparation still occurs behind the overlay.
 - Original-model emulator verified the loading appearance, absent mission bar,
-  and a real double A selecting three larvae. Native save reconstructed on ASan
-  with all three larvae selected. Screenshots/logs are private in
+  and a real double A selecting three larvae. Replay of the new group operation
+  is separately verified by the ASan test. A native save read raced the GUI
+  save request and read the earlier state, so it is not used as group-replay
+  evidence. Screenshots/logs are private in
   local-data/campaign-six-validation. All six startup/save/replay/17248 idle runs
   also PASS. ARMv6K/VFPv2 architecture check PASS.
 - Emulator stopped; original preferences/profile/save slots restored. No SD write.

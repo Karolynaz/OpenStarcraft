@@ -973,8 +973,10 @@ within350ms selects own same-type visible units, including larvae; all loading
 screens black with green centered Loading below. New Engine.select_similar()
 journalopcode16 and Engine.own_unit_at() reader. First A drag-select preserved.
 ASan3larvae selection+save/replay+48framesPASS; all6startup/replay/17248idlePASS;
-native ARMv6K PASS. Emulator originalmodel realdoubleA showed3larva icons; native
-save reconstructed onhost selected3. Loading screenshotexactblack/greenPASS.
+native ARMv6K PASS. Emulator originalmodel realdoubleA showed3larva icons. HostASan separately
+verified newgroupjournal+replay3. Native save read raced GUI save and read prior
+state selected0; DO NOT claim native-to-host3 from that log. Loading screenshot
+exactblack/greenPASS.
 Emulator STOPPED and originalprofile/model/slots RESTORED. No physicalSDwrite.
 Private binary-only UI update local-data/releases/campaign-ui-update-2026-10-26.zip
 requires previous six-campaign package. Receipt in campaign-six-validation.
