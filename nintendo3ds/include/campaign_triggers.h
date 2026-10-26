@@ -28,12 +28,13 @@ bool campaign_action(execute_trigger_struct& ets,int owner,running_trigger& rt,r
  auto location=[&](unsigned id)->const bwgame::location&{if(!id || id>st.locations.size())throw std::runtime_error("Campaign action location bounds");return st.locations[id-1];};
  switch(a.type){
  case 15:case 16:{xy center=st.game->start_locations[owner];if(a.type==16){const auto& l=location(a.location);center=(l.area.from+l.area.to)/2;}campaign_ai.start(*this,unsigned(a.group2_n),unsigned(owner),center);return true;}
+ case 41:if(a.string_index<=0 || unsigned(a.string_index)>st.game->map_strings.size())throw std::runtime_error("Campaign next scenario string bounds");campaign.next_scenario=unsigned(a.string_index);return true;
  case 14:campaign.timer(unsigned(a.time_n),a.num_n);return true;
  case 54:campaign.countdown_paused=true;return true;
  case 55:campaign.countdown_paused=false;return true;
  case 45:if(a.extra_n<0 || a.extra_n>=228)throw std::runtime_error("Campaign deaths type bounds");for(int p:trigger_players(owner,a.group_n)){auto& value=campaign.deaths[p][a.extra_n];const unsigned amount=unsigned(a.group2_n);if(a.num_n==7)value=amount;else if(a.num_n==8)value+=amount;else if(a.num_n==9)value=value>amount?value-amount:0;}return true;
  case 13:if(a.group2_n>=campaign.switches.size())throw std::runtime_error("Campaign switch bounds");if(a.num_n==4)campaign.switches[a.group2_n]=true;else if(a.num_n==5)campaign.switches[a.group2_n]=false;else if(a.num_n==6)campaign.switches[a.group2_n]=!campaign.switches[a.group2_n];else if(a.num_n==11)campaign.switches[a.group2_n]=(lcg_rand(16)&1)!=0;return true;
- case 21:case 37:case 47:return true; // leaderboard presentation / author comment
+ case 19:case 21:case 36:case 37:case 47:return true; // leaderboard presentation / author comment
  case 27:if(a.extra_n!=7)throw std::runtime_error("Unsupported campaign score modifier");for(int p:trigger_players(owner,a.group_n))arithmetic(campaign.scores[p],a.group2_n,a.num_n);return true;
  case 28:if(owner==0){auto& l=location(a.location);campaign.ping=(l.area.from+l.area.to)/2;campaign.ping_frame=st.current_frame;}return true;
  

@@ -1,0 +1,24 @@
+// Synthetic private trigger fixture: author-selected next map survives replay,
+// and episode-specific progress persists atomically without changing originals.
+#include "engine.h"
+#include "frontend.h"
+#include "campaign_map.h"
+#include <cassert>
+#include <fstream>
+#include <cstdio>
+#include <cstdlib>
+#include <unistd.h>
+#include <sys/stat.h>
+using namespace port3ds;
+int main(int argc,char**argv){assert(argc==3);
+ assert(campaign::next_key(16,"Terran03.scx")=="terran03");assert(campaign::next_key(21,"Zerg04f.scx")=="expzerg04f");assert(campaign::next_key(21,"Bonus.scx")=="expbonus");
+ for(const auto& bad:{"../Terran01.scx","terran01/scx","Zerg03.scx","Terran03.exe","terran03.scx.exe","Terran999.scx"})assert(campaign::next_key(16,bad).empty());
+ std::ifstream in(argv[2],std::ios::binary);std::vector<uint8_t> map((std::istreambuf_iterator<char>(in)),{});unsigned target=0;
+ for(size_t at=0;at+8<=map.size();){unsigned size=campaign::get(map.data()+at+4);if(!memcmp(map.data()+at,"STR ",4)){auto* p=map.data()+at+8;unsigned n=p[0]|p[1]<<8;std::vector<std::string> strings;for(unsigned j=0;j<n;++j){unsigned off=p[2+j*2]|p[3+j*2]<<8;assert(off<size);unsigned end=off;while(end<size && p[end])++end;strings.emplace_back((char*)p+off,end-off);}strings.push_back("Terran03.scx");target=strings.size();std::vector<uint8_t> bytes(2+2*strings.size());bytes[0]=target;bytes[1]=target>>8;for(unsigned j=0;j<strings.size();++j){unsigned off=bytes.size();assert(off<65536);bytes[2+j*2]=off;bytes[3+j*2]=off>>8;bytes.insert(bytes.end(),strings[j].begin(),strings[j].end());bytes.push_back(0);}map.erase(map.begin()+at+8,map.begin()+at+8+size);map.insert(map.begin()+at+8,bytes.begin(),bytes.end());campaign::put(map.data()+at+4,bytes.size());break;}at+=8+size;}assert(target);
+ std::vector<uint8_t> trig(4800);trig[15]=22;auto* a=trig.data()+320;campaign::put(a+4,target);a[26]=41;a+=32;a[26]=14;a[27]=7;campaign::put(a+12,2);trig[2372]=1;auto* t=trig.data()+2400;t[15]=1;t[14]=1;t[320+26]=1;t[2372]=1;
+ for(size_t at=0;at+8<=map.size();){unsigned size=campaign::get(map.data()+at+4);if(!memcmp(map.data()+at,"TRIG",4)){map.erase(map.begin()+at+8,map.begin()+at+8+size);map.insert(map.begin()+at+8,trig.begin(),trig.end());campaign::put(map.data()+at+4,trig.size());break;}at+=8+size;}
+ std::string base="/tmp/sc3ds-routes-"+std::to_string(getpid());assert(!mkdir(base.c_str(),0700));std::string path=base+"/fixture.chk";{std::ofstream out(path,std::ios::binary);out.write((char*)map.data(),map.size());}
+ Engine e;assert(e.load(argv[1],path.c_str(),Scenario::terran_campaign));assert(e.start_recording((base+"/session").c_str()));for(unsigned i=0;i<20;++i)assert(e.tick());assert(e.snapshot().next_scenario=="Terran03.scx");SaveView view;assert(e.save_game((base+"/slot").c_str(),view));Engine replay;SaveView restored;assert(replay.load_save(argv[1],(base+"/slot").c_str(),(base+"/replay").c_str(),(base+"/map").c_str(),restored));assert(replay.snapshot().next_scenario==e.snapshot().next_scenario);while(e.snapshot().winner<0){assert(e.tick() && replay.tick());assert(e.state_digest()==replay.state_digest());}assert(e.snapshot().winner==0);
+ assert(!mkdir((base+"/maps").c_str(),0700) && !mkdir((base+"/campaign").c_str(),0700));{std::ofstream out(base+"/campaign/terran03.brief");out<<"Evacuation";}Frontend front;front.init((base+"/").c_str());assert(front.complete_mission(16,e.snapshot().next_scenario));assert(front.complete_mission(21,"Zerg04c.scx"));Frontend loaded;loaded.init((base+"/").c_str());assert(loaded.completed[0] && loaded.completed[5] && loaded.next_missions[3]=="expzerg04c");loaded.brood=false;loaded.activate(1);assert(loaded.mission==9 && loaded.dialog==Frontend::Dialog::briefing);
+ Frontend bad;bad.base=base+"/absent/maps";assert(!bad.complete_mission(16,"Terran03.scx") && !bad.completed[0]);
+ puts("Original next-scenario field/active replay + validated branch keys, episode routes, atomic progress/reload and failed-write rollback PASS");}

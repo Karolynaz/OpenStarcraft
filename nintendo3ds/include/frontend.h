@@ -19,7 +19,7 @@ struct Frontend {
  Screen screen=Screen::campaign;Dialog dialog=Dialog::none;
  bool brood=true,play=false,load=false,quit=false,save_failed=false;
  bool saved_notice=false,campaign_start=false;
- unsigned mission=0;std::array<bool,campaign::count> completed{};
+ unsigned mission=0;std::array<bool,campaign::count> completed{};std::array<std::string,6> next_missions{};
  std::vector<std::string> briefing;std::vector<unsigned> briefing_voices;unsigned briefing_page=0;bool briefing_paginated=false;
  unsigned briefing_sound()const{return briefing_page<briefing_voices.size()?briefing_voices[briefing_page]:0;}
  // The renderer supplies real font widths, so no spoken paragraph is cut by
@@ -81,8 +81,9 @@ struct Frontend {
  }
  void init(const char* root){base=std::string(root)+"maps";directory=base;settings=std::string(root)+"player1.cfg";
   if(FILE* f=std::fopen(settings.c_str(),"r")){unsigned v,r;if(std::fscanf(f,"OPENBW_PROFILE1\nversion=%u\nrace=%u",&v,&r)==2){brood=v==1;race=r<3?r:1;}char line[128];while(std::fgets(line,sizeof line,f)){unsigned value;if(std::sscanf(line,"difficulty=%u",&value)==1)difficulty=value==1?1:0;}std::fclose(f);}else save();scan();
-  if(FILE* progress=std::fopen((std::string(root)+"campaign/progress.cfg").c_str(),"r")){char line[80];while(std::fgets(line,sizeof line,progress)){for(unsigned i=0;i<campaign::count;++i)if(std::string(line)==std::string(campaign::missions[i].key)+"=1\n" || (i==0 && std::string(line)=="terran=1\n"))completed[i]=true;}std::fclose(progress);}
+  if(FILE* progress=std::fopen((std::string(root)+"campaign/progress.cfg").c_str(),"r")){char line[80];while(std::fgets(line,sizeof line,progress)){std::string route=line;if(route.compare(0,5,"next=")==0){route=route.substr(5);while(!route.empty() && (route.back()=='\n' || route.back()=='\r'))route.pop_back();auto ep=campaign::key_episode(route);if(ep<next_missions.size())next_missions[ep]=route;}for(unsigned i=0;i<campaign::count;++i)if(std::string(line)==std::string(campaign::missions[i].key)+"=1\n" || (i==0 && std::string(line)=="terran=1\n"))completed[i]=true;}std::fclose(progress);}
  }
+ bool complete_mission(unsigned scenario,const std::string& filename){auto i=campaign::index(scenario);if(i>=campaign::count)return false;auto done=completed;auto routes=next_missions;done[i]=true;const auto& m=campaign::missions[i];routes[(m.brood?3:0)+m.race]=campaign::next_key(scenario,filename);const auto path=base+"/../campaign/progress.cfg",temp=path+".tmp";FILE* out=std::fopen(temp.c_str(),"w");if(!out)return false;bool ok=std::fprintf(out,"OPENBW_CAMPAIGN1\n")>0;for(unsigned j=0;j<done.size();++j)ok=(std::fprintf(out,"%s=%u\n",campaign::missions[j].key,done[j]?1:0)>0)&&ok;for(const auto& route:routes)if(!route.empty())ok=(std::fprintf(out,"next=%s\n",route.c_str())>0)&&ok;const bool closed=std::fclose(out)==0;if(!ok || !closed || std::rename(temp.c_str(),path.c_str()))return false;completed=done;next_missions=routes;return true;}
  void save(){
   const auto temp=settings+".tmp";FILE* f=std::fopen(temp.c_str(),"w");if(!f){save_failed=true;return;}
   const bool ok=std::fprintf(f,"OPENBW_PROFILE1\nversion=%u\nrace=%u\nname=Player1\ndifficulty=%u\n",brood?1:0,race,difficulty)>0;
@@ -131,7 +132,7 @@ struct Frontend {
   if(dialog==Dialog::map_list){if(id>=70 && id<75 && scroll+unsigned(id-70)<maps.size()){selected_map=scroll+unsigned(id-70);preview_dirty=true;dialog=Dialog::none;}else if(id==90 || id==91){if(id==90)scroll=scroll>=5?scroll-5:0;else if(scroll+5<maps.size())scroll+=5;}else if(id==32)dialog=Dialog::none;return;}
   if(dialog!=Dialog::none){if(dialog==Dialog::version && (id==30 || id==31)){brood=id==31;save();dialog=Dialog::none;}else if(id==33 && dialog==Dialog::exit)quit=true;else if(id==32)dialog=Dialog::none;return;}
   if(screen==Screen::campaign){if(id==5){load=true;}else if(id<3){
-   {static const unsigned original_races[]={0,1,2},brood_races[]={1,2,0};mission=campaign::opening(brood,(brood?brood_races:original_races)[id]);for(unsigned n=0;n<campaign::count && completed[mission];++n){unsigned next=campaign::adjacent(mission,1);if(next==campaign::opening(brood,(brood?brood_races:original_races)[id]))break;mission=next;}open_briefing(mission);
+   {static const unsigned original_races[]={0,1,2},brood_races[]={1,2,0};mission=campaign::opening(brood,(brood?brood_races:original_races)[id]);for(unsigned n=0;n<campaign::count && completed[mission];++n){unsigned next=campaign::adjacent(mission,1);if(next==campaign::opening(brood,(brood?brood_races:original_races)[id]))break;mission=next;}const auto& selected=campaign::missions[mission];const auto preferred=campaign::key_index(next_missions[(selected.brood?3:0)+selected.race]);if(preferred<campaign::count)mission=preferred;open_briefing(mission);
    }
   }else if(id==3){campaign_start=false;observer_test=~0u;navigate(Screen::custom);}else if(id==4)dialog=Dialog::version;else if(id==6)dialog=Dialog::ai_tests;}
   else if(id==60){scroll=selected_map/5*5;dialog=Dialog::map_list;x=160;y=77+(selected_map-scroll)*24;}

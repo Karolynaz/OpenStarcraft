@@ -295,7 +295,7 @@ bool Engine::load(const char* data_root, const char* map_path, Scenario scenario
         if(custom)for(unsigned p=0;p<3;++p)for(unsigned q=0;q<3;++q)if(p!=q)player.st().alliances[p][q]=setup->teams[p]==setup->teams[q]?2:0;
         if(campaign)for(const auto& trigger:player.st().game->triggers){
             for(const auto& c:trigger.conditions)if(c.type && c.type!=1 && c.type!=5 && c.type!=23 && c.type!=2 && c.type!=3 && c.type!=4 && c.type!=11 && c.type!=12 && c.type!=14 && c.type!=15 && c.type!=21 && c.type!=22)throw std::runtime_error("Unsupported campaign trigger condition");
-            for(const auto& a:trigger.actions)if(a.type && a.type!=1 && a.type!=2 && a.type!=3 && a.type!=4 && a.type!=5 && a.type!=6 && a.type!=7 && a.type!=8 && a.type!=9 && a.type!=10 && a.type!=11 && a.type!=12 && a.type!=13 && a.type!=14 && a.type!=45 && a.type!=54 && a.type!=55 && a.type!=15 && a.type!=16 && a.type!=17 && a.type!=21 && a.type!=22 && a.type!=23 && a.type!=24 && a.type!=25 && a.type!=26 && a.type!=27 && a.type!=28 && a.type!=30 && a.type!=31 && a.type!=32 && a.type!=37 && a.type!=38 && a.type!=39 && a.type!=43 && a.type!=44 && a.type!=46 && a.type!=47 && a.type!=48 && a.type!=49 && a.type!=50 && a.type!=51 && a.type!=52 && a.type!=57)throw std::runtime_error("Unsupported campaign trigger action");
+            for(const auto& a:trigger.actions)if(a.type && a.type!=1 && a.type!=2 && a.type!=3 && a.type!=4 && a.type!=5 && a.type!=6 && a.type!=7 && a.type!=8 && a.type!=9 && a.type!=10 && a.type!=11 && a.type!=12 && a.type!=13 && a.type!=14 && a.type!=45 && a.type!=54 && a.type!=55 && a.type!=15 && a.type!=16 && a.type!=17 && a.type!=19 && a.type!=21 && a.type!=22 && a.type!=23 && a.type!=24 && a.type!=25 && a.type!=26 && a.type!=27 && a.type!=28 && a.type!=30 && a.type!=31 && a.type!=32 && a.type!=36 && a.type!=37 && a.type!=38 && a.type!=39 && a.type!=41 && a.type!=43 && a.type!=44 && a.type!=46 && a.type!=47 && a.type!=48 && a.type!=49 && a.type!=50 && a.type!=51 && a.type!=52 && a.type!=57)throw std::runtime_error("Unsupported campaign trigger action");
         }
         // The deterministic controller runs after loading; native player slots stay human.
         if (scenario == Scenario::two_units) {
@@ -463,7 +463,7 @@ Snapshot Engine::snapshot() const {
     s.campaign=impl_->sound->campaign.active;s.countdown_active=s.campaign && impl_->sound->campaign.countdown_active;s.countdown_seconds=impl_->sound->campaign.countdown();
 
 
-    if(s.campaign){const auto& c=impl_->sound->campaign;s.objectives=c.text(impl_->player->st(),c.objective);s.transmission=frame()<c.message_until?c.text(impl_->player->st(),c.message):"";s.mission_camera_serial=c.camera_serial;s.mission_camera_x=c.camera.x;s.mission_camera_y=c.camera.y;}
+    if(s.campaign){const auto& c=impl_->sound->campaign;s.next_scenario=c.text(impl_->player->st(),c.next_scenario);s.objectives=c.text(impl_->player->st(),c.objective);s.transmission=frame()<c.message_until?c.text(impl_->player->st(),c.message):"";s.mission_camera_serial=c.camera_serial;s.mission_camera_x=c.camera.x;s.mission_camera_y=c.camera.y;}
     s.observer=impl_->ai.observer() || impl_->battle.enabled(); s.winner=impl_->battle.enabled()?impl_->battle.winner():impl_->ai.winner();if(s.campaign){int result=impl_->player->st().players[0].victory_state;s.winner=result>=3?0:result==2?1:-1;}
     s.benchmark=impl_->battle.enabled();s.battle_seconds=impl_->battle.seconds();s.end_reason=impl_->battle.reason();
     s.score[0]=impl_->battle.score(0);s.score[1]=impl_->battle.score(1);

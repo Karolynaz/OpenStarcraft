@@ -3,7 +3,7 @@
 // in the user's map string table; no purchased dialogue is compiled into code.
 namespace port3ds { namespace detail {
 struct CampaignRuntime {
- bool active=false,cinematic=false,suppress_deaths=false;unsigned mission=0,objective=0,message=0,message_until=0,camera_serial=0;
+ bool active=false,cinematic=false,suppress_deaths=false;unsigned mission=0,next_scenario=0,objective=0,message=0,message_until=0,camera_serial=0;
  // Countdown advances only with simulation ticks, never with menu/loading time.
  uint64_t countdown_frames=0;bool countdown_paused=false,countdown_active=false;
  unsigned countdown()const{return unsigned((countdown_frames+23)/24);}

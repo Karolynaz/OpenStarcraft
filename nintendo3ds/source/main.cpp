@@ -431,7 +431,7 @@ int main() {
             }
             if(state.campaign && state.mission_camera_serial!=mission_camera_serial){controls.focus(state.mission_camera_x,state.mission_camera_y);mission_camera_serial=state.mission_camera_serial;}
             if(state.winner>=0 && !result_shown) {
-                if(state.campaign && state.winner==0){FILE* progress=std::fopen("sdmc:/3ds/openbw/campaign/progress.tmp","w");if(progress){auto completed=front.completed;const auto mission=port3ds::campaign::index(scenario);if(mission<completed.size())completed[mission]=true;bool ok=std::fprintf(progress,"OPENBW_CAMPAIGN1\n")>0;for(unsigned i=0;i<completed.size();++i)ok=(std::fprintf(progress,"%s=%u\n",port3ds::campaign::missions[i].key,completed[i]?1:0)>0)&&ok;const bool closed=std::fclose(progress)==0;if(ok && closed && !std::rename("sdmc:/3ds/openbw/campaign/progress.tmp","sdmc:/3ds/openbw/campaign/progress.cfg"))front.completed=completed;}}
+                if(state.campaign && state.winner==0)front.complete_mission(scenario,state.next_scenario);
                 result_shown=true;paused=true;scheduler.reset();menu=Menu::result;choice=0;action=state.observer?(state.winner==0?"Red wins":state.winner==1?"Blue wins":state.winner==2?"Green wins":"Battle finished"):(state.winner==0?"Victory!":state.winner==3?"Draw":"Defeat");
             }
             port3ds::SoundEvent sound_events[256];

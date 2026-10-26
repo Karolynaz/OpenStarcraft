@@ -1141,3 +1141,17 @@ Read report nintendo3ds/reports/CAMPAIGN_TWELVE_VALIDATION.md.
 Latest13:45heartbeat arrivedduringwork, authorizesuntil18:45; no more automations.
 Next: missing latercampaign triggeractions/doorstates/AIguards/branchprogression;
 notallmissionsdone. Preserve package while extending backend, keepclaims honest.
+
+## 2026-10-26 ~14:15 branch checkpoint
+Source b081b7ef2b56e4c4 adds SetNextScenario41 -> runtime/string/digest -> atomic
+per-episode next=key progress routing, preserving future04c-f/Bonuskeys. Native
+buildARM11PASS, but nativebranchprogressNOTyetchecked; no replacementpackage.
+HostASan synthetic41timerwin/active savereplay, filenamevalidation/routes/reload/
+failedwrite rollbackPASS. Frontendand12startup/save/replay/48/17248PASS. Broader
+runtime-routes.csv43startup/6loadreject/11tickreject; nextmissingAI61/94/105,
+4doormaploadrejects+2unusedcutmapformats. ReportCAMPAIGN_BRANCH_ROUTES.md.
+Currenthostobject/tmp/sc3ds-routes-engine.o; test/tmp/sc3ds-campaign-routes,
+/tmp/sc3ds-routes-openings. OutcurrentlyB081native, stage/localpackage still01D
+(the tested12release). Emulator STOPPED/restored since12stage, no physicalSD.
+Next implementboundedoriginalAIguardrequests/op105seed/op94enemyresourcejump,
+then door/trapstate; don'tsilentlyskipfunctionalops. Lastwindowuntil18:45active.
