@@ -594,7 +594,7 @@ int main() {
             C2D_TargetClear(bottom, bg); C2D_SceneBegin(bottom);
             hud_art.draw("hud",0,0);
             C2D_TextBufClear(hud_buf);
-            char clock[20];std::snprintf(clock,sizeof clock,"%02lu:%02lu",static_cast<unsigned long>(state.frame/24/60),static_cast<unsigned long>(state.frame/24%60));
+            char clock[20];const unsigned seconds=state.countdown_active?state.countdown_seconds:state.frame/24;std::snprintf(clock,sizeof clock,"%s%02lu:%02lu",state.countdown_active?"T-":"",static_cast<unsigned long>(seconds/60),static_cast<unsigned long>(seconds%60));
             port3ds::ui_text(hud_buf,clock,31,16,.48f,white,true);
             port3ds::ui_text(hud_buf,"MENU",283,161,.48f,white,true);
             if(menu==Menu::none)refresh_world();

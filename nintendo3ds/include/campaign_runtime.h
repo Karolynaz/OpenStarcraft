@@ -5,10 +5,10 @@ namespace port3ds { namespace detail {
 struct CampaignRuntime {
  bool active=false,cinematic=false,suppress_deaths=false;unsigned mission=0,objective=0,message=0,message_until=0,camera_serial=0;
  // Countdown advances only with simulation ticks, never with menu/loading time.
- uint64_t countdown_frames=0;bool countdown_paused=false;
+ uint64_t countdown_frames=0;bool countdown_paused=false,countdown_active=false;
  unsigned countdown()const{return unsigned((countdown_frames+23)/24);}
  void advance(){if(!countdown_paused && countdown_frames)--countdown_frames;}
- void timer(unsigned seconds,unsigned modifier){const uint64_t amount=uint64_t(seconds)*24;if(modifier==7)countdown_frames=amount;else if(modifier==8)countdown_frames=std::min(uint64_t(0xffffffffu)*24,countdown_frames+amount);else if(modifier==9)countdown_frames=countdown_frames>amount?countdown_frames-amount:0;}
+ void timer(unsigned seconds,unsigned modifier){countdown_active=true;const uint64_t amount=uint64_t(seconds)*24;if(modifier==7)countdown_frames=amount;else if(modifier==8)countdown_frames=std::min(uint64_t(0xffffffffu)*24,countdown_frames+amount);else if(modifier==9)countdown_frames=countdown_frames>amount?countdown_frames-amount:0;}
  std::array<bool,256> switches{};std::array<int,12> scores{};
  std::array<std::array<unsigned,228>,12> deaths{};std::array<unsigned,1700> death_ids{};
  std::array<std::array<uint8_t,20>,64> properties{};

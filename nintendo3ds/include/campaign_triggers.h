@@ -35,7 +35,7 @@ bool campaign_action(execute_trigger_struct& ets,int owner,running_trigger& rt,r
  case 28:if(owner==0){auto& l=location(a.location);campaign.ping=(l.area.from+l.area.to)/2;campaign.ping_frame=st.current_frame;}return true;
  
  case 11:{const auto& loc=location(a.location);if(a.extra_n<0 || a.extra_n>=228)throw std::runtime_error("Campaign create type bounds");
-  for(int p:trigger_players(owner,a.group_n))for(unsigned i=0;i<a.num_n;++i){auto* u=trigger_create_unit(get_unit_type(UnitTypes(a.extra_n)),(loc.area.from+loc.area.to)/2,p);if(!u)continue;
+  for(int p:trigger_players(owner,a.group_n))for(unsigned i=0;i<std::max(1,a.num_n);++i){auto* u=trigger_create_unit(get_unit_type(UnitTypes(a.extra_n)),(loc.area.from+loc.area.to)/2,p);if(!u)continue;
    if((a.flags&8) && a.group2_n>0 && a.group2_n<=64){const auto& prop=campaign.properties[a.group2_n-1];auto word=[&](unsigned n){return unsigned(prop[n])|(unsigned(prop[n+1])<<8);};unsigned valid=word(2),special=word(0),bits=word(14);
     if(valid&2)set_unit_hp(u,std::max(fp8::from_raw(1),u->unit_type->hitpoints*std::min<int>(100,prop[5])/100));if(valid&4)set_unit_shield_points(u,fp8::integer(u->unit_type->shield_points)*std::min<int>(100,prop[6])/100);if(valid&8)set_unit_energy(u,unit_max_energy(u)*std::min<int>(100,prop[7])/100);
     if(valid&16)set_unit_resources(u,data_loading::value_at<uint32_t,true>(prop.data()+8));if((special&8) && (bits&8))make_unit_hallucination(u);

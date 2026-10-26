@@ -460,7 +460,7 @@ Snapshot Engine::snapshot() const {
     }
     for(auto id:impl_->selected) if(auto* u=funcs.get_unit(id)) if(!funcs.unit_dead(u) && (!impl_->fog || player_sees(funcs,u))) ++s.selected;
     s.workers_only=s.selected>0;for(auto id:impl_->selected)if(auto* u=funcs.get_unit(id))if(!funcs.unit_dead(u) && !funcs.ut_worker(u))s.workers_only=false;
-    s.campaign=impl_->sound->campaign.active;
+    s.campaign=impl_->sound->campaign.active;s.countdown_active=s.campaign && impl_->sound->campaign.countdown_active;s.countdown_seconds=impl_->sound->campaign.countdown();
 
 
     if(s.campaign){const auto& c=impl_->sound->campaign;s.objectives=c.text(impl_->player->st(),c.objective);s.transmission=frame()<c.message_until?c.text(impl_->player->st(),c.message):"";s.mission_camera_serial=c.camera_serial;s.mission_camera_x=c.camera.x;s.mission_camera_y=c.camera.y;}
@@ -1014,7 +1014,7 @@ std::size_t Engine::visible_units(UnitView* output, std::size_t capacity) const 
         output[n++] = {u->sprite->position.x, u->sprite->position.y, static_cast<unsigned>(u->owner), selected,
                        static_cast<unsigned>(t->id), u->hp.integer_part(), t->hitpoints.integer_part(),
                        t->dimensions.from.x + t->dimensions.to.x + 1, t->dimensions.from.y + t->dimensions.to.y + 1,
-                       funcs.u_completed(u), funcs.ut_worker(u), funcs.unit_is_mineral_field(u),funcs.unit_is(u,UnitTypes::Resource_Vespene_Geyser),funcs.unit_is_refinery(u),funcs.u_flying(u),cargo,t->has_shield?u->shield_points.integer_part():0,t->has_shield?int(t->shield_points):0,unsigned(funcs.unit_is_carrier(u)?funcs.unit_interceptor_count(u):funcs.unit_is_reaver(u)?funcs.unit_scarab_count(u):0),unsigned(u->order_type->id),u->energy.integer_part(),funcs.u_burrowed(u)};
+                       funcs.u_completed(u), funcs.ut_worker(u), funcs.unit_is_mineral_field(u),funcs.unit_is(u,UnitTypes::Resource_Vespene_Geyser),funcs.unit_is_refinery(u),funcs.u_flying(u),cargo,t->has_shield?u->shield_points.integer_part():0,t->has_shield?int(t->shield_points):0,unsigned(funcs.unit_is_carrier(u)?funcs.unit_interceptor_count(u):funcs.unit_is_reaver(u)?funcs.unit_scarab_count(u):0),unsigned(u->order_type->id),u->energy.integer_part(),funcs.u_burrowed(u),funcs.ut_worker(u) && u->worker.powerup?unsigned(u->worker.powerup->unit_type->id):0,funcs.u_disabled(u)};
     }
     return n;
 }

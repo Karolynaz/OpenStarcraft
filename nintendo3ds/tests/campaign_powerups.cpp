@@ -1,0 +1,9 @@
+#include "bwgame.h"
+#include <cassert>
+#include <fstream>
+#include <cstdio>
+using namespace bwgame;
+int main(int argc,char**argv){assert(argc==3);auto assets=data_loading::data_files_directory(argv[1]);game_player player(assets);game_load_functions loader(player.st());std::ifstream in(argv[2],std::ios::binary);a_vector<uint8_t> chk((std::istreambuf_iterator<char>(in)),{});loader.load_map_data(chk.data(),chk.size(),[&]{loader.setup_info.create_no_units=true;for(auto& p:player.st().players)p.controller=player_t::controller_occupied;});auto& f=player.funcs();auto& st=player.st();st.game->triggers.clear();for(auto& list:st.running_triggers)list.clear();
+unsigned index=0;for(auto type:{UnitTypes::Powerup_Young_Chrysalis,UnitTypes::Powerup_Psi_Emitter,UnitTypes::Powerup_Data_Disk,UnitTypes::Powerup_Khaydarin_Crystal,UnitTypes::Powerup_Uraj_Crystal,UnitTypes::Powerup_Khalis_Crystal}){xy pos(384+index%3*256,384+index/3*256);auto* item=loader.create_initial_unit(f.get_unit_type(type),pos,11);auto* worker=loader.create_initial_unit(f.get_unit_type(UnitTypes::Terran_SCV),pos+xy(32,0),0);assert(item && worker);for(unsigned n=0;n<24;++n)f.next_frame();assert(worker->worker.powerup==item && (worker->carrying_flags&4) && f.us_hidden(item));location loc{rect{pos-xy(64,64),pos+xy(64,64)},0};auto counts=f.trigger_bring_count(loc);assert(f.trigger_command_count(counts,0,0,int(type),true)==1);
+f.kill_unit(worker);assert(!worker->worker.powerup && !(worker->carrying_flags&4) && !f.us_hidden(item));auto* second=loader.create_initial_unit(f.get_unit_type(UnitTypes::Zerg_Drone),pos+xy(64,0),0);assert(second);f.move_unit(second,pos+xy(32,0));for(unsigned n=0;n<24;++n)f.next_frame();assert(second->worker.powerup==item);f.drop_carried_items(second);assert(!second->worker.powerup && !f.us_hidden(item));printf("Campaign artefact%u pickup / Bring / death drop / second-race pickup / explicit drop PASS\n",unsigned(type));++index;}
+}

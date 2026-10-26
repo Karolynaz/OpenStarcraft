@@ -32,10 +32,14 @@ int main(int argc,char**argv){assert(argc==3);auto assets=data_loading::data_fil
  a={};a.type=14;a.time_n=0xffffffffu;a.num_n=7;f.run(a);assert(f.campaign.countdown()==0xffffffffu);a.num_n=8;f.run(a);assert(f.campaign.countdown()==0xffffffffu);a.num_n=9;f.run(a);assert(!f.campaign.countdown());
  c={};c.type=23;assert(!f.test_trigger_condition(c,0));
  a={};a.type=45;a.group_n=0;a.extra_n=0;a.group2_n=4;a.num_n=7;f.run(a);a.num_n=8;f.run(a);assert(f.campaign.deaths[0][0]==8);a.num_n=9;a.group2_n=20;f.run(a);assert(!f.campaign.deaths[0][0]);
+ // Retail campaign records use count zero for one creation (not zero).
+ // https://docs.scmjs.dev/triggers/create-unit/
+ a={};a.type=11;a.location=1;a.group_n=0;a.extra_n=0;a.num_n=0;unsigned before=st.completed_unit_counts[0][UnitTypes::Terran_Marine];f.run(a);assert(st.completed_unit_counts[0][UnitTypes::Terran_Marine]==before+1);a.type=44;f.run(a);assert(st.completed_unit_counts[0][UnitTypes::Terran_Marine]==before+2);
  a={};a.type=57;a.group_n=1;a.extra_n=1;f.run(a);assert(st.alliances[0][1]==2);a.extra_n=0;f.run(a);assert(st.alliances[0][1]==0);
  // Original Zer1 must produce an actual paid wave from a sparse town,
  // rather than merely dispatching units that were placed in the map.
  st.game->triggers.clear();for(auto& list:st.running_triggers)list.clear();f.hide_unit(air);f.kill_unit(air);
+ for(auto* u:ptr(st.player_units[0]))if(f.unit_is(u,UnitTypes::Terran_Marine) && !f.unit_dying(u)){f.hide_unit(u);f.kill_unit(u);}
  st.players[1].race=race_t::terran;st.current_minerals[1]=4000;st.current_gas[1]=1000;
  unit_t* cc=nullptr;for(int y=512;y<int(st.game->map_height)-320 && !cc;y+=96)for(int x=512;x<int(st.game->map_width)-320 && !cc;x+=96)cc=loader.create_initial_unit(f.get_unit_type(UnitTypes::Terran_Command_Center),xy(x,y),1);assert(cc);auto town=cc->sprite->position;
  for(unsigned i=0;i<4;++i)assert(f.trigger_create_unit(f.get_unit_type(UnitTypes::Terran_SCV),town+xy(-64+i*32,144),1));

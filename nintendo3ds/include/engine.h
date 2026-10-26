@@ -11,7 +11,7 @@
 #include "campaign_catalogue.h"
 
 namespace port3ds {
-enum class Scenario { empty, two_units, melee, ai_battle, versus_ai, gas_battle, terran_battle, terran_lab, protoss_battle, protoss_lab, zerg_battle, zerg_lab, protoss_ai_battle, protoss_versus_ai, zerg_ai_battle, zerg_versus_ai, terran_campaign, zerg_campaign, protoss_campaign, bw_protoss_campaign, bw_terran_campaign, bw_zerg_campaign, terran_campaign_2 };
+enum class Scenario { empty, two_units, melee, ai_battle, versus_ai, gas_battle, terran_battle, terran_lab, protoss_battle, protoss_lab, zerg_battle, zerg_lab, protoss_ai_battle, protoss_versus_ai, zerg_ai_battle, zerg_versus_ai, terran_campaign, zerg_campaign, protoss_campaign, bw_protoss_campaign, bw_terran_campaign, bw_zerg_campaign, terran_campaign_2, zerg_campaign_2, protoss_campaign_2 };
 inline bool arena_scenario(Scenario s) {return s>=Scenario::terran_battle && s<=Scenario::zerg_lab;}
 inline unsigned scenario_race(Scenario s) {
     if(campaign::scenario(unsigned(s)))return campaign::race(unsigned(s));
@@ -52,6 +52,7 @@ struct Snapshot {
     unsigned alert_frame=0;int alert_x=0,alert_y=0;
     std::string objectives,transmission;unsigned mission_camera_serial=0;int mission_camera_x=0,mission_camera_y=0;
     unsigned battle_seconds=0,end_reason=0,score[2]{};
+    bool countdown_active=false;unsigned countdown_seconds=0;
 };
 struct SoundEvent { unsigned id = 0; int x = 0, y = 0; };
 struct UnitView {
@@ -63,7 +64,7 @@ struct UnitView {
     bool completed = false, worker = false, mineral = false, geyser = false, refinery = false;
     bool flying=false; unsigned cargo=0;
     int shields=0,max_shields=0; unsigned fighters=0;
-    unsigned order=0;int energy=0;bool burrowed=false;
+    unsigned order=0;int energy=0;bool burrowed=false;unsigned carried_powerup=0;bool disabled=false;
 };
 struct SpriteInfo {unsigned width=0,height=0;bool valid=false;};
 struct SpriteView {

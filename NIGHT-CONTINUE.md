@@ -1029,3 +1029,46 @@ local-data/campaign-six-validation. Latest incremental private package
 local-data/releases/campaign-seven-update-2026-10-26.zip (requires previous six
 asset package); regenerate notes/receipt if status/source changes. Earlier UI-only
 D391 package retained. All campaign work still substantial, do not claim finished.
+
+## Continued 08:40 window — nine-stage working milestone (~10:00 local)
+
+Current source src-b8b7a90a3285870e adds original Zerg2 Egression23 / Protoss2 Into
+Flames24. Generic exports already support keys. Artefact pickup/drop was missing
+in core; now six campaign item types supported using worker.powerup + carrying
+flags, hidden actual item, native Bring counts and drop on death. Neutral and
+carried artefact Move Location searches fixed. UnitView exposes carried item and
+disabled state. Countdown shown instead of elapsed bottom clock when active.
+Legacy Create Unit count0 must create ONE; corrected both11 and44, checked via
+primary editor runtime-reference docs and original map Fenix spawn. This changes
+real reinforcement waves, so old-source victories cannot be blindly reused.
+
+Egression actual original rescue/escort/pickup/beacon wins6460, held-item replay
+PASS. Into Flames paid economy/combat/timer/reinforcements/Fenix wins24517 with
+completed replay PASS. Nine startup/save/replay/17248 idle +nine loss fixtures
+PASS.139 dialogue WAVs byte-exact streaming PASS; 6 artefact lifecycle ASan tests,
+trigger creation/arithmetic/paid townAI and ARM11 architecture PASS.
+Original-model emu Protoss2 startup/briefing8/missing0/IO0 and timer PASS; Zerg2
+held checkpoint loaded, actual A move, native Save Game, host replay of native
+save frame1916 Drone434,123 HP40 carrying216 selected,120 continuation ticks PASS.
+Evidence private campaign-six-validation. Emulator STOPPED and original model/
+profile/both original slots restored. Physical SD untouched. No screenshot or
+host victory alone is a native full-win/physical-console claim.
+
+Fresh first-stage victories with corrected creation: T1, Z1 21972, P1 23544,
+BWP1 10771, BWZ1 13725; T2 +new Z2/P2 also PASS. BW TERRAN1 OLD AUTOPLAY LOSES
+against real newly created reinforcements; old37012 success is NOT valid forB8.
+No runtime exception, but a fresh complete win/tactics remains. Trial tactics in
+/tmp/sc3ds-bwt-tactics-trial.cpp; original tracked test restored. Do not hide this
+remaining test limitation or call all9 fully victory verified.
+
+Report CAMPAIGN_NINE_VALIDATION.md. New private9-update package to be generated;
+previous7 package preserved. Core/host object /tmp/sc3ds-nine-engine.o isB8;
+/tmp/sc3ds-native-chrysalis-check.log is actual native save evidence.
+
+New tracked tools/campaign_runtime_audit.cpp audited60 normalized owned maps
+using generic campaign scenario and1200 ticks; NOT a progression/victory test.
+Private runtime-before.csv:24 startup,26 load-rejected,10 tick-rejected.14 map
+size guards,8 missing AI opcode,4 missing condition,3 missing action,3 disabled
+thingy loader,2 AI thread capacity,2 data_reader bounds. This gives next priorities.
+No source/native build running at this handoff; preserve36/8MiB. Existing13:45
+follow-up remains; no more scheduling. Work continues now in08:40–13:40 window.

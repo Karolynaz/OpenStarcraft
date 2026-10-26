@@ -2209,9 +2209,49 @@ struct state_functions {
 		});
 	}
 
+	bool is_campaign_powerup(const unit_t* u) const {
+		switch (u->unit_type->id) {
+		case UnitTypes::Powerup_Young_Chrysalis: case UnitTypes::Powerup_Psi_Emitter:
+		case UnitTypes::Powerup_Data_Disk: case UnitTypes::Powerup_Khaydarin_Crystal:
+		case UnitTypes::Powerup_Uraj_Crystal: case UnitTypes::Powerup_Khalis_Crystal: return true;
+		default: return false;
+		}
+	}
+
 	void drop_carried_items(unit_t* u) {
 		if ((u->carrying_flags & ~3) == 0) return;
-		error("drop_carried_items: fixme");
+		if (ut_worker(u) && u->worker.powerup && is_campaign_powerup(u->worker.powerup)) {
+			unit_t* item = u->worker.powerup;
+			u->worker.powerup = nullptr;
+			u->carrying_flags &= 3;
+			move_unit(item, restrict_unit_pos_to_bounds(u->sprite->position, item->unit_type, map_bounds()));
+			show_unit(item);
+			set_unit_order(item, get_order_type(Orders::PowerupIdle));
+			return;
+		}
+		error("drop_carried_items: unsupported powerup");
+	}
+
+	void order_PowerupIdle(unit_t* item) {
+		if (!is_campaign_powerup(item)) return;
+		const auto pos = item->sprite->position;
+		unit_t* carrier = nullptr;
+		for (unit_t* worker : find_units(square_at(pos, 32))) {
+			if (!ut_worker(worker) || worker->owner >= 8 || !u_completed(worker) || unit_dying(worker) || us_hidden(worker) || u_burrowed(worker) || u_hallucination(worker) || u_flying(worker)) continue;
+			if (worker->worker.powerup || worker->carrying_flags) continue;
+			// A worker must physically reach the artefact; a right-click is a
+			// normal move order, and the artefact detects the nearby worker.
+			if (units_distance(worker, item) > 32 || !is_reachable(worker, item)) continue;
+			carrier = worker;
+			break;
+		}
+		// Unit-finder mutation must happen after the search range is released.
+		if (carrier) {
+			carrier->worker.powerup = item;
+			carrier->carrying_flags |= 4;
+			set_unit_order(item, get_order_type(Orders::Nothing));
+			hide_unit(item);
+		}
 	}
 
 	bool has_available_supply_for(int owner, const unit_type_t* unit_type, bool show_error = false) const {
@@ -7799,6 +7839,9 @@ struct state_functions {
 			break;
 		case Orders::UnusedNothing:
 			error("UnusedNothing");
+			break;
+		case Orders::PowerupIdle:
+			order_PowerupIdle(u);
 			break;
 		case Orders::UnusedPowerup:
 			error("UnusedPowerup");
@@ -19003,13 +19046,14 @@ struct state_functions {
 				if (trigger_unit_pred(owner, n, player, uid)) return true;
 			}
 		}
-		if (ut_worker(u) && u->worker.powerup) {
-			if (trigger_unit_pred(owner, u->worker.powerup, player, uid)) return true;
+		if (ut_worker(u) && u->worker.powerup && trigger_players_pred(owner, player, u->owner)) {
+			if (trigger_unit_pred(owner, u->worker.powerup, 17, uid)) return true;
 		}
 
 		if (unit_dying(u)) return false;
-		if (ut_powerup(u)) error("trigger_unit_pred: powerup");
-		if (!trigger_players_pred(owner, player, u->owner)) return false;
+		// Neutral campaign artefacts participate in All Players location searches.
+		// Carried artefacts use the carrier's owner via the branch above.
+		if (!(ut_powerup(u) && player == 17) && !trigger_players_pred(owner, player, u->owner)) return false;
 		if (uid == 229) return true;
 		else if (uid == 230) {
 			if (u->unit_type->group_flags & GroupFlags::Men) return true;
@@ -19249,7 +19293,7 @@ struct state_functions {
 				if (unit_is_mineral_field(ut) || unit_is(ut, UnitTypes::Resource_Vespene_Geyser)) p = 11;
 				auto& loc = st.locations.at(a.location - 1);
 				xy pos = (loc.area.from + loc.area.to) / 2;
-				for (int i = 0; i != a.num_n; ++i) {
+				for (int i = 0; i != std::max(1, a.num_n); ++i) {
 					trigger_create_unit(ut, pos, p);
 				}
 			}
