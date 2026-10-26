@@ -10,7 +10,7 @@ struct CampaignRuntime {
  void advance(){if(!countdown_paused && countdown_frames)--countdown_frames;}
  void timer(unsigned seconds,unsigned modifier){countdown_active=true;const uint64_t amount=uint64_t(seconds)*24;if(modifier==7)countdown_frames=amount;else if(modifier==8)countdown_frames=std::min(uint64_t(0xffffffffu)*24,countdown_frames+amount);else if(modifier==9)countdown_frames=countdown_frames>amount?countdown_frames-amount:0;}
  std::array<bool,256> switches{};std::array<int,12> scores{};
- std::array<std::array<unsigned,228>,12> deaths{};std::array<unsigned,1700> death_ids{};
+ std::array<std::array<unsigned,228>,12> deaths{},kills{};std::array<unsigned,1700> death_ids{};
  std::array<std::array<uint8_t,20>,64> properties{};
  unsigned ping_frame=0;bwgame::xy ping{};
  bwgame::xy camera{};

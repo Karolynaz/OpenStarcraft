@@ -1093,3 +1093,25 @@ New runtime-large.csv60maps:25startup/20loadreject/15tickreject;14sizeguards gon
 Still missing AIops, conditions/actions, disabledthingy and2unusedcutmap formats.
 Current next work: broaden originalAI/triggers. Source774host object
 /tmp/sc3ds-large-engine.o; no active emulator/native build at this checkpoint.
+
+## 2026-10-26 ~11:15 Vilnius checkpoint (08:40 continuation still active)
+New source src-785cc29d3d8dcef5: combat Kill tracking/UI + larger bounded originalAI
+VM + Terran3 DesperateAlliance, ten catalogue entries. Details/report:
+nintendo3ds/reports/CAMPAIGN_TEN_VALIDATION.md. All ten startup/save/replay/48tick/
+17248idle PASS. ASan VM real paid construction/vision/callstack tests PASS;
+combat allied/self/hallucination/turret/cargo/Broodlings tests PASS.
+Fresh original wins: T1=7649,Z1=21972,P1=23544,BWP1=10771,BWZ1=13725,
+T2=17215,Z2=6460,P2=24517,T3=43442. T3 original30min evacuation,7 transmissions,
+paid defense/repair; completed replay identical. BW T1 bot still loses46605,
+NOT current victory verified. Don't substitute old source's win.
+Native origmodel T3 menu/briefing4missing0IO0/blackLoading/countdown/live/no-title
+checked. Normal31,252,032,linearfree123,904; idle~59.8FPS/23.9TPS. Emulator only.
+Emulator STOPPED, originalmodel/profile/both saves byte-exact restored; no physicalSD.
+Private package campaign-ten-update-2026-10-26.zip (requires fullsixassets),
+receipt/logs/screenshots/ELF in local-data/campaign-ten-validation. PreviousB8nine
+package preserved. Hostobject /tmp/sc3ds-ten-engine.o, all fresh tests /tmp/sc3ds-ten-*.
+Broader60record compatibility40startup/15loadreject/5tickreject afternewVM;
+private runtime-vm.csv. Still NOTallmissionsverified. Next: native menu Dpad calls
+are missing even though Frontend::direction has stage support; wire actual main
+input. MoreAIops61guards/105randomseed and door/trigger actions needed later.
+No more automations; userauthorized13:45 continuation already exists.

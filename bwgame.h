@@ -336,6 +336,7 @@ struct state_functions {
 
 	virtual void on_unit_destroy(unit_t* u) {}
 	virtual void on_kill_unit(unit_t* u) {}
+	virtual void on_combat_kill(unit_t* victim, int killer_owner) {}
 
 	virtual void on_player_eliminated(int owner) {}
 	virtual void on_victory_state(int owner, int state) {}
@@ -13661,8 +13662,17 @@ struct state_functions {
 		}
 	}
 
+	void credit_unit_kill(unit_t* victim, unit_t* source, int owner) {
+		// Trigger/environmental removal without a valid killer is not a kill.
+		// An ally's unit counts; a player's own unit and hallucinations do not.
+		if (owner < 0 || owner >= 12 || owner == victim->owner || unit_dying(victim) || ut_turret(victim) || u_hallucination(victim)) return;
+		if (source && ut_turret(source) && source->subunit) source = source->subunit;
+		if (source && unit_is_fighter(source) && source->fighter.parent) source = source->fighter.parent;
+		if (source && !unit_dead(source)) source->kill_count = std::min(255, source->kill_count + 1);
+		on_combat_kill(victim, owner);
+	}
+
 	void unit_deal_damage(unit_t* u, fp8 damage, unit_t* source_unit, int source_owner, bool reveal_source = true) {
-		(void)source_owner;
 		if (u->hp == 0_fp8) return;
 		on_unit_damage(u, source_unit, reveal_source);
 		if (damage < u->hp) {
@@ -13678,16 +13688,13 @@ struct state_functions {
 		} else {
 			if (unit_provides_space(u) && !ut_building(u)) {
 				for (unit_t* n : loaded_units(u)) {
+					credit_unit_kill(n, source_unit, source_owner);
 					kill_unit(n);
-					// todo: units lost scores
 				}
 			}
+			credit_unit_kill(u, source_unit, source_owner);
 			u->hp = 0_fp8;
 			kill_unit(u);
-			// todo: units lost scores
-			if (source_unit && unit_target_is_enemy(source_unit, u)) {
-				// todo: kill scores
-			}
 		}
 	}
 
@@ -13943,7 +13950,7 @@ struct state_functions {
 		}
 	}
 
-	void spawn_broodlings(unit_t* target, const unit_t* source_unit) {
+	void spawn_broodlings(unit_t* target, unit_t* source_unit) {
 		if (!u_hallucination(target)) {
 			const unit_type_t* broodling_type = get_unit_type(UnitTypes::Zerg_Broodling);
 			auto spawn = [&](xy pos) {
@@ -13961,7 +13968,7 @@ struct state_functions {
 			spawn(target->sprite->position - xy(2, 2));
 			spawn(target->sprite->position + xy(2, 2));
 		}
-		// todo: increment scores and kill count
+		credit_unit_kill(target, source_unit, source_unit->owner);
 		kill_unit(target);
 	}
 

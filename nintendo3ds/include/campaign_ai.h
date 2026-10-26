@@ -1,5 +1,5 @@
 #pragma once
-// Bounded interpreter for the original opening-mission AIScript bytecode.
+// Bounded interpreter for the original campaign AIScript bytecode.
 // Scripts remain private assets. Purchases, placement, research and orders use
 // native action validation; this adapter never grants resources or free units.
 #include "actions.h"
@@ -7,13 +7,14 @@
 namespace port3ds { namespace detail {
 using namespace bwgame;
 class CampaignAI {
- struct Thread {unsigned pc=0,wake=0,owner=0;bool brood=false,active=false;xy center{};};
+ struct Thread {unsigned pc=0,wake=0,owner=0;bool brood=false,active=false;xy center{};std::array<unsigned,16> calls{};unsigned depth=0;};
  struct Side {
-  bool enabled=false,suicide=false;xy center{};unsigned search=0,build_frame=0;unit_id_32 builder{};
-  std::array<unsigned,228> desired{},defense{},attack{};
+  bool enabled=false,suicide=false,target_expansion=false;xy center{};unsigned search=0,build_frame=0;unit_id_32 builder{};
+  std::array<unsigned,228> desired{},defense{},attack{},maximum{};
+  Side(){maximum.fill(255);}
   std::array<unsigned,61> upgrades{};std::array<bool,44> tech{};
  };
- std::array<unsigned,1700> committed_{};a_vector<uint8_t> original_,brood_;std::array<Thread,16> threads_{};std::array<Side,8> sides_{};
+ std::array<unsigned,1700> committed_{};a_vector<uint8_t> original_,brood_;std::array<Thread,64> threads_{};std::array<Side,8> sides_{};
  unsigned read(const a_vector<uint8_t>& b,unsigned at,unsigned n)const{if(at>b.size() || n>b.size()-at)throw std::runtime_error("Campaign AI bytecode bounds");unsigned v=0;for(unsigned i=0;i<n;++i)v|=unsigned(b[at+i])<<(i*8);return v;}
  unsigned entry(unsigned id,bool& expansion)const{
   const auto table=read(original_,0,4);for(unsigned at=table;at+16<=original_.size();at+=16){unsigned key=read(original_,at,4);if(!key)break;if(key==id){auto pc=read(original_,at+4,4);if(pc){expansion=false;return pc;}break;}}
@@ -27,6 +28,7 @@ class CampaignAI {
   // the closest hostile target to the town, without altering map alliances.
   unit_t* target=nullptr;int distance=0x7fffffff;for(auto* u:ptr(f.st.visible_units))if(u->owner<8 && u->owner!=owner && f.st.alliances[owner][u->owner]==0 && !f.unit_dying(u) && !f.ut_turret(u)){
    auto d=u->sprite->position-side.center;int n=d.x*d.x+d.y*d.y;if(n<distance){distance=n;target=u;}}
+  if(side.target_expansion){unit_t* expansion=nullptr;int nearest=0x7fffffff;for(auto* u:ptr(f.st.visible_units))if(u->owner<8 && u->owner!=owner && f.st.alliances[owner][u->owner]==0 && f.ut_resource_depot(u) && !f.unit_dying(u)){auto from=u->sprite->position-f.st.game->start_locations[u->owner];auto d=u->sprite->position-side.center;int n=d.x*d.x+d.y*d.y;if(from.x*from.x+from.y*from.y>512*512 && n<nearest){nearest=n;expansion=u;}}if(expansion)target=expansion;}
   if(!target)return;
   for(auto* u:ptr(f.st.player_units[owner])){unsigned type=unsigned(u->unit_type->id);if(type>=228 || f.ut_building(u) || f.ut_worker(u) || f.ut_turret(u) || !f.u_completed(u) || f.unit_dying(u) || f.us_hidden(u))continue;
    if(!all && u->index<committed_.size() && committed_[u->index]==f.get_unit_id_32(u).raw_value)continue;
@@ -34,17 +36,26 @@ class CampaignAI {
    a.action_select(owner,u);if(a.action_order(owner,a.get_order_type(Orders::AttackMove),target->sprite->position,nullptr,nullptr,false)){if(u->index<committed_.size())committed_[u->index]=f.get_unit_id_32(u).raw_value;if(remaining[type])--remaining[type];}
   }
  }
+ unsigned unit_count(state_functions& f,unsigned owner,unsigned type,bool completed)const{
+  unsigned n=0;for(auto* u:ptr(f.st.player_units[owner]))if(!f.unit_dying(u) && !f.ut_turret(u)){
+   if(unsigned(u->unit_type->id)==type && (!completed || f.u_completed(u)))++n;
+   else if(!completed && (f.unit_is_egg(u) || f.unit_is_morphing_building(u)) && !u->build_queue.empty() && unsigned(u->build_queue.front()->id)==type)n+=f.ut_two_units_in_one_egg(f.get_unit_type(UnitTypes(type)))?2:1;
+  }return n;
+ }
+ Thread& launch(unsigned pc,unsigned owner,bool brood,xy center,unsigned frame){for(auto& child:threads_)if(!child.active){child={pc,frame,owner,brood,true,center};return child;}throw std::runtime_error("Campaign AI thread capacity");}
  void interpret(state_functions& f,Thread& t){
   const auto& bytes=t.brood?brood_:original_;auto& side=sides_[t.owner];
   auto byte=[&](){return read(bytes,t.pc++,1);};auto word=[&](){unsigned v=read(bytes,t.pc,2);t.pc+=2;return v;};
-  for(unsigned budget=0;budget<64 && t.active && f.st.current_frame>=t.wake;++budget){unsigned op=byte();
+  for(unsigned budget=0;budget<64 && t.active && f.st.current_frame>=t.wake;++budget){const unsigned instruction=t.pc;unsigned op=byte();
    switch(op){
    case 0:t.pc=word();break;
+   case 1:case 106:{unsigned id=word(),address=word();if(id>=228)throw std::runtime_error("Campaign AI ownership bounds");const bool owns=unit_count(f,t.owner,id,false)!=0;if(owns==(op==106))t.pc=address;break;}
    case 2:t.wake=f.st.current_frame+std::max(1u,word());return;
    case 3:case 4:side.enabled=true;side.center=t.center;break;
    case 6:{unsigned n=byte(),id=word();byte();if(id>=228)throw std::runtime_error("Campaign AI build bounds");side.desired[id]=std::max(side.desired[id],n);break;}
    case 7:{unsigned level=byte(),id=word();byte();if(id>=61)throw std::runtime_error("Campaign AI upgrade bounds");side.upgrades[id]=std::max(side.upgrades[id],level);break;}
    case 8:{unsigned id=word();byte();if(id>=44)throw std::runtime_error("Campaign AI research bounds");side.tech[id]=true;break;}
+   case 9:case 10:case 78:{unsigned n=byte(),id=word();if(id>=228)throw std::runtime_error("Campaign AI wait type bounds");if(unit_count(f,t.owner,id,op!=10)<n){t.pc=instruction;t.wake=f.st.current_frame+24;return;}break;}
    case 11:side.attack.fill(0);break;
    case 12:{unsigned n=byte(),id=word();if(id>=228)throw std::runtime_error("Campaign AI attack bounds");side.attack[id]=std::min(128u,side.attack[id]+n);break;}
    case 13:break; // Persistent wave requests are paid by the town economy.
@@ -52,12 +63,22 @@ class CampaignAI {
    case 16:break; // Captured town adoption already uses all existing owner units.
    case 19:case 20:case 21:case 22:{unsigned n=byte(),id=word();if(id>=228)throw std::runtime_error("Campaign AI defense bounds");side.defense[id]=std::max(side.defense[id],n);break;}
    case 23:case 24:case 25:case 26:byte();word();break; // Native guards engage nearby threats.
+   case 31:{byte();side.enabled=true;side.suicide=true;side.center=t.center;attack(f,t.owner,true);break;}
+   case 32:case 33:if(t.owner){f.st.alliances[t.owner][0]=f.st.alliances[0][t.owner]=op==32?0:2;}break;
    case 34:byte();break;
    case 35:case 56:break;
-   case 36:t.active=false;break;
+   case 36:case 97:t.active=false;break;
+   case 37:side.enabled=false;f.st.players[t.owner].controller=player_t::controller_rescue_passive;for(auto& child:threads_)if(child.owner==t.owner)child.active=false;break;
+   case 64:{unsigned address=word();if(t.depth==t.calls.size())throw std::runtime_error("Campaign AI call depth");t.calls[t.depth++]=t.pc;t.pc=address;break;}
+   case 65:if(!t.depth)throw std::runtime_error("Campaign AI return without call");t.pc=t.calls[--t.depth];break;
+   case 72:{unsigned address=word();launch(address,t.owner,t.brood,t.center,f.st.current_frame);break;}
+   case 75:{unsigned n=byte(),id=word();if(id>=228)throw std::runtime_error("Campaign AI maximum bounds");side.maximum[id]=n;break;}
+   case 76:{unsigned n=byte(),id=word();if(id>=228)throw std::runtime_error("Campaign AI train bounds");side.desired[id]=std::max(side.desired[id],n);break;}
+   case 77:side.target_expansion=true;break;
+   case 87:case 88:{unsigned p=byte();if(p>=8)throw std::runtime_error("Campaign AI shared vision bounds");if(op==87)f.st.shared_vision[p]|=1<<t.owner;else f.st.shared_vision[p]&=~(1<<t.owner);f.st.shared_vision[p]|=1<<p;f.st.update_tiles_countdown=1;break;}
    case 41:{action_state state;action_functions a(f.st,state);for(auto* bunker:ptr(f.st.player_units[t.owner]))if(f.unit_is(bunker,UnitTypes::Terran_Bunker))for(auto* u:ptr(f.st.player_units[t.owner]))if(f.unit_is(u,UnitTypes::Terran_Marine) && !f.us_hidden(u)){auto d=u->sprite->position-bunker->sprite->position;if(d.x*d.x+d.y*d.y<256*256){a.action_select(t.owner,u);a.action_default_order(t.owner,bunker->sprite->position,bunker,nullptr,false);}}break;}
    case 46:word();break; // Original force limits exceed our bounded unit request cap.
-   default:throw std::runtime_error("Unsupported opening campaign AI opcode");
+   default:throw std::runtime_error("Unsupported campaign AI opcode "+std::to_string(op));
    }
   }
  }
@@ -83,6 +104,7 @@ class CampaignAI {
   // Native campaign AI maintains a modest mining staff even with defaultbuild off.
   if(!workers.empty())wants[unsigned(worker)]=std::max(wants[unsigned(worker)],8u);
   for(unsigned id=0;id<228;++id)if(wants[id]>counts[id] && f.get_unit_type(UnitTypes(id))->gas_cost)wants[unsigned(gas)]=std::max(wants[unsigned(gas)],1u);
+  for(unsigned id=0;id<228;++id)wants[id]=std::min(wants[id],side.maximum[id]);
   for(unsigned id=0;id<228;++id)if(wants[id]>counts[id]){
    auto* type=f.get_unit_type(UnitTypes(id));if(!f.has_available_resources_for(owner,type))continue;
    if(f.ut_building(type) && !f.ut_addon(type)){
@@ -101,9 +123,9 @@ public:
  template<class Load>void load(Load load){load(original_,"scripts/aiscript.bin");load(brood_,"scripts/bwscript.bin");if(original_.size()>128*1024 || brood_.size()>128*1024)throw std::runtime_error("Campaign AI script size");}
  void start(state_functions& f,unsigned id,unsigned owner,xy center){if(owner>=8)throw std::runtime_error("Campaign AI owner bounds");
   if(id==0x63697553u){auto& s=sides_[owner];s.enabled=true;s.suicide=true;s.center=center;attack(f,owner,true);return;} // Suic
-  bool expansion=false;unsigned pc=entry(id,expansion);if(!pc)throw std::runtime_error("Missing original campaign AI script");for(auto& t:threads_)if(!t.active){t={pc,unsigned(f.st.current_frame),owner,expansion,true,center};return;}throw std::runtime_error("Campaign AI thread capacity");
+  bool expansion=false;unsigned pc=entry(id,expansion);if(!pc)throw std::runtime_error("Missing original campaign AI script");auto& thread=launch(pc,owner,expansion,center,f.st.current_frame);interpret(f,thread);
  }
  void step(state_functions& f){for(auto& t:threads_)if(t.active && f.st.current_frame>=t.wake)interpret(f,t);for(unsigned p=0;p<8;++p)economy(f,p);}
- template<class Add>void digest(Add add)const{for(auto id:committed_)add(id);for(const auto& t:threads_){add(t.pc);add(t.wake);add(t.owner);add(t.brood);add(t.active);add(t.center.x);add(t.center.y);}for(const auto& s:sides_){add(s.enabled);add(s.suicide);add(s.center.x);add(s.center.y);add(s.search);add(s.build_frame);add(s.builder.raw_value);for(auto n:s.desired)add(n);for(auto n:s.defense)add(n);for(auto n:s.attack)add(n);for(auto n:s.upgrades)add(n);for(auto n:s.tech)add(n);}}
+ template<class Add>void digest(Add add)const{for(auto id:committed_)add(id);for(const auto& t:threads_){add(t.pc);add(t.wake);add(t.owner);add(t.brood);add(t.active);add(t.center.x);add(t.center.y);add(t.depth);for(auto pc:t.calls)add(pc);}for(const auto& s:sides_){add(s.enabled);add(s.suicide);add(s.target_expansion);add(s.center.x);add(s.center.y);add(s.search);add(s.build_frame);add(s.builder.raw_value);for(auto n:s.maximum)add(n);for(auto n:s.desired)add(n);for(auto n:s.defense)add(n);for(auto n:s.attack)add(n);for(auto n:s.upgrades)add(n);for(auto n:s.tech)add(n);}}
 };
 }}

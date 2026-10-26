@@ -5,11 +5,14 @@ bool test_trigger_condition(const trigger::condition& c,int owner)const override
  if(c.type==1)return trigger_count_comparison(c,campaign.countdown());
  if(c.type==23)return false;
  if(c.type==11){if(c.extra_n<0 || unsigned(c.extra_n)>=campaign.switches.size())return false;return c.num_n==2?campaign.switches[c.extra_n]:c.num_n==3?!campaign.switches[c.extra_n]:false;}
- if(c.type==15 || c.type==21){unsigned total=0;for(int p:trigger_players(owner,c.group)){
-  if(c.type==15){if(c.unit_id>=0 && c.unit_id<228)total+=campaign.deaths[p][c.unit_id];else for(unsigned id=0;id<228;++id){auto* t=get_unit_type(UnitTypes(id));if(c.unit_id==229 || (c.unit_id==230 && (t->group_flags&GroupFlags::Men)) || (c.unit_id==231 && (t->group_flags&GroupFlags::Building)) || (c.unit_id==232 && (t->group_flags&GroupFlags::Factory)))total+=campaign.deaths[p][id];}}
+ if(c.type==5 || c.type==15 || c.type==21){unsigned total=0;for(int p:trigger_players(owner,c.group)){
+  if(c.type==5 || c.type==15){const auto& counts=c.type==5?campaign.kills:campaign.deaths;if(c.unit_id>=0 && c.unit_id<228)total+=counts[p][c.unit_id];else for(unsigned id=0;id<228;++id){auto* t=get_unit_type(UnitTypes(id));if(c.unit_id==229 || (c.unit_id==230 && (t->group_flags&GroupFlags::Men)) || (c.unit_id==231 && (t->group_flags&GroupFlags::Building)) || (c.unit_id==232 && (t->group_flags&GroupFlags::Factory)))total+=counts[p][id];}}
   else switch(c.extra_n){case 1:total+=st.unit_score[p];break;case 2:total+=st.building_score[p];break;case 3:total+=st.unit_score[p]+st.building_score[p];break;case 7:total+=campaign.scores[p];break;default:break;}
  }return trigger_count_comparison(c,total);}
  return state_functions::test_trigger_condition(c,owner);
+}
+void on_combat_kill(unit_t* victim,int killer_owner)override{
+ if(campaign.active && killer_owner>=0 && killer_owner<12 && unsigned(victim->unit_type->id)<228)++campaign.kills[killer_owner][unsigned(victim->unit_type->id)];
 }
 void on_kill_unit(unit_t* u)override{
  if(!campaign.active || campaign.suppress_deaths || ut_turret(u) || u->owner>=12 || unsigned(u->unit_type->id)>=228 || u->index>=1700)return;

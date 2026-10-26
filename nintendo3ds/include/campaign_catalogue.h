@@ -10,7 +10,8 @@ static constexpr Mission missions[]={
  {"expzerg01","Vile Disruption",21,0,true},
  {"terran02","Backwater Station",22,1,false},
  {"zerg02","Egression",23,0,false},
- {"protoss02","Into the Flames",24,2,false}
+ {"protoss02","Into the Flames",24,2,false},
+ {"terran03","Desperate Alliance",25,1,false}
 };
 constexpr unsigned count=sizeof(missions)/sizeof(missions[0]);
 inline unsigned index(unsigned scenario){for(unsigned i=0;i<count;++i)if(missions[i].scenario==scenario)return i;return ~0u;}
