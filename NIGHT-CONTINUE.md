@@ -1192,3 +1192,16 @@ T4trial4 all12teleportedfirstpad butroute976,192stuckaround2272,1137; no menuT4y
 Temporarytrial /tmp/sc3ds-terran04-trial.cpp, terrainmapguide.png helpsfindroute.
 CurrentASanobj/tmp/sc3ds-doors-ready-engine.o. Nativeout95F; staged3DSXstill01D.
 Latestprivatepackage still campaign-twelve-update-2026-10-26.zip (01D), not95F.
+
+## 2026-10-26 15:55 Vilnius Terran4 checkpoint (clock correction)
+Earlier~16:40 checkpoint timestamp was one hour ahead; UTCclock13:37 was15:37local.
+Currentwindowstillto18:45. Sourcee811e7f7f211049c enables13thmission SC Terran4
+scenario28, originalJacobsInstallation. Publiccontrols originalwin27129, Raynoralive,
+teleport/22voices/completedsavereplayPASS. Route976,192fromstartthen2448,2016afterwarp
+(the3552,2496padisoptionalcameraroomdeadend, not mainroute). Testcampaign_terran_fourth.
+All13startup/menu/savereplay/48/17248PASS. NativeoriginalmodelT4DpadLEFTchapter,
+brief4missing0IO0/worldstartPASS normal31522480 linearfree123904. Emulatorstopped/
+restored; physicalSDuntouched.17T4WAVs byteexactindependentStormLib. Mixerall13running.
+Hostobj/tmp/sc3ds-thirteen-engine.o, logs/tmp/sc3ds-thirteen-*.log.
+Nativebuilddone/sourcefingerprintstableE811. ProtoP4triallosesstartingarmy1800ticks
+withdirectattackmarch; Tassadar/Raynorstillaliveallied. Needsrealstorm/cohesionroute.
