@@ -126,7 +126,7 @@ struct Audio::Impl {
 };
 Audio::Audio():impl_(new Impl) {}
 Audio::~Audio()=default;
-bool Audio::load(const char* root,bool dsp_ready,const char* music_prefix,const char* effects_path) {
+bool Audio::load(const char* root,bool dsp_ready,const char* music_prefix,const char* effects_path,unsigned cache_limit) {
     auto& s=*impl_;s.close();s.counters={};s.underruns=0;s.io_errors=0;s.buffers=0;s.track=0;s.next_track=1;s.streamed=0;s.stream_slot=0;s.effect_index.fill(-1);
     std::fill(std::begin(s.last_played),std::end(s.last_played),0);
     auto fail=[&](const char* m) {s.close();std::snprintf(s.message,sizeof s.message,"%s",m);return false;};
@@ -161,7 +161,8 @@ bool Audio::load(const char* root,bool dsp_ready,const char* music_prefix,const 
         // Cache the shortest effects first, so combat sounds remain immediate.
         // A fragmented heap may yield a smaller cache; uncached audio still
         // plays through the bounded background reader without dropping music.
-        for(auto& block:s.pcm){if(s.resident>=size)break;try{block.reset(new char[bank_chunk_bytes]);s.resident+=bank_chunk_bytes;}catch(const std::bad_alloc&){break;}}
+        cache_limit=std::min(cache_bytes,cache_limit)/bank_chunk_bytes*bank_chunk_bytes;
+        for(auto& block:s.pcm){if(s.resident>=size || s.resident>=cache_limit)break;try{block.reset(new char[bank_chunk_bytes]);s.resident+=bank_chunk_bytes;}catch(const std::bad_alloc&){break;}}
         std::vector<unsigned> order(count);for(unsigned i=0;i<count;++i)order[i]=i;
         std::stable_sort(order.begin(),order.end(),[&](unsigned a,unsigned b){return s.effects[a].samples<s.effects[b].samples;});
         unsigned used=0;

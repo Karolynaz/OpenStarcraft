@@ -35,7 +35,7 @@ bool Graphics::load(const char* path, unsigned signature) {
         width_=in.u32(); height_=in.u32();
         if (in.u32()!=signature) throw std::runtime_error("Graphics belongs to a different map; prepare again");
         const unsigned pages=streamed?2:in.u32(), tile_count=in.u32(), sprite_count=streamed?0:in.u32(), cells=streamed?width_*height_:in.u32();
-        if (width_<32 || width_>128 || height_<32 || height_>128 || cells!=width_*height_ ||
+        if (width_<32 || width_>256 || height_<32 || height_>256 || cells!=width_*height_ ||
             !pages || pages>atlas_max_pages || !tile_count || tile_count>16384 || sprite_count!=0 || pages>3)
             throw std::runtime_error("Graphics exceeds original 3DS limits");
         auto rect = [&]() {
@@ -70,7 +70,8 @@ bool Graphics::load(const char* path, unsigned signature) {
             C3D_TexFlush(&pages_[i]);
         }
         terrain_pages_=page_count_;
-        while(page_count_<8 && linearSpaceFree()>atlas_page_bytes+256*1024){if(!C3D_TexInit(&pages_[page_count_],atlas_side,atlas_side,GPU_RGBA5551))throw std::runtime_error("Not enough RAM for sprite cache");++page_count_;}
+        const unsigned cache_pages=(width_>128 || height_>128)?7:8;
+        while(page_count_<cache_pages && linearSpaceFree()>atlas_page_bytes+256*1024){if(!C3D_TexInit(&pages_[page_count_],atlas_side,atlas_side,GPU_RGBA5551))throw std::runtime_error("Not enough RAM for sprite cache");++page_count_;}
         if(page_count_<terrain_pages_+3)throw std::runtime_error("Not enough linear RAM for sprite working set");
         cache_.reserve(2048);scratch_.resize(512*512);frame_=0;cache_misses_=cache_overflows_=upload_pixels_=0;
         if(streamed){
@@ -83,7 +84,7 @@ bool Graphics::load(const char* path, unsigned signature) {
             if(!C3D_TexInit(&texture,64,64,GPU_RGBA5551))throw std::runtime_error("Not enough linear RAM for original cursor");
             C3D_TexSetFilter(&texture,GPU_NEAREST,GPU_NEAREST);C3D_TexSetWrap(&texture,GPU_CLAMP_TO_EDGE,GPU_CLAMP_TO_EDGE);
         }
-        fog_side_=(width_>64 || height_>64)?128:64;
+        fog_side_=(width_>128 || height_>128)?256:(width_>64 || height_>64)?128:64;
         for(auto& texture:fog_texture_){
             if(!C3D_TexInit(&texture,fog_side_,fog_side_,GPU_RGBA4))throw std::runtime_error("Not enough linear RAM for fog mask");
             // Tile-center samples interpolate on the GPU, softening the vision

@@ -1072,3 +1072,24 @@ size guards,8 missing AI opcode,4 missing condition,3 missing action,3 disabled
 thingy loader,2 AI thread capacity,2 data_reader bounds. This gives next priorities.
 No source/native build running at this handoff; preserve36/8MiB. Existing13:45
 follow-up remains; no more scheduling. Work continues now in08:40–13:40 window.
+
+## Large geometry infrastructure verified — source774686bb25688432
+
+Dimensions up to256 peraxis; FogMemory actual vector/stride avoids128-overflow.
+Large fog texture256², seven atlas pages instead of8, and2MiB SFX cache for
+area>16384; original36/8MiB heap limits unchanged. Small maps keep4MiB/cache layout.
+ASan original owned192²/128x256 NO-TRIGGER TEMP fixtures load/tick/save/terrain and
+far-corner graphics/full65536 fogtexels/minimap cleanup PASS.139 originaldialogue
+WAVs byte-exact with2MiB cache PASS; audio allocation-failure/fallback tests PASS.
+Nine menu/startup/save/replay/continuation/17248 idle regressions PASS. ARM11 PASS.
+Native original-model CPU100 geometry probes:192²411units audio-ready29,858,496
+normal/451,584linearfree;128x256444units29,926,360/451,584. GPU textures3,948,544.
+Tall-map native~3min idle59.6FPS/~24TPS, no missing/cache/audio IO/music errors.
+NOT mission victory/script support and NOT console performance proof.256²custom
+not hardware validated. Emulator STOPPED, originalmodel/profile/both saves restored.
+PhysicalSD untouched. Report CAMPAIGN_LARGE_MAPS.md; private evidence/binary/ELF
+archived in local-data/campaign-large-validation.9-updateB8 ZIP remains unchanged.
+New runtime-large.csv60maps:25startup/20loadreject/15tickreject;14sizeguards gone.
+Still missing AIops, conditions/actions, disabledthingy and2unusedcutmap formats.
+Current next work: broaden originalAI/triggers. Source774host object
+/tmp/sc3ds-large-engine.o; no active emulator/native build at this checkpoint.

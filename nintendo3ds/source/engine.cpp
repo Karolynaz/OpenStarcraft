@@ -148,8 +148,8 @@ void validate_map(const a_vector<uint8_t>& chk, unsigned& width, unsigned& heigh
             width = d.get<uint16_t>(); height = d.get<uint16_t>();
         }
     }
-    if (dims != 1 || width < 32 || height < 32 || width > 128 || height > 128)
-        throw std::runtime_error("Original 3DS supports maps up to 128x128 tiles");
+    if (dims != 1 || width < 32 || height < 32 || width > 256 || height > 256)
+        throw std::runtime_error("Map dimensions must be between 32 and 256 tiles");
 }
 }
 

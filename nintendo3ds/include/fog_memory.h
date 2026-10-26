@@ -13,7 +13,7 @@ class FogMemory {
         std::array<SpriteView,16> images;
     };
     std::array<Building,64> buildings_;
-    std::array<unsigned char,16384> creep_{};
+    std::vector<unsigned char> creep_;unsigned width_=0,height_=0;
 public:
     static bool image(const bwgame::state_functions& f,const bwgame::sprite_t& sprite,const bwgame::image_t& img,unsigned layer,SpriteView& out) {
         using namespace bwgame;
@@ -28,11 +28,12 @@ public:
             ((img.modifier>=2 && img.modifier<=7) || (sprite.flags&sprite_t::flag_burrowed))?112u:img.modifier==12?96u:trail?128u:img.modifier==9?(glow?255u:128u):255u,glow};
         return true;
     }
-    void reset(){for(auto& b:buildings_){b.active=false;b.visible=false;b.count=0;}creep_.fill(0);}
+    void reset(){for(auto& b:buildings_){b.active=false;b.visible=false;b.count=0;}std::fill(creep_.begin(),creep_.end(),0);}
     void update(const bwgame::state_functions& f) {
         using namespace bwgame;const auto& st=f.st;
         const unsigned w=st.game->map_tile_width,h=st.game->map_tile_height;
-        for(unsigned y=0;y<h;++y)for(unsigned x=0;x<w;++x)if(!(st.tiles[y*w+x].visible&1))creep_[y*128+x]=(st.tiles[y*w+x].flags&tile_t::flag_has_creep)?1:0;
+        if(width_!=w || height_!=h){creep_.assign(size_t(w)*h,0);width_=w;height_=h;}
+        for(unsigned y=0;y<h;++y)for(unsigned x=0;x<w;++x)if(!(st.tiles[y*w+x].visible&1))creep_[y*w+x]=(st.tiles[y*w+x].flags&tile_t::flag_has_creep)?1:0;
         for(auto& b:buildings_)b.visible=false;
         for(const auto* u:ptr(st.visible_units)) {
             if(u->owner==0 || f.unit_dead(u) || (!f.ut_building(u) && !f.unit_is_mineral_field(u) && !f.unit_is(u,UnitTypes::Resource_Vespene_Geyser)) || f.u_flying(u) ||
@@ -52,7 +53,7 @@ public:
             if(x>=w || y>=h || !(st.tiles[y*w+x].visible&1))b.active=false;
         }
     }
-    bool creep(unsigned x,unsigned y)const{return x<128 && y<128 && creep_[y*128+x];}
+    bool creep(unsigned x,unsigned y)const{return x<width_ && y<height_ && creep_[y*width_+x];}
     std::size_t images(SpriteView* output,std::size_t capacity,int cx,int cy,const bwgame::state_functions& f) const {
         std::size_t n=0;
         for(const auto& b:buildings_)if(b.active && !b.visible)for(unsigned i=0;i<b.count && n<capacity;++i){
