@@ -12,9 +12,9 @@ def bank(path,items,side=512,height=256,positions=None):
  for index,(name,im) in enumerate(items):
   im=im.convert('RGBA');w,h=im.size
   if positions is not None:
-   x,y=positions[index];assert x+w<=side and y+h<=height
-   if not pages:pages.append(Image.new('RGBA',(side,height)))
-   pages[0].paste(im,(x,y));entries.append((name,0,x,y,w,h));continue
+   position=positions[index];page,x,y=position if len(position)==3 else (0,*position);assert x+w<=side and y+h<=height
+   while len(pages)<=page:pages.append(Image.new('RGBA',(side,height)))
+   pages[page].paste(im,(x,y));entries.append((name,page,x,y,w,h));continue
   if x+w>side:x=0;y+=row;row=0
   if not pages or y+h>height:pages.append(Image.new('RGBA',(side,height)));x=y=row=0
   pages[-1].paste(im,(x,y));entries.append((name,len(pages)-1,x,y,w,h));x+=w+1;row=max(row,h+1)
@@ -65,8 +65,8 @@ def dialog_widgets(path):
    at=smk
    while at:
     assert at not in movie_seen and at+30<=len(data);movie_seen.add(at)
-    overlay,_,_,filename,_,x,y,_,_=struct.unpack_from('<IHIIIHHII',data,at)
-    movies.append((string(filename),x,y));at=overlay
+    overlay,movie_flags,_,filename,_,x,y,_,_=struct.unpack_from('<IHIIIHHII',data,at)
+    movies.append((string(filename),x,y,movie_flags));at=overlay
   widgets.append(dict(id=identifier,type=typ,rect=rect,flags=flags,text=string(name),movies=movies))
   nxt=smk if not offset else struct.unpack_from('<I',data,offset)[0]
   if not nxt:break
@@ -82,32 +82,60 @@ def movie_still(name):
  data=subprocess.check_output(['ffmpeg','-v','error','-i',str(owned(name)),'-frames:v','1','-f','image2pipe','-vcodec','png','-'])
  return keyed(Image.open(io.BytesIO(data)))
 
+race_motions={}
 for race,code,stem in [('terran','t','terr'),('zerg','z','zerg'),('protoss','p','prot')]:
  widgets=dialog_widgets(owned(f'rez/glurdy{code}.bin'))
  room=Image.open(owned(f'glue/palr{code}/backgnd.pcx')).convert('RGBA')
+ foreground=Image.new('RGBA',(640,480));motions=[]
  for widget in widgets[1:]:
   if not widget['flags']&8:continue
   x,y=widget['rect'][:2]
-  for name,ox,oy in widget['movies']:
-   room.alpha_composite(movie_still(name),(x+ox,y+oy))
+  for name,ox,oy,flags in widget['movies']:
+   info=json.loads(subprocess.check_output(['ffprobe','-v','error','-show_entries','stream=width,height','-of','json',str(owned(name))]))['streams'][0]
+   motions.append(dict(name=name,x=(x+ox)/2,y=(y+oy)/2,w=info['width']/2,h=info['height']/2,flags=flags,widget=widget['id']))
   if widget['type']==5 and widget['text']:
    sprite=keyed(Image.open(owned(widget['text'])))
-   room.alpha_composite(sprite,(x,y))
+   foreground.alpha_composite(sprite,(x,y))
  # Compose at the original 640x480 first, then scale the entire scene once.
  # No frame is moved, mirrored, independently resized or removed.
  room=room.resize((320,240),Image.Resampling.LANCZOS)
- items=[('room',room)]
+ foreground=foreground.resize((320,240),Image.Resampling.LANCZOS)
+ items=[('room',room),('overlay',foreground)]
  for i in range(4):
   frame=keyed(Image.open(owned(f'glue/ready{code}/{code}frameh{i+1}.pcx'))).resize((64,59),Image.Resampling.LANCZOS)
   items.append((f'active{i}',frame))
- bank(campaign/f'briefing-{race}.bin',items,positions=[(0,0),(320,0),(384,0),(320,59),(384,59)])
- room.save(raw/f'briefing-{race}-preview.png')
+ bank(campaign/f'briefing-{race}.bin',items,positions=[(0,0,0),(1,0,0),(0,320,0),(0,384,0),(0,320,59),(0,384,59)])
+ preview=room.copy();preview.alpha_composite(foreground);preview.save(raw/f'briefing-{race}-preview.png')
+ race_motions[race]=motions
  (raw/f'layout-{code}.json').write_text(json.dumps(widgets,indent=2))
-# Restore the same campaign metal decorations used by the earlier top dialog.
-# A small retained frame texture stays inside original-model linear headroom.
-frame_source=owned('glue/palcs/backgnd.pcx')
-frame=keyed(Image.open(frame_source)).resize((128,128),Image.Resampling.LANCZOS)
-bank(campaign/'briefing-frame.bin',[('frame',frame)],128,128)
+# Original portrait-window decorations supply each race's ornamented frame.
+# Crop away its off-window mounting arm; retain the full border and corners.
+for race,code,stem in [('terran','t','terr'),('protoss','p','prot'),('zerg','z','zerg')]:
+ source=Image.open(owned(f'glue/ready{code}/p4{stem}.pcx'))
+ frame=keyed(source.crop((12,42,157,source.height))).resize((128,128),Image.Resampling.LANCZOS)
+ frame.save(raw/f'upper-frame-{race}.png')
+ bank(campaign/f'briefing-frame-{race}.bin',[('frame',frame)],128,128)
+
+clip_cache={}
+def clip(name,path,width,height,opaque=False):
+ cache_key=(str(path),width,height,opaque)
+ if cache_key not in clip_cache:
+  ratio=min(1,128/width,128/height);w=max(1,round(width*ratio));h=max(1,round(height*ratio))
+  data=subprocess.check_output(['ffmpeg','-v','error','-i',str(path),'-vf',f'fps=8,scale={w}:{h}:flags=area','-f','rawvideo','-pix_fmt','rgb24','-'])
+  assert len(data)%(w*h*3)==0;frames=len(data)//(w*h*3);assert 1<=frames<=256,(path,frames)
+  pixels=bytearray(len(data)//3*2)
+  for i in range(0,len(data),3):
+   r,g,b=data[i:i+3];struct.pack_into('<H',pixels,i//3*2,(r>>3)<<11|(g>>3)<<6|(b>>3)<<1|bool(opaque or r or g or b))
+  clip_cache[cache_key]=(w,h,frames,pixels)
+ return (name,*clip_cache[cache_key])
+def animations(path,entries):
+ assert 0<len(entries)<=32
+ offset=12+len(entries)*56
+ with path.open('wb') as f:
+  f.write(b'OB3AN001'+struct.pack('<I',len(entries)))
+  for name,w,h,n,pixels in entries:
+   f.write(name.encode().ljust(40,b'\0')+struct.pack('<4I',w,h,n,offset));offset+=len(pixels)
+  for name,w,h,n,pixels in entries:f.write(pixels)
 cat=Path(__file__).parents[1]/'include/campaign_catalogue.h'
 for key,title,scenario,race,bw in re.findall(r'\{"([^"]+)","([^"]+)",(\d+),(\d+),(true|false)\}',cat.read_text()):
  race=int(race);bw=bw=='true';r=['z','t','p'][race];number=key[-2:]
@@ -139,8 +167,24 @@ for key,title,scenario,race,bw in re.findall(r'\{"([^"]+)","([^"]+)",(\d+),(\d+)
       casts.append(tuple(portraits[slots[i]] if i in slots and slots[i]<228 else 110 for i in range(4))+(slot if typ==8 and slot<4 else 4,))
   at+=n
  brief=(campaign/f'{key}.brief').read_text().split('\f');assert len(meta)==len(brief),(key,len(meta),len(brief))
+ entries=[];motion_lines=[]
+ ids=sorted({v for cast in casts for v in cast[:4] if v<110})
+ for portrait in ids:
+  for mode in ('idle','talk'):
+   source=raw/f'portrait-{portrait}-{mode}.smk'
+   if not source.exists():raise RuntimeError(f'Missing owned portrait animation {source}')
+   entries.append(clip(f'p{portrait}_{mode}',source,64,59,True))
+ for i,motion in enumerate(race_motions[['zerg','terran','protoss'][race]]):
+  name=f'm{i}';entries.append(clip(name,owned(motion['name']),motion['w'],motion['h']))
+  hover='-'
+  if motion['widget']==13 and motion['name'].lower().endswith('start.smk'):
+   path=owned(motion['name'][:-9]+'starton.smk')
+   if path.exists():hover=f'h{i}';entries.append(clip(hover,path,motion['w'],motion['h']))
+  motion_lines.append(f"{name} {hover} {motion['x']} {motion['y']} {motion['w']} {motion['h']} {motion['flags']} {motion['widget']}\n")
+ animations(campaign/f'{key}-animations.bin',entries)
+ (campaign/f'{key}.motion').write_text(''.join(motion_lines))
  (campaign/f'{key}.brief-cast').write_text(''.join(' '.join(map(str,c))+'\n' for c in casts))
  (campaign/f'{key}.brief-info').write_text(''.join(f'{t} {p} {ms}\n' for t,p,ms in meta))
-manifest={p.name:{'bytes':p.stat().st_size,'sha256':hashlib.sha256(p.read_bytes()).hexdigest()} for p in campaign.iterdir() if p.suffix in ('.intro','.location','.brief-info','.brief-cast') or p.name.endswith('-shot.bin') or p.name.startswith('briefing-')}
+manifest={p.name:{'bytes':p.stat().st_size,'sha256':hashlib.sha256(p.read_bytes()).hexdigest()} for p in campaign.iterdir() if p.suffix in ('.intro','.location','.brief-info','.brief-cast','.motion') or p.name.endswith(('-shot.bin','-animations.bin')) or p.name.startswith('briefing-')}
 (campaign/'presentation-manifest.json').write_text(json.dumps(manifest,indent=2)+'\n')
 print(f'{len(manifest)} private presentation resources prepared')

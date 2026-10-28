@@ -10,8 +10,9 @@ int main(int argc,char**argv){using namespace port3ds;assert(argc==2);
   f.layout_story([](const char* t){return std::strlen(t)*7.f;},282);assert(!f.story_lines.empty());
   f.scroll_story(100000);assert(f.story_scroll>=0);f.scroll_story(-100000);assert(f.story_scroll==0);
   f.update_presentation(4,false);assert(f.story_scroll>=0 && !f.play);
-  f.paginate_briefing([](const char* t){return std::strlen(t)*8.f;},348,8);
+  f.paginate_briefing([](const char* t){return std::strlen(t)*8.f;},Frontend::briefing_width,8);
   for(unsigned j=0;j<f.briefing.size();++j){assert(f.briefing_portraits[j]<=110 && f.briefing_slots[j]<=4);for(auto id:f.briefing_cast[j])assert(id<=110);assert(std::count(f.briefing[j].begin(),f.briefing[j].end(),'\n')<8);}
+  assert(f.hit(26,18)!=112 && f.hit(294,18)!=113);const auto mission=f.mission;f.direction(3);assert(f.hover==111 && f.mission==mission);f.direction(1);assert(f.hover==115 && f.mission==mission);f.stick(-120,0,.1f);assert(f.hover==111);f.stick(120,0,.1f);assert(f.hover==115);
   f.activate(115);assert(f.dialog==Frontend::Dialog::briefing && f.briefing_page==0 && !f.play);
   for(unsigned n=0;n<2000 && !f.briefing_done;++n)f.update_presentation(1,false);
   assert(f.briefing_done && f.briefing_sound()==0 && f.briefing_portrait()==110 && !f.play);

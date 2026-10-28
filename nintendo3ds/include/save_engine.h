@@ -1,10 +1,14 @@
 // Engine definitions, included inside namespace port3ds after Impl is complete.
 namespace {
 bool checked_save(const char* path,savegame::Header& h,char* error,size_t capacity){
- auto fail=[&](const char* s){std::snprintf(error,capacity,"%s",s);return false;};FILE* file=std::fopen(path,"rb");if(!file)return fail("No saved game in slot 1");
+ auto fail=[&](const char* s){std::snprintf(error,capacity,"%s",s);return false;};FILE* file=std::fopen(path,"rb");if(!file)return fail("No saved game in this slot");
  bool ok=false;do{
   if(std::fread(h.bytes.data(),1,h.bytes.size(),file)!=h.bytes.size() || std::memcmp(h.bytes.data(),"OB3SAVE1",8) || h.field(0)!=1){fail("Invalid save header");break;}
-  if(std::strncmp(reinterpret_cast<char*>(h.bytes.data()+136),source_id,32)){fail("Save belongs to a different build");break;}
+  // The two preceding public test builds changed presentation only. Their
+  // journal opcodes, simulation and digest are identical; arbitrary builds
+  // remain rejected, and load_save still checks the exact reconstructed state.
+  const auto* build=reinterpret_cast<char*>(h.bytes.data()+136);
+  if(std::strncmp(build,source_id,32) && std::strncmp(build,"src-2dc0b1b024abc416",32) && std::strncmp(build,"src-d8212ce708a062eb",32)){fail("Save belongs to a different build");break;}
   const auto crc=h.field(28);h.field(28,0);const auto actual=savegame::hash(2166136261u,h.bytes.data(),h.bytes.size());h.field(28,crc);
   if(crc!=actual || h.field(1)>savegame::max_frames || h.field(2)>savegame::max_events || !h.field(3) || h.field(3)>savegame::max_map || h.field(4)>1 || (h.field(6)>15 && !campaign::scenario(h.field(6)))){fail("Invalid or damaged save metadata");break;}
   const auto info=h.info();bool valid=unsigned(info.setup.difficulty)<=1 && info.setup.game_type<=2;
@@ -39,11 +43,11 @@ bool Engine::start_recording(const char* path){
  if(size<=0 || size>savegame::max_map){std::fclose(map);return false;}savegame::Header h;std::memcpy(h.bytes.data(),"OB3SAVE1",8);h.field(0,1);h.field(3,unsigned(size));h.field(4,chk_path(impl_->initial_map));std::snprintf(reinterpret_cast<char*>(h.bytes.data()+136),32,"%s",source_id);SaveInfo info;info.scenario=unsigned(impl_->initial_scenario);info.setup=impl_->initial_setup;h.setup(info);
  const bool ok=impl_->journal.open(path,h,map);std::fclose(map);return ok;
 }
-bool Engine::save_game(const char* path,const SaveView& view){
+bool Engine::save_game(const char* path,const SaveView& view,std::uint64_t saved_at){
  auto fail=[&](const char* s){std::snprintf(impl_->message,sizeof impl_->message,"%s",s);return false;};auto& writer=impl_->journal;
  if(!ready() || !writer.flush())return fail("Save unavailable: session journal failed");
  if(writer.path==path)return fail("Save and session paths must differ");
- auto h=writer.header;h.field(1,frame());h.field(2,writer.events);h.field(5,state_digest());h.view(view);h.field(28,0);
+ auto h=writer.header;h.field(1,frame());h.field(2,writer.events);h.field(5,state_digest());h.view(view);if(!saved_at){const auto now=std::time(nullptr);if(now>0)saved_at=std::uint64_t(now);}h.field(29,uint32_t(saved_at));h.field(30,uint32_t(saved_at>>32));h.field(28,0);
  const std::string temp=std::string(path)+".tmp",backup=std::string(path)+".bak";FILE* in=std::fopen(writer.path.c_str(),"rb");if(!in)return fail("Cannot read session journal");FILE* out=std::fopen(temp.c_str(),"wb+");if(!out){std::fclose(in);return fail("Cannot create save on SD");}
  bool ok=std::fwrite(h.bytes.data(),1,h.bytes.size(),out)==h.bytes.size() && std::fseek(in,savegame::header_size,SEEK_SET)==0;uint32_t checksum=2166136261u;
  if(ok)ok=savegame::copy(in,out,h.field(3)+size_t(h.field(2))*savegame::record_size,&checksum);std::fclose(in);h.field(7,checksum);h.field(28,savegame::hash(2166136261u,h.bytes.data(),h.bytes.size()));
@@ -52,7 +56,7 @@ bool Engine::save_game(const char* path,const SaveView& view){
  SaveInfo check;char reason[192];if(!inspect_save(temp.c_str(),check,reason,sizeof reason)){std::remove(temp.c_str());return fail(reason);}
  const bool had=exists(path);if(had){std::remove(backup.c_str());if(std::rename(path,backup.c_str())){std::remove(temp.c_str());return fail("Cannot preserve previous save");}}
  if(std::rename(temp.c_str(),path)){if(had)std::rename(backup.c_str(),path);return fail("Cannot finish save; previous save retained");}
- impl_->command_message="Game saved to slot 1";return true;
+ impl_->command_message="Game saved";return true;
 }
 bool Engine::load_save(const char* root,const char* path,const char* session,const char* extracted,SaveView& view,const std::function<bool(unsigned,unsigned)>& progress){
  savegame::Header h;if(!checked_save(path,h,impl_->message,sizeof impl_->message))return false;

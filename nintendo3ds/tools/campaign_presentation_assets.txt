@@ -6,9 +6,12 @@ glue/palpbx/xprotosb.pcx
 glue/palpc/protossc.pcx
 glue/palpcx/xprotosc.pcx
 glue/palrp/backgnd.pcx
+glue/palrp/tile.grp
 glue/palrt/backgnd.pcx
 glue/palrt/pcancel.pcx
+glue/palrt/tile.grp
 glue/palrz/backgnd.pcx
+glue/palrz/tile.grp
 glue/palta/terrana.pcx
 glue/paltax/xterrana.pcx
 glue/paltb/terranb.pcx

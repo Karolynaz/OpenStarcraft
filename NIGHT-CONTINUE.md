@@ -1340,3 +1340,26 @@ emptycentraltextframe/nativebuttons/objectives/uppermetalframe. Bcancel native;
 briefaudio played5/missing0/IO0. EmulatorSTOPPED/config/profile/progress/saves
 byte-restored; physicalSDuntouched. Evidenceoriginal-layout-emulator.log inprivate
 campaign-presentationfolder; 3original-briefing*.png reports. Readyforlocalcommit.
+
+
+## 2026-10-28 UI/briefing animation/five-slot checkpoint
+Source src-edc95d348573a5a9. Latest authorized batch complete: story arrows/bar
+removed; touch/stick/D-pad vertical scroll and horizontal Cancel/Briefing focus;
+original lower briefing empty objective/text frames; centered replay; original
+race ornaments; talking/idle portraits and Start/room animation; loading objective
+padding; no lower gameplay objectives, black upper pause objectives; five independent
+Save/Load slots in-game and title Load with measured mission/time/date rows.
+RTC timestamp checksummed in reserved header words (no journal format change).
+Only prior UI-only 2dc0/d821 builds additionally accepted, still exact replay check.
+ASan frontend, all15 presentation tests, real-engine five-slot exact replays,
+existing save/mixed-AI20k+720 continuation/stress regressions PASS. ARM11 PASS.
+128 animated sequences/1484 frames/112 manifest resources verified. Originalmodel
+native Protoss1 story/room/goldframe/replay/portrait+crystal motion/pause/five slots
+verified. Saved Slot4 with correct Oct28 date and loaded successfully to liveworld.
+Budgets36MiB/8MiB unchanged; startup audio-ready heap31090928,linearfree25600.
+Emulator stopped; config/profile/progress/saves byte-restored. PhysicalSD untouched.
+Private overlay campaign-ui-slots-animations-update-2026-10-28.zip,5384456bytes,
+SHA256e56b6965803511ec50bd8cb2f1bf270d99f2ea38d5ac7eb9ec5a64225e8a2280.
+ZIPCRC/112hashes/exactexePASS; use over existing full private install. Report
+nintendo3ds/reports/OCT28_UI_SLOTS_ANIMATIONS.md. No fullmissionvictory reruns;
+laterAI limitations and earlier held timer/font/emptyselectionicon requests remain.

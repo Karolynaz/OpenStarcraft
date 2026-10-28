@@ -7,9 +7,10 @@
 #include <cstdint>
 #include <string>
 #include <functional>
+#include <ctime>
 namespace port3ds {
 struct SaveView {float camera_x=0,camera_y=0,cursor_x=200,cursor_y=120;bool auto_camera=false;};
-struct SaveInfo {unsigned frame=0,scenario=0;bool raw_map=false;MatchSetup setup;SaveView view;};
+struct SaveInfo {std::uint64_t saved_at=0;unsigned frame=0,scenario=0;bool raw_map=false;MatchSetup setup;SaveView view;};
 namespace savegame {
 constexpr unsigned header_size=256,record_size=24,max_map=2*1024*1024,max_events=1000000,max_frames=24*60*60*12;
 enum Op:unsigned {select=1,clear,activate,army,workers,store,recall,command,perform,move,cancel,fog,surrender,elapsed,rectangle,similar,last=similar};
@@ -20,7 +21,7 @@ struct Header {
  std::array<unsigned char,header_size> bytes{};
  unsigned field(unsigned i)const{return get(bytes.data()+8+i*4);}void field(unsigned i,unsigned v){put(bytes.data()+8+i*4,v);}
  void view(const SaveView& v){float a[]={v.camera_x,v.camera_y,v.cursor_x,v.cursor_y};for(unsigned i=0;i<4;++i){uint32_t b;std::memcpy(&b,&a[i],4);field(9+i,b);}field(13,v.auto_camera);}
- SaveInfo info()const{SaveInfo i;i.frame=field(1);i.scenario=field(6);i.raw_map=field(4);i.setup.enabled=field(14);i.setup.difficulty=AiDifficulty(field(15));i.setup.game_type=field(16);i.setup.observer=field(17);for(unsigned p=0;p<3;++p){i.setup.races[p]=int32_t(field(18+p));i.setup.teams[p]=field(21+p);i.setup.side_difficulty[p]=int32_t(field(24+p));}float* a[]={&i.view.camera_x,&i.view.camera_y,&i.view.cursor_x,&i.view.cursor_y};for(unsigned p=0;p<4;++p){auto b=field(9+p);std::memcpy(a[p],&b,4);}i.view.auto_camera=field(13);return i;}
+ SaveInfo info()const{SaveInfo i;i.saved_at=uint64_t(field(29))|(uint64_t(field(30))<<32);i.frame=field(1);i.scenario=field(6);i.raw_map=field(4);i.setup.enabled=field(14);i.setup.difficulty=AiDifficulty(field(15));i.setup.game_type=field(16);i.setup.observer=field(17);for(unsigned p=0;p<3;++p){i.setup.races[p]=int32_t(field(18+p));i.setup.teams[p]=field(21+p);i.setup.side_difficulty[p]=int32_t(field(24+p));}float* a[]={&i.view.camera_x,&i.view.camera_y,&i.view.cursor_x,&i.view.cursor_y};for(unsigned p=0;p<4;++p){auto b=field(9+p);std::memcpy(a[p],&b,4);}i.view.auto_camera=field(13);return i;}
  void setup(const SaveInfo& i){field(6,i.scenario);field(14,i.setup.enabled);field(15,unsigned(i.setup.difficulty));field(16,i.setup.game_type);field(17,i.setup.observer);for(unsigned p=0;p<3;++p){field(18+p,i.setup.races[p]);field(21+p,i.setup.teams[p]);field(24+p,i.setup.side_difficulty[p]);}}
 };
 struct Record {unsigned frame=0,op=0;int a=0,b=0,c=0,d=0;};

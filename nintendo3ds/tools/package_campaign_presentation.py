@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Private presentation-only overlay; requires the existing campaign data tree."""
+"""Private campaign UI overlay; requires the existing campaign data tree."""
 from pathlib import Path
 import argparse,json,hashlib,zipfile
 p=argparse.ArgumentParser(description=__doc__);p.add_argument('stage',type=Path);p.add_argument('executable',type=Path);p.add_argument('output',type=Path);a=p.parse_args()
@@ -12,7 +12,7 @@ with zipfile.ZipFile(a.output,'w',compression=zipfile.ZIP_DEFLATED) as z:
   assert Path(name).name==name
   f=a.stage/'campaign'/name;assert f.stat().st_size==info['bytes'] and hashlib.sha256(f.read_bytes()).hexdigest()==info['sha256']
   z.write(f,'3ds/openbw/campaign/'+name)
- z.writestr('PRESENTATION-UPDATE.txt','Private update: overlay on the existing full campaign data tree. Includes executable, owned intro/shot/room assets and briefing metadata for 15 missions. No profiles, progress or saves. Keep existing portraits, campaign maps, dialogue audio and UI assets. Not a standalone installation.\n')
+ z.writestr('PRESENTATION-UPDATE.txt','Private update: overlay on the existing full campaign data tree. Includes executable with five save/load slots, owned intro/shot/room assets, race decorations, animated portraits/UI and briefing metadata for 15 missions. No profiles, progress or saves. Keep existing portraits, campaign maps, dialogue audio and UI assets. Not a standalone installation.\n')
 with zipfile.ZipFile(a.output) as z:
  assert z.testzip() is None
  assert len(z.namelist())==len(manifest)+3

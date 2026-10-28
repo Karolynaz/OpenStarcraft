@@ -12,6 +12,7 @@ inline void ui_centered(C2D_TextBuf buf,const char* value,UiRect r,float size,un
 inline void ui_border(UiRect r,unsigned color){C2D_DrawLine(r.x,r.y,color,r.x+r.w,r.y,color,1,0);C2D_DrawLine(r.x,r.y+r.h,color,r.x+r.w,r.y+r.h,color,1,0);C2D_DrawLine(r.x,r.y,color,r.x,r.y+r.h,color,1,0);C2D_DrawLine(r.x+r.w,r.y,color,r.x+r.w,r.y+r.h,color,1,0);}
 // Fit readable text by ellipsis/line limits, keeping the font size fixed.
 inline float ui_width(C2D_TextBuf buf,const char* value,float size){C2D_TextBufClear(buf);C2D_Text t;C2D_TextParse(&t,buf,value);float w,h;C2D_TextGetDimensions(&t,size,size,&w,&h);return w;}
+inline bool ui_fits(const char* value,float size,float width){auto measure=C2D_TextBufNew(256);if(!measure)return false;const bool fit=ui_width(measure,value,size)<=width;C2D_TextBufDelete(measure);return fit;}
 inline void ui_limited(C2D_TextBuf buf,const char* value,float x,float y,float size,float width,unsigned lines,unsigned color){
  auto measure=C2D_TextBufNew(160);if(!measure)return;
  const char* at=value;const float line_height=size*30;
@@ -34,20 +35,18 @@ inline void draw_campaign_top(const Frontend& f,BriefingArt& art,C2D_TextBuf tex
  C2D_DrawRectSolid(0,0,0,400,240,C2D_Color32(0,0,0,51));
  C2D_DrawRectSolid(12,18,0,376,206,C2D_Color32(4,8,14,215));
  art.frame();
- if(loading){ui_text(text,"Mission objectives",200,30,.64f,white,true);ui_limited(text,f.objectives.c_str(),26,61,.65f,348,8,white);}
- else if(f.briefing_done)ui_limited(text,"Press (Y) to replay briefing",32,92,.70f,336,3,green);
- else if(f.briefing_page<f.briefing.size())ui_limited(text,f.briefing[f.briefing_page].c_str(),26,42,Frontend::briefing_font,Frontend::briefing_width,Frontend::briefing_rows,white);
+ if(loading){ui_text(text,"Mission objectives",200,42,.64f,white,true);ui_limited(text,f.objectives.c_str(),48,73,.65f,304,7,white);}
+ else if(f.briefing_done)ui_centered(text,"Press (Y) to replay briefing",{40,42,320,158},.62f,green);
+ else if(f.briefing_page<f.briefing.size())ui_limited(text,f.briefing[f.briefing_page].c_str(),48,42,Frontend::briefing_font,Frontend::briefing_width,Frontend::briefing_rows,white);
 }
-inline void draw_campaign_bottom(const Frontend& f,BriefingArt& art,UiArt& menu,C2D_TextBuf text){
+inline void draw_campaign_bottom(const Frontend& f,BriefingArt& art,UiArt& menu,C2D_TextBuf text,MenuAnimation& animation,unsigned tick){
  const auto green=C2D_Color32(104,205,68,255),bright=C2D_Color32(195,255,146,255);
  if(f.dialog==Frontend::Dialog::story){
   C2D_DrawRectSolid(0,0,0,320,240,C2D_Color32(0,0,0,255));
   for(unsigned i=0;i<f.story_lines.size();++i){float y=20+i*Frontend::story_line_height-f.story_scroll;if(y>=18 && y+Frontend::story_line_height<=198)ui_text(text,f.story_lines[i].c_str(),18,y,Frontend::story_font,green);}
-  if(f.story_lines.size()*Frontend::story_line_height>174){const float extent=f.story_lines.size()*Frontend::story_line_height;C2D_DrawRectSolid(311,20,0,2,174,C2D_Color32(25,55,25,255));C2D_DrawRectSolid(311,20+f.story_scroll/extent*174,0,2,174*174/extent,green);}
-  ui_centered(text,"<",{15,0,24,18},.55f,green);ui_centered(text,">",{281,0,24,18},.55f,green);
-  ui_centered(text,"Cancel (B)",{14,208,136,28},.55f,green);ui_centered(text,"Briefing (A)",{170,208,136,28},.55f,green);return;
+  ui_centered(text,"Cancel (B)",{14,208,136,28},.55f,f.hover==111?bright:green);ui_centered(text,"Briefing (A)",{170,208,136,28},.55f,f.hover==115?bright:green);return;
  }
- art.room();art.portraits(f);
+ art.room(f,animation,tick);art.portraits(f,animation,tick);
  // Native 640x480 BIN coordinates, uniformly halved. Retain the original
  // central text panel, but its speech text is rendered exclusively above.
  const auto white=C2D_Color32(183,185,241,255);
@@ -56,8 +55,7 @@ inline void draw_campaign_bottom(const Frontend& f,BriefingArt& art,UiArt& menu,
  ui_centered(text,"Start",start,.40f,f.hover==116?bright:green);
  ui_centered(text,"Cancel",cancel,.40f,f.hover==111?bright:green);
  ui_centered(text,"Replay",replay,.40f,f.hover==117?bright:green);
- ui_text(text,"Objectives",23.5f,153,.40f,white);
- ui_limited(text,f.objectives.c_str(),23.5f,168,.25f,111,8,white);
+
  menu.draw("cursor",f.x,f.y);
 }
 inline void draw_frontend_top(const Frontend& f,UiArt& art,C2D_TextBuf text){
@@ -157,7 +155,12 @@ inline void draw_frontend(Frontend& f,UiArt& art,MenuAnimation& animation,C2D_Te
  if(f.dialog!=Frontend::Dialog::none){
   C2D_DrawRectSolid(0,0,0,320,240,C2D_Color32(0,0,0,150));
   C2D_DrawRectSolid(14,30,0,292,188,C2D_Color32(5,9,8,255));ui_border({14,30,292,188},C2D_Color32(105,110,103,255));ui_border({17,33,286,182},C2D_Color32(170,35,23,255));
-  if(f.dialog==Frontend::Dialog::ai_tests){
+  if(f.dialog==Frontend::Dialog::load_slots){
+   ui_text(text,"Load Game",160,38,.58f,white,true);
+   for(unsigned i=0;i<5;++i){const UiRect r={24,60+int(i)*28,272,24};if(f.hover==int(120+i))ui_border(r,bright);ui_limited(text,(ui_fits(f.load_labels[i].c_str(),.43f,260)?f.load_labels[i]:f.load_short_labels[i]).c_str(),30,r.y+4,.43f,260,1,f.load_enabled[i]?(f.hover==int(120+i)?bright:green):dim);}
+   ui_text(text,"B: Cancel",160,204,.44f,green,true);
+  }
+  else if(f.dialog==Frontend::Dialog::ai_tests){
    ui_text(text,"AI observer scenarios",160,43,.55f,white,true);
    const char* names[]={"Terran island AI vs AI","Protoss island AI vs AI","Zerg island AI vs AI","Medium vs 2 Easy (all races)"};
    for(unsigned i=0;i<4;++i)ui_centered(text,names[i],{34,70+int(i)*28,252,24},.46f,f.hover==int(100+i)?bright:green);

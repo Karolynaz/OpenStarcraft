@@ -6,11 +6,12 @@
 int main(){using namespace port3ds;
  using P=PauseMenu::Page;
  assert(!PauseMenu::overlay(P::none) && !PauseMenu::overlay(P::catalogue));
- for(P page:{P::system,P::options,P::scenarios,P::legacy,P::notice,P::end_confirm,P::result}){
+ for(P page:{P::system,P::options,P::scenarios,P::legacy,P::notice,P::end_confirm,P::result,P::save_slots,P::load_slots}){
   assert(PauseMenu::overlay(page));for(unsigned i=0;i<PauseMenu::count(page);++i){auto r=PauseMenu::row(i,PauseMenu::count(page));assert(r.y>=48 && r.y+r.h<230);assert(PauseMenu::hit(r.x+1,r.y+1,PauseMenu::count(page))==int(i));}
  }
  P page=P::legacy;page=PauseMenu::back(page);assert(page==P::scenarios);page=PauseMenu::back(page);assert(page==P::options);page=PauseMenu::back(page);assert(page==P::system && PauseMenu::overlay(page));page=PauseMenu::back(page);assert(!PauseMenu::overlay(page));
  assert(PauseMenu::back(P::notice)==P::system && PauseMenu::back(P::end_confirm)==P::system && PauseMenu::back(P::result)==P::result);
+ Frontend picker;picker.dialog=Frontend::Dialog::load_slots;picker.load_enabled[2]=true;picker.activate(120);assert(picker.load_requested_slot==~0u);picker.activate(122);assert(picker.load_requested_slot==2);picker.back();assert(picker.dialog==Frontend::Dialog::none);
  Frontend pagination;pagination.briefing={"one two three four five six seven eight nine ten eleven twelve"};pagination.briefing_voices={1400};pagination.paginate_briefing([](const char* text){return float(std::strlen(text));},12,2);assert(pagination.briefing.size()==4 && pagination.briefing_voices==std::vector<unsigned>({1400,1400,1400,1400}));std::string joined;for(const auto& page:pagination.briefing){assert(std::count(page.begin(),page.end(),'\n')<2);if(!joined.empty())joined+=' ';joined+=page;}std::replace(joined.begin(),joined.end(),'\n',' ');assert(joined=="one two three four five six seven eight nine ten eleven twelve");
  char tmp[]="/tmp/openbw-menu-XXXXXX";const char* d=mkdtemp(tmp);assert(d);std::string root=std::string(d)+"/";mkdir((root+"maps").c_str(),0700);mkdir((root+"maps/folder").c_str(),0700);std::ofstream(root+"maps/test.scx").put('x');std::ofstream(root+"maps/folder/nested.scm").put('x');std::ofstream(root+"maps/no.txt").put('x');for(unsigned i=0;i<6;++i)std::ofstream(root+"maps/zz"+std::to_string(i)+".scx").put('x');
  Frontend f;f.init(root.c_str());assert(f.hit(int(f.x),int(f.y))==3);assert(f.brood && f.race==1 && f.maps.size()==8 && f.maps[0].name=="folder/nested.scm");
