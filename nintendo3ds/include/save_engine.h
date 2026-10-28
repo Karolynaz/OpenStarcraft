@@ -4,11 +4,11 @@ bool checked_save(const char* path,savegame::Header& h,char* error,size_t capaci
  auto fail=[&](const char* s){std::snprintf(error,capacity,"%s",s);return false;};FILE* file=std::fopen(path,"rb");if(!file)return fail("No saved game in this slot");
  bool ok=false;do{
   if(std::fread(h.bytes.data(),1,h.bytes.size(),file)!=h.bytes.size() || std::memcmp(h.bytes.data(),"OB3SAVE1",8) || h.field(0)!=1){fail("Invalid save header");break;}
-  // The two preceding public test builds changed presentation only. Their
+  // The preceding private test builds changed presentation only. Their
   // journal opcodes, simulation and digest are identical; arbitrary builds
   // remain rejected, and load_save still checks the exact reconstructed state.
   const auto* build=reinterpret_cast<char*>(h.bytes.data()+136);
-  if(std::strncmp(build,source_id,32) && std::strncmp(build,"src-2dc0b1b024abc416",32) && std::strncmp(build,"src-d8212ce708a062eb",32)){fail("Save belongs to a different build");break;}
+  if(std::strncmp(build,source_id,32) && std::strncmp(build,"src-2dc0b1b024abc416",32) && std::strncmp(build,"src-d8212ce708a062eb",32) && std::strncmp(build,"src-edc95d348573a5a9",32)){fail("Save belongs to a different build");break;}
   const auto crc=h.field(28);h.field(28,0);const auto actual=savegame::hash(2166136261u,h.bytes.data(),h.bytes.size());h.field(28,crc);
   if(crc!=actual || h.field(1)>savegame::max_frames || h.field(2)>savegame::max_events || !h.field(3) || h.field(3)>savegame::max_map || h.field(4)>1 || (h.field(6)>15 && !campaign::scenario(h.field(6)))){fail("Invalid or damaged save metadata");break;}
   const auto info=h.info();bool valid=unsigned(info.setup.difficulty)<=1 && info.setup.game_type<=2;

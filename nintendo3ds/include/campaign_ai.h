@@ -57,6 +57,13 @@ class CampaignAI {
   for(auto* u:ptr(f.st.player_units[owner]))if(f.unit_is_ghost(u) && f.u_completed(u) && !f.unit_dying(u) && !f.us_hidden(u) && !f.unit_is_disabled(u) && u->order_type->tech_type==TechTypes::None && u->order_type->id!=Orders::NukeTrack && u->order_type->id!=Orders::NukePaint && u->order_type->id!=Orders::NukeUnit){auto d=u->sprite->position-position;int n=d.x*d.x+d.y*d.y;if(n<nearest){nearest=n;ghost=u;}}
   if(ghost){action_state state;action_functions a(f.st,state);a.action_select(owner,ghost);a.action_order(owner,a.get_order_type(Orders::NukePaint),position,nullptr,nullptr,false);}
  }
+ void spell_at(state_functions& f,unsigned owner,xy position,UnitTypes type,Orders order,TechTypes tech){
+  const auto* native=f.get_order_type(order);unit_t* caster=nullptr;int nearest=0x7fffffff;
+  for(auto* u:ptr(f.st.player_units[owner]))if((type==UnitTypes::Protoss_Arbiter?f.unit_is_arbiter(u):f.unit_is(u,type) || f.unit_is(u,UnitTypes::Hero_Raszagal)) && f.u_completed(u) && !f.unit_dying(u) && !f.us_hidden(u) && !f.unit_is_disabled(u) && u->order_type->tech_type==TechTypes::None && f.unit_can_use_tech(u,f.get_tech_type(tech),owner) && u->energy>=fp8::integer(f.get_tech_type(tech)->energy_cost)){
+   auto d=u->sprite->position-position;int n=d.x*d.x+d.y*d.y;if(n<nearest){nearest=n;caster=u;}
+  }
+  if(caster){action_state state;action_functions a(f.st,state);a.action_select(owner,caster);a.action_order(owner,native,position,nullptr,nullptr,false);}
+ }
  void guard_regions(state_functions& f,unsigned owner){
   defending_owners_|=1u<<owner;
   for(auto* u:ptr(f.st.player_units[owner]))if(!f.unit_dying(u) && !f.us_hidden(u) && !f.ut_turret(u)){
@@ -164,6 +171,10 @@ class CampaignAI {
    case 102:side.nuke_due=f.st.current_frame+side.nuke_minutes*60u*24u;break;
    case 110:{guard_regions(f,t.owner);for(unsigned p=0;p<8;++p)if(p!=t.owner && sides_[p].enabled && !hostile(f,t.owner,p) && f.st.alliances[t.owner][p]){defending_owners_|=1u<<p;for(auto& region:defended_)if(region&(1u<<t.owner))region|=1u<<p;}break;}
    case 107:create_nuke(f,t.owner);break;
+   case 108:{unsigned type=word();xy position;position.x=word();position.y=word();if(type>=228 || position.x>=int(f.st.game->map_width) || position.y>=int(f.st.game->map_height))throw std::runtime_error("Campaign scenario creation bounds");f.trigger_create_unit(f.get_unit_type(UnitTypes(type)),position,t.owner);break;}
+   case 103:spell_at(f,t.owner,t.center,UnitTypes::Protoss_Corsair,Orders::CastDisruptionWeb,TechTypes::Disruption_Web);break;
+   case 104:spell_at(f,t.owner,t.center,UnitTypes::Protoss_Arbiter,Orders::CastRecall,TechTypes::Recall);break;
+   case 38:{action_state state;action_functions a(f.st,state);for(auto* u:ptr(f.st.player_units[t.owner]))if((f.unit_is(u,UnitTypes::Protoss_Dark_Templar) || f.unit_is(u,UnitTypes::Hero_Dark_Templar)) && f.u_completed(u) && !f.unit_dying(u) && !f.us_hidden(u)){a.action_select(t.owner,u);a.action_order(t.owner,a.get_order_type(Orders::Move),t.center,nullptr,nullptr,false);}break;}
    case 89:nuclear_at(f,t.owner,t.center);break;
    case 109:{xy position;position.x=word();position.y=word();if(position.x>=int(f.st.game->map_width) || position.y>=int(f.st.game->map_height))throw std::runtime_error("Campaign nuclear position bounds");nuclear_at(f,t.owner,position);break;}
    case 41:{action_state state;action_functions a(f.st,state);for(auto* bunker:ptr(f.st.player_units[t.owner]))if(f.unit_is(bunker,UnitTypes::Terran_Bunker))for(auto* u:ptr(f.st.player_units[t.owner]))if(f.unit_is(u,UnitTypes::Terran_Marine) && !f.us_hidden(u)){auto d=u->sprite->position-bunker->sprite->position;if(d.x*d.x+d.y*d.y<256*256){a.action_select(t.owner,u);a.action_default_order(t.owner,bunker->sprite->position,bunker,nullptr,false);}}break;}

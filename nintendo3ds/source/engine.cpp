@@ -870,7 +870,7 @@ unsigned Engine::options(OptionPage page,MenuOption* output,unsigned capacity) c
     case UnitTypes::Terran_Siege_Tank_Tank_Mode:case UnitTypes::Terran_Siege_Tank_Siege_Mode:add("Toggle Siege Mode",OptionKind::siege,0,false,f.unit_can_use_tech(u,f.get_tech_type(TechTypes::Tank_Siege_Mode)));break;
     case UnitTypes::Terran_Vulture:ability("Spider Mine",Orders::PlaceMine,TechTypes::Spider_Mines);break;
     case UnitTypes::Terran_Wraith:add("Toggle Cloak",OptionKind::cloak,0,false,f.unit_can_use_tech(u,f.get_tech_type(TechTypes::Cloaking_Field)));break;
-    case UnitTypes::Terran_Ghost:
+    case UnitTypes::Terran_Ghost:case UnitTypes::Hero_Sarah_Kerrigan:case UnitTypes::Hero_Samir_Duran:case UnitTypes::Hero_Infested_Duran:case UnitTypes::Hero_Alexei_Stukov:
         add("Toggle Cloak",OptionKind::cloak,0,false,f.unit_can_use_tech(u,f.get_tech_type(TechTypes::Personnel_Cloaking)));
         ability("Lockdown",Orders::CastLockdown,TechTypes::Lockdown);add("Nuclear Strike",OptionKind::order,unsigned(Orders::NukePaint),true,true);break;
     case UnitTypes::Terran_Medic:ability("Heal",Orders::MedicHeal,TechTypes::Healing);ability("Restoration",Orders::CastRestoration,TechTypes::Restoration);ability("Optical Flare",Orders::CastOpticalFlare,TechTypes::Optical_Flare);break;

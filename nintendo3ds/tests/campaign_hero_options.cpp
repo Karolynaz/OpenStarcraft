@@ -1,0 +1,7 @@
+#include "engine.h"
+#include "campaign_map.h"
+#include <cassert>
+#include <fstream>
+#include <vector>
+#include <cstdio>
+int main(int n,char**v){assert(n==3);std::ifstream in(v[2],std::ios::binary);std::vector<unsigned char>b((std::istreambuf_iterator<char>(in)),{});bool found=false;for(size_t at=0;at+8<=b.size();){auto size=port3ds::campaign::get(b.data()+at+4);if(!memcmp(b.data()+at,"UNIT",4))for(unsigned j=0;j<size;j+=36){auto* u=b.data()+at+8+j;if((u[8]|u[9]<<8)==16){u[16]=0;found=true;}}at+=8+size;}assert(found);const char*map="/tmp/sc3ds-hero-options.chk";{std::ofstream out(map,std::ios::binary);out.write((char*)b.data(),b.size());}port3ds::Engine e;assert(e.load(v[1],map,port3ds::Scenario::terran_campaign));e.set_fog_enabled(false);for(unsigned i=0;i<8;++i)assert(e.tick());port3ds::UnitView units[1700];auto count=e.visible_units(units,1700);bool selected=false;for(unsigned i=0;i<count;++i)if(units[i].type==16 && units[i].owner==0)selected=e.select(units[i].x,units[i].y);assert(selected);port3ds::MenuOption options[32];count=e.options(port3ds::OptionPage::primary,options,32);found=false;for(unsigned i=0;i<count;++i)if(options[i].code==port3ds::option_code(port3ds::OptionKind::cloak,0) && options[i].enabled)found=true;assert(found);assert(e.perform(port3ds::option_code(port3ds::OptionKind::cloak,0)));puts("Synthetic own Kerrigan fixture: enabled Cloak option visible and native activation accepted PASS");}

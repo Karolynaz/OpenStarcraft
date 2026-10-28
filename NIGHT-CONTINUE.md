@@ -1363,3 +1363,29 @@ SHA256e56b6965803511ec50bd8cb2f1bf270d99f2ea38d5ac7eb9ec5a64225e8a2280.
 ZIPCRC/112hashes/exactexePASS; use over existing full private install. Report
 nintendo3ds/reports/OCT28_UI_SLOTS_ANIMATIONS.md. No fullmissionvictory reruns;
 laterAI limitations and earlier held timer/font/emptyselectionicon requests remain.
+
+
+## 2026-10-28 later-campaign work, pause near account limit
+Final source src-f1bb1c604dd5ed45, nativeARM11PASS. NewAI38move_dt/103Web/104Recall/
+108scenario create_unit; own eligible caster/real native effects/energy, ordinary
+andheroDT move, one-shot boundedscenario grant. No new persistentAI state/allocation.
+HeroGhost aliases expose SarahKerrigan/Duran/InfestedDuran/Stukov abilities. Latest
+edcUI saves also accepted only with CRC/journal/exact-reconstruction checks.
+ASan cinematics/laterAI(intendedarena)/five slots+edclegacy/herooptions PASS.
+Broadaudit64records61no-runtime-rejectionat6000,60at36000 ororiginalmapend; NOTwins.
+Remaining111allies_watch BWZ6,101junkyard_dog BWT8(later),2unusedcutT7/T10 format.
+No additional catalogue missions enabled yet;15previous victories remain baseline.
+Terran5 privatepilot rescuedKerrigan,Raynorsafe,cloakedK reaches2786,500 butnoownCC/
+no win. Pilot assumptionmaybewrong: location1 setsSwitch4, mustinspectoriginal
+trigger/Forceprogression. EarlierdirectattacklostRaynor2164, NOTengineproof.
+Allrawlogs/experimentalpilot andnative3DSX inlocal-data/campaign-next-validation.
+Hostobj/tmp/sc3ds-cinematic-final-engine.o. Source/report CAMPAIGN_NEXT_CHECKPOINT.md.
+Internalprivateoverlay campaign-backend-checkpoint-2026-10-28.zip5385246bytes SHA256
+109378e2927fc2509b710873944232b41d6f7f8753aec240f848bce65d4242c1; CRC/112hash/exePASS.
+No emulator run this backend checkpoint, noSDwrites. LatestemutestedUI ZIP unchanged.
+Userrequested automaticcontinuations: starcraft-kampanij-t-sinys-02-25 and
+starcraft-kampanij-t-sinys-07-30, one-shotCOUNT1 Oct29 Europe/Vilnius. Actualreset
+02:20:23. First shouldverifyrealresetsAt/adjustexistingsecondifneeded, deleteown
+one-shotafterrun; secondlastscheduled, noadditionalautoruns. Stopnearcurrentlimit
+94%used, notgoalcomplete. Next:111/101, realT5progression/victory, catalogue+asset
+closure expansion onlyafteroriginalmap/publiccontrolvictory+defeat/saveproof.
