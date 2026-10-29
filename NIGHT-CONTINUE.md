@@ -1674,3 +1674,41 @@ T8paidpilotstillnotwin; initial6airbornefixcommita92535c. P5transportpilots can
 reachislandwest3232,3424 butgroundroutearoundcliffkillsTassadar; interiorgoal
 3392,3360..3616,3552 needsbetterprotectedlanding. Do NOTenable fromload alone.
 No moreautomationsauthorized; usercontinuesordinaryturns. No nativebuildrunning.
+
+## Trigger-created buildings outside exploration — final20 follow-up
+Finalsource2368fc9ea1bb500b; /tmp/sc3ds-trigger-vision-engine.o. FoundactualBWT2
+missingmarkers: trigger_create_unit used ordinaryfog/exploration validation.
+All7originalcontrolpads rejectbeforeexploration, succeedafterrevealing isolated
+terrain. Addedcan_place_building check_vision defaulttrue; onlyscenario creation
+passesfalse. Stillchecksactualterrain/creep/psi/geyser/bounds/occupancy/collisions;
+noartificialfogreveal. Ordinaryplayer/AIbuildrulesunchanged. Nativebeaconsgiveown
+normalsight. campaign_trigger_building_visibility.cpp:7originalpads, ordinary
+fogreject/scriptcreate,remotefogunchanged,duplicate/voidreject, originalBWT2opening
+3beacons, save+48 exact PASS. Original-model600framefixture displaysmarker/world;
+usesgenericBWT1audio, NOTBWT2voicebank/victory. Fixtureheap29930056linear451584 /2MiB.
+
+All20ASanvictories/openings/menu/save48/17248/defeat PASS source2368. ARM11PASS.
+NativeFULL60776Z5completedjournal replayagainVICTORY final2368, screenshot
+campaign-trigger-vision-validation/native-zerg05-victory.png. Heap31768952linear
+123904 /4MiB. Fresh120kauditall64FINISHED:62usable no runtime rejection (26running,
+36originaldefeats),2unusedcutloadrejections;ASanstderr0. No newvictoryclaims for62.
+ReportCAMPAIGN_TRIGGER_VISIBILITY.md. EmulatorSTOPPED andconfig/profile/progress/
+allsaves/virtualexe byte-restored via /tmp/sc3ds-trigger-vision-emulator.py restore.
+Backupcampaign-trigger-vision-validation/emulator-before. PhysicalSDuntouched.
+Finalstaged/out2368; virtualexe old7000restored. No nativebuildrunning.
+LatestZIPcampaign-twenty-trigger-update-2026-10-29.zip99640775bytes SHA256
+177621b723437a81741c25fe38e8cc5e28a7b981aa55b37bbeeb689cf92d56c4
+147assets+T5/BWP2/T6/T7/Z5maps/audio. CRC/hashes/exe PASS, no profiles/progress/saves.
+Requirespriorfull15installation. Previous20source7625ZIPpreserved.
+
+BWT2privateordered-escort stillcaptures3thenlosespilotsatB; nomissionenabled.
+Oldbeacon-basedplayer was targeting enemiesnearanyfriendlybeacon evenonother
+platforms; filteronlyrealarmy fixedthatdrivererror, butstillneedsmedics/scouting/
+correctroute/safe pilots. Markersfix isseparateprovenproductbug. Notallmissionsdone.
+CurrentnewprivateZ6pilot /tmp/sc3ds-z6-challenge.cpp/log usesZ3paidMutaliskmacro,
+enemyowner1, preserveKerrigan51home, thenmoveheralone1904,2032 onceallProtossdead
+andobjectivescontainalone. Earliermacroclearsallandfields62army butdidnotknow
+challengepoint (Tassadar79onlyspawnsafterheroentry, sosearchingforhimcannotwork).
+OriginalZ6goal requiresclearregions4/5 thenheroentryloc1alone(loc6AnyUnit<=1),
+hallucinatedTassadarexpires/killed thenoriginalwin. Newpilotexec96064, checklog.
+No changesforZ6enabledyet. No moreautomationsauthorized. Continueordinaryuserturn.

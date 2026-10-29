@@ -2556,7 +2556,7 @@ struct state_functions {
 		return false;
 	}
 
-	bool can_place_building(const unit_t* u, int owner, const unit_type_t* unit_type, xy pos, bool check_undetected_units, bool check_invisible_tiles) const {
+	bool can_place_building(const unit_t* u, int owner, const unit_type_t* unit_type, xy pos, bool check_undetected_units, bool check_invisible_tiles, bool check_vision = true) const {
 		xy_t<size_t> tile_pos;
 		tile_pos.x = (pos.x - unit_type->placement_size.x / 2) / 32u;
 		tile_pos.y = (pos.y - unit_type->placement_size.y / 2) / 32u;
@@ -2576,11 +2576,11 @@ struct state_functions {
 			tile_size.x = gas_placement_size.x / 32u;
 			tile_size.y = gas_placement_size.y / 32u;
 
-			bool any_visible = false;
+			bool any_visible = !check_vision;
 			for (size_t y = tile_pos.y; y != tile_pos.y + tile_size.y; ++y) {
 				for (size_t x = tile_pos.x; x != tile_pos.x + tile_size.x; ++x) {
 					auto& tile = st.tiles[y * game_st.map_tile_width + x];
-					if (tile.explored & visibility_mask) return false;
+					if (check_vision && (tile.explored & visibility_mask)) return false;
 					if (!any_visible && (tile.visible & visibility_mask) == 0) any_visible = true;
 				}
 			}
@@ -2598,8 +2598,8 @@ struct state_functions {
 			for (size_t y = tile_pos.y; y != tile_pos.y + tile_size.y; ++y) {
 				for (size_t x = tile_pos.x; x != tile_pos.x + tile_size.x; ++x) {
 					auto& tile = st.tiles[y * game_st.map_tile_width + x];
-					if (tile.explored & visibility_mask) return false;
-					if (check_invisible_tiles || is_nydus_exit || ~tile.visible & visibility_mask) {
+					if (check_vision && (tile.explored & visibility_mask)) return false;
+					if (!check_vision || check_invisible_tiles || is_nydus_exit || ~tile.visible & visibility_mask) {
 						if (~tile.flags & tile_t::flag_has_creep) return false;
 					}
 				}
@@ -2613,8 +2613,8 @@ struct state_functions {
 			for (size_t y = tile_pos.y; y != tile_pos.y + tile_size.y; ++y) {
 				for (size_t x = tile_pos.x; x != tile_pos.x + tile_size.x; ++x) {
 					auto& tile = st.tiles[y * game_st.map_tile_width + x];
-					if (tile.explored & visibility_mask) return false;
-					if (tile.visible & visibility_mask || (tile.flags & flags_mask) == 0 || (check_unk4 && tile.flags & tile_t::flag_unk4)) {
+					if (check_vision && (tile.explored & visibility_mask)) return false;
+					if ((check_vision && (tile.visible & visibility_mask)) || (tile.flags & flags_mask) == 0 || (check_unk4 && tile.flags & tile_t::flag_unk4)) {
 						if (is_resource_depot) {
 							rect bb{xy(32 * ((int)x - 3), 32 * ((int)y - 3)), xy(32 * ((int)x + 4), 32 * ((int)y + 4))};
 							for (unit_t* n : find_units_noexpand(bb)) {
@@ -2629,7 +2629,7 @@ struct state_functions {
 		for (size_t y = tile_pos.y; y != tile_pos.y + tile_size.y; ++y) {
 			for (size_t x = tile_pos.x; x != tile_pos.x + tile_size.x; ++x) {
 				auto& tile = st.tiles[y * game_st.map_tile_width + x];
-				if (check_invisible_tiles || (tile.visible & visibility_mask) == 0) {
+				if (!check_vision || check_invisible_tiles || (tile.visible & visibility_mask) == 0) {
 					if (tile.flags & tile_t::flag_occupied) {
 						if (!u) return false;
 						if (!u_grounded_building(u)) return false;
@@ -19096,7 +19096,9 @@ struct state_functions {
 		if (ut_building(unit_type)) {
 			xy top_left = restrict_pos_to_map_bounds(pos - unit_type->placement_size / 2);
 			pos = top_left / 32 * 32 + unit_type->placement_size / 2;
-			if (!can_place_building(nullptr, owner, unit_type, pos, true, false)) {
+			// Scenario creation is independent of the recipient's exploration.
+			// Still validate actual terrain/occupancy, including unseen obstacles.
+			if (!can_place_building(nullptr, owner, unit_type, pos, true, false, false)) {
 				// todo: show error?
 				return nullptr;
 			}
