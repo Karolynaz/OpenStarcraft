@@ -13953,7 +13953,11 @@ struct state_functions {
 			}
 		}
 		bool damages_allies = !is_air_splash && b->weapon_type->hit_type != weapon_type_t::hit_type_enemy_splash;
-		for (unit_t* target : find_units(bb)) {
+		// Damage may kill a powerup carrier and reinsert its dropped item.
+		// Finish the finder search before applying any such side effects.
+		a_vector<unit_t*> splash_targets;
+		for (unit_t* target : find_units(bb)) splash_targets.push_back(target);
+		for (unit_t* target : splash_targets) {
 			if (target == b->bullet_owner_unit && b->weapon_type->id != WeaponTypes::Psionic_Storm) continue;
 			if (!damages_allies && target->owner == b->owner && target != b->bullet_target) continue;
 			if (!weapon_can_target_unit(b->weapon_type, target)) continue;

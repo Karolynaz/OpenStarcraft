@@ -1,0 +1,13 @@
+// Saturate the original bounded creep queue; no capacity increase or free cleanup.
+#include "bwgame.h"
+#include <cassert>
+#include <fstream>
+#include <cstdio>
+using namespace bwgame;
+static void init(game_player& p,const char* path){std::ifstream in(path,std::ios::binary);a_vector<uint8_t> map((std::istreambuf_iterator<char>(in)),{});game_load_functions loader(p.st());auto setup=[&]{loader.setup_info.create_no_units=true;for(auto& v:p.st().players){v.race=race_t::terran;v.controller=player_t::controller_occupied;}};loader.load_map_data(map.data(),map.size(),setup);
+ // Isolated flat arena: repeat one fully walkable/buildable owned tileset tile.
+ // This fixture geometry is never exported or substituted for a mission map.
+ unsigned tile=0;bool found=false;for(unsigned i=0;i<p.st().tiles.size();++i){auto flags=p.st().tiles[i].flags;if((flags&tile_t::flag_walkable) && !(flags&(tile_t::flag_partially_walkable|tile_t::flag_unbuildable))){tile=p.st().game->gfx_tiles[i].raw_value;found=true;break;}}assert(found);for(unsigned at=0;at+8<=map.size();){unsigned n=unsigned(map[at+4])|unsigned(map[at+5])<<8|unsigned(map[at+6])<<16|unsigned(map[at+7])<<24;if(!memcmp(map.data()+at,"MTXM",4))for(unsigned j=0;j<n;j+=2){map[at+8+j]=tile;map[at+9+j]=tile>>8;}at+=8+n;}loader.load_map_data(map.data(),map.size(),setup);p.st().game->triggers.clear();for(auto& t:p.st().running_triggers)t.clear();}
+static unit_t* create(state_functions& f,UnitTypes type,xy pos,unsigned owner=0){f.reveal_sight_at(pos,11,1u<<owner,true);auto* u=f.trigger_create_unit(f.get_unit_type(type),pos,owner);if(!u)fprintf(stderr,"create failed type%u pos%d,%d map%u,%u\n",unsigned(type),pos.x,pos.y,unsigned(f.st.game->map_width),unsigned(f.st.game->map_height));assert(u);return u;}
+
+int main(int argc,char**argv){assert(argc==3);auto assets=data_loading::data_files_directory(argv[1]);game_player p(assets);init(p,argv[2]);auto& f=p.funcs();auto* worker=create(f,UnitTypes::Terran_SCV,{600,600});auto* item=create(f,UnitTypes::Powerup_Psi_Emitter,{620,600});for(unsigned i=0;i<48 && !worker->worker.powerup;++i)f.next_frame();assert(worker->worker.powerup==item && f.us_hidden(item));auto* tank=create(f,UnitTypes::Terran_Siege_Tank_Siege_Mode,{900,600},1);f.set_unit_hp(worker,fp8::integer(1));auto* bullet=f.create_bullet(f.get_weapon_type(WeaponTypes::Arclite_Shock_Cannon),tank,worker->sprite->position,1,tank->heading);assert(bullet);bullet->bullet_target=worker;f.bullet_deal_splash_damage<false>(bullet);assert(f.unit_dying(worker));assert(!f.us_hidden(item));assert(!worker->worker.powerup);for(unsigned i=0;i<96;++i)f.next_frame();puts("Native siege splash kills Psi Emitter carrier, drops item without active finder mutation PASS");}

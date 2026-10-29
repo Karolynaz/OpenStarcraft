@@ -1549,3 +1549,20 @@ loss and exact save proofs. Do not reclassify unused cutT7/T10 as shippedmission
 This was the last authorized scheduled continuation. Do not create another
 follow-up automation. starcraft-kampanij-t-sinys-07-30 was deleted successfully.
 Code checkpoint:854b852 (this documentation follow-up records automation cleanup).
+
+## 2026-10-29 ordinary continuation: splash/carried-powerup crash fixed
+Source306433d01eb4c6ca /tmp/sc3ds-splash-engine.o. Snapshot splash targets before
+damage so killed worker can show/reinsert dropped campaign powerup. ActualT7
+stack bullet_deal_splash_damage->kill_unit->drop_carried_items->show_unit->finder
+insert exposed bug after26401; fixed driver reaches originaldefeat46235, NOTwin.
+Native SCV/PsiEmitter pickup+siegesplash death/drop+96framesASan fixture PASS.
+All18 victory regressions and18openings/save48/17248 PASS; ARM11PASS. Newsource
+not yet emutested/packaged; prior18ZIP remains releasedfallback. Report
+CAMPAIGN_SPLASH_POWERUP.md; privatelogs campaign-splash-validation. Nativebuild
+finished. Emulatornotrunning/noSD. Ordinary user reauthorized allmissionwork.
+CurrentprivateT7pilots /tmp/sc3ds-trump-card*.cpp/.log. Carrier UnitView field
+carried_powerup217; originalStarport+ControlTower links correct, but forwardbase
+losesaddon/buildingearly. Newdefendpilot gathersarmy1280,1040 toprotect it while
+mining andtrainingDropship; Kerrigan16moves416,1840. Previousnaivestrategies failed,
+not productbugs. Final original objective location1=3616,1568..3776,1696 requires
+PsiEmitter217; carrier can transport it. Needactualwin/loss/saveproof beforeadding.
