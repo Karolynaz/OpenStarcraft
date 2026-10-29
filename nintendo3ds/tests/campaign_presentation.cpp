@@ -22,5 +22,5 @@ int main(int argc,char**argv){using namespace port3ds;assert(argc==2);
   f.play=false;f.back();assert(f.dialog==Frontend::Dialog::none);
  }
  Frontend f;f.rich_briefing=true;f.dialog=Frontend::Dialog::briefing;f.briefing={"a","b"};f.briefing_times={4000,4000};f.briefing_groups={0,0};f.update_presentation(4,true);assert(f.briefing_page==1);f.update_presentation(4,true);assert(!f.briefing_done);f.update_presentation(.1,false);assert(f.briefing_done);
- puts("All 15 private presentations: story/scroll/objectives separation/timed dialogue/portrait metadata/replay/start/cancel PASS");
+ printf("All %u private presentations: story/scroll/objectives separation/timed dialogue/portrait metadata/replay/start/cancel PASS\n",campaign::count);
 }

@@ -8,7 +8,7 @@
 namespace port3ds { namespace detail {
 using namespace bwgame;
 class CampaignAI {
- struct Thread {unsigned pc=0,wake=0,owner=0;bool brood=false,active=false;xy center{};std::array<unsigned,16> calls{};unsigned depth=0;bool killable=false,kill_pending=false;};
+ struct Thread {unsigned pc=0,wake=0,owner=0;bool brood=false,active=false;xy center{};std::array<unsigned,16> calls{};unsigned depth=0;bool killable=false,kill_pending=false;rect area{};};
  struct Guard {bool active=false;unsigned owner=0,type=0,deaths=0;unit_id_32 unit{};xy position{};};
  struct Side {
   bool enabled=false,suicide=false,target_expansion=false;xy center{};unsigned search=0,build_frame=0;unit_id_32 builder{};
@@ -22,6 +22,7 @@ class CampaignAI {
  // the engine's original 5000-region limit; no per-tick allocation is needed.
  std::array<uint8_t,5000> defended_{};
  unsigned defending_owners_=0;
+ std::array<unsigned,1700> roaming_{};std::array<uint8_t,1700> roaming_owner_{};
  unsigned read(const a_vector<uint8_t>& b,unsigned at,unsigned n)const{if(at>b.size() || n>b.size()-at)throw std::runtime_error("Campaign AI bytecode bounds");unsigned v=0;for(unsigned i=0;i<n;++i)v|=unsigned(b[at+i])<<(i*8);return v;}
  unsigned entry(unsigned id,bool& expansion)const{
   const auto table=read(original_,0,4);for(unsigned at=table;at+16<=original_.size();at+=16){unsigned key=read(original_,at,4);if(!key)break;if(key==id){auto pc=read(original_,at+4,4);if(pc){expansion=false;return pc;}break;}}
@@ -125,7 +126,7 @@ class CampaignAI {
    else if(!completed && (f.unit_is_egg(u) || f.unit_is_morphing_building(u)) && !u->build_queue.empty() && unsigned(u->build_queue.front()->id)==type)n+=f.ut_two_units_in_one_egg(f.get_unit_type(UnitTypes(type)))?2:1;
   }return n;
  }
- Thread& launch(unsigned pc,unsigned owner,bool brood,xy center,unsigned frame){for(auto& child:threads_)if(!child.active){child={pc,frame,owner,brood,true,center};return child;}throw std::runtime_error("Campaign AI thread capacity");}
+ Thread& launch(unsigned pc,unsigned owner,bool brood,xy center,unsigned frame,rect area){for(auto& child:threads_)if(!child.active){child={pc,frame,owner,brood,true,center};child.area=area;return child;}throw std::runtime_error("Campaign AI thread capacity");}
  void interpret(state_functions& f,Thread& t){
   const auto& bytes=t.brood?brood_:original_;auto& side=sides_[t.owner];
   auto byte=[&](){return read(bytes,t.pc++,1);};auto word=[&](){unsigned v=read(bytes,t.pc,2);t.pc+=2;return v;};
@@ -158,7 +159,7 @@ class CampaignAI {
    case 62:{unsigned n=byte(),id=word();if(id>=228)throw std::runtime_error("Campaign AI force bounds");if(unit_count(f,t.owner,id,true)<n){side.desired[id]=std::max(side.desired[id],n);t.pc=instruction;t.wake=f.st.current_frame+24;return;}break;}
    case 64:{unsigned address=word();if(t.depth==t.calls.size())throw std::runtime_error("Campaign AI call depth");t.calls[t.depth++]=t.pc;t.pc=address;break;}
    case 65:if(!t.depth)throw std::runtime_error("Campaign AI return without call");t.pc=t.calls[--t.depth];break;
-   case 72:{unsigned address=word();launch(address,t.owner,t.brood,t.center,f.st.current_frame);break;}
+   case 72:{unsigned address=word();launch(address,t.owner,t.brood,t.center,f.st.current_frame,t.area);break;}
    case 75:{unsigned n=byte(),id=word();if(id>=228)throw std::runtime_error("Campaign AI maximum bounds");side.maximum[id]=n;break;}
    case 76:{unsigned n=byte(),id=word();if(id>=228)throw std::runtime_error("Campaign AI train bounds");side.desired[id]=std::max(side.desired[id],n);break;}
    case 77:side.target_expansion=true;break;
@@ -170,6 +171,10 @@ class CampaignAI {
    case 92:guard_regions(f,t.owner);break;
    case 102:side.nuke_due=f.st.current_frame+side.nuke_minutes*60u*24u;break;
    case 110:{guard_regions(f,t.owner);for(unsigned p=0;p<8;++p)if(p!=t.owner && sides_[p].enabled && !hostile(f,t.owner,p) && f.st.alliances[t.owner][p]){defending_owners_|=1u<<p;for(auto& region:defended_)if(region&(1u<<t.owner))region|=1u<<p;}break;}
+   case 47:for(auto* u:f.find_units(t.area))if(u->owner==t.owner && u->index<committed_.size())committed_[u->index]=0;break;
+   case 101:for(auto* u:f.find_units(t.area))if(u->owner==t.owner && !f.unit_dying(u) && !f.ut_turret(u) && f.unit_can_move(u) && !f.us_hidden(u) && u->index<roaming_.size()){
+    auto box=f.unit_inner_bounding_box(u,u->sprite->position);if(box.from.x>=t.area.from.x && box.from.y>=t.area.from.y && box.to.x<=t.area.to.x && box.to.y<=t.area.to.y){roaming_[u->index]=f.get_unit_id_32(u).raw_value;roaming_owner_[u->index]=t.owner;}
+   }break;
    case 107:create_nuke(f,t.owner);break;
    case 108:{unsigned type=word();xy position;position.x=word();position.y=word();if(type>=228 || position.x>=int(f.st.game->map_width) || position.y>=int(f.st.game->map_height))throw std::runtime_error("Campaign scenario creation bounds");f.trigger_create_unit(f.get_unit_type(UnitTypes(type)),position,t.owner);break;}
    case 103:spell_at(f,t.owner,t.center,UnitTypes::Protoss_Corsair,Orders::CastDisruptionWeb,TechTypes::Disruption_Web);break;
@@ -181,6 +186,14 @@ class CampaignAI {
    case 46:word();break; // Original force limits exceed our bounded unit request cap.
    default:throw std::runtime_error("Unsupported campaign AI opcode "+std::to_string(op));
    }
+  }
+ }
+ void wander(state_functions& f){
+  if(f.st.current_frame%96)return;action_state state;action_functions a(f.st,state);
+  for(unsigned i=0;i<roaming_.size();++i)if(roaming_[i]){
+   auto* u=f.get_unit(unit_id_32{roaming_[i]});if(!u || f.unit_dying(u) || u->owner!=roaming_owner_[i]){roaming_[i]=0;continue;}
+   if(f.us_hidden(u) || !f.u_completed(u) || f.unit_is_disabled(u) || !idle(u))continue;
+   for(unsigned attempt=0;attempt<8;++attempt){xy target{f.lcg_rand(29,32,int(f.st.game->map_width)-33),f.lcg_rand(29,32,int(f.st.game->map_height)-33)};if(!f.u_flying(u) && !f.is_reachable(u,target))continue;a.action_select(u->owner,u);if(a.action_order(u->owner,a.get_order_type(Orders::AttackMove),target,nullptr,nullptr,false))break;}
   }
  }
  void economy(state_functions& f,unsigned owner){
@@ -224,11 +237,11 @@ class CampaignAI {
  }
 public:
  template<class Load>void load(Load load){load(original_,"scripts/aiscript.bin");load(brood_,"scripts/bwscript.bin");if(original_.size()>128*1024 || brood_.size()>128*1024)throw std::runtime_error("Campaign AI script size");}
- void start(state_functions& f,unsigned id,unsigned owner,xy center){if(owner>=8)throw std::runtime_error("Campaign AI owner bounds");
+ void start(state_functions& f,unsigned id,unsigned owner,xy center,const rect* location=nullptr){if(owner>=8)throw std::runtime_error("Campaign AI owner bounds");
   if(id==0x63697553u){auto& s=sides_[owner];s.enabled=true;s.suicide=true;s.center=center;attack(f,owner,true);return;} // Suic
-  bool expansion=false;unsigned pc=entry(id,expansion);if(!pc)throw std::runtime_error("Missing original campaign AI script");auto& thread=launch(pc,owner,expansion,center,f.st.current_frame);interpret(f,thread);
+  bool expansion=false;unsigned pc=entry(id,expansion);if(!pc)throw std::runtime_error("Missing original campaign AI script");auto& thread=launch(pc,owner,expansion,center,f.st.current_frame,location?*location:rect{{0,0},{int(f.st.game->map_width),int(f.st.game->map_height)}});interpret(f,thread);
  }
- void step(state_functions& f){for(auto& t:threads_)if(t.active && f.st.current_frame>=t.wake)interpret(f,t);update_guards(f);defend(f);for(unsigned p=0;p<8;++p){nuclear(f,p);economy(f,p);}}
- template<class Add>void digest(Add add)const{add(defending_owners_);for(auto region:defended_)add(region);for(const auto& g:guards_){add(g.active);add(g.owner);add(g.type);add(g.deaths);add(g.unit.raw_value);add(g.position.x);add(g.position.y);}for(auto id:committed_)add(id);for(const auto& t:threads_){add(t.pc);add(t.wake);add(t.owner);add(t.brood);add(t.active);add(t.center.x);add(t.center.y);add(t.depth);for(auto pc:t.calls)add(pc);add(t.killable);add(t.kill_pending);}for(const auto& s:sides_){add(s.enabled);add(s.suicide);add(s.target_expansion);add(s.nuclear);add(s.nuke_minutes);add(s.nuke_due);add(s.spotter.raw_value);add(s.missile.raw_value);add(s.center.x);add(s.center.y);add(s.search);add(s.build_frame);add(s.builder.raw_value);for(auto n:s.maximum)add(n);for(auto n:s.desired)add(n);for(auto n:s.defense)add(n);for(auto n:s.attack)add(n);for(auto n:s.upgrades)add(n);for(auto n:s.tech)add(n);}}
+ void step(state_functions& f){for(auto& t:threads_)if(t.active && f.st.current_frame>=t.wake)interpret(f,t);update_guards(f);defend(f);wander(f);for(unsigned p=0;p<8;++p){nuclear(f,p);economy(f,p);}}
+ template<class Add>void digest(Add add)const{add(defending_owners_);for(auto region:defended_)add(region);for(const auto& g:guards_){add(g.active);add(g.owner);add(g.type);add(g.deaths);add(g.unit.raw_value);add(g.position.x);add(g.position.y);}for(auto id:committed_)add(id);for(unsigned i=0;i<roaming_.size();++i){add(roaming_[i]);add(roaming_owner_[i]);}for(const auto& t:threads_){add(t.pc);add(t.wake);add(t.owner);add(t.brood);add(t.active);add(t.center.x);add(t.center.y);add(t.depth);for(auto pc:t.calls)add(pc);add(t.killable);add(t.kill_pending);add(t.area.from.x);add(t.area.from.y);add(t.area.to.x);add(t.area.to.y);}for(const auto& s:sides_){add(s.enabled);add(s.suicide);add(s.target_expansion);add(s.nuclear);add(s.nuke_minutes);add(s.nuke_due);add(s.spotter.raw_value);add(s.missile.raw_value);add(s.center.x);add(s.center.y);add(s.search);add(s.build_frame);add(s.builder.raw_value);for(auto n:s.maximum)add(n);for(auto n:s.desired)add(n);for(auto n:s.defense)add(n);for(auto n:s.attack)add(n);for(auto n:s.upgrades)add(n);for(auto n:s.tech)add(n);}}
 };
 }}

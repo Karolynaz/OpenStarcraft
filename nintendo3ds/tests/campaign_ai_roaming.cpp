@@ -1,0 +1,25 @@
+// Synthetic states use owned DAT/iscript files; no game data is compiled in.
+// Real native training, orders, missile launch and damage exercise AI opcodes.
+#include "campaign_ai.h"
+#include <cassert>
+#include <fstream>
+#include <cstdio>
+#include <set>
+using namespace bwgame;using port3ds::detail::CampaignAI;
+static void put(a_vector<uint8_t>& b,unsigned at,unsigned v,unsigned n){for(unsigned i=0;i<n;++i)b.at(at+i)=v>>(i*8);}
+static void code(CampaignAI& ai,const a_vector<uint8_t>& instructions){a_vector<uint8_t> bank(36);put(bank,0,4,4);put(bank,4,0x54534554,4);put(bank,8,36,4);bank.insert(bank.end(),instructions.begin(),instructions.end());ai.load([&](a_vector<uint8_t>& out,const a_string& name){if(name=="scripts/aiscript.bin")out=bank;else{out.assign(12,0);put(out,0,4,4);}});}
+static void init(game_player& p,const char* path){std::ifstream in(path,std::ios::binary);a_vector<uint8_t> map((std::istreambuf_iterator<char>(in)),{});game_load_functions loader(p.st());auto setup=[&]{loader.setup_info.create_no_units=true;for(auto& v:p.st().players){v.race=race_t::terran;v.controller=player_t::controller_occupied;}};loader.load_map_data(map.data(),map.size(),setup);
+ // Isolated flat arena: repeat one fully walkable/buildable owned tileset tile.
+ // This fixture geometry is never exported or substituted for a mission map.
+ unsigned tile=0;bool found=false;for(unsigned i=0;i<p.st().tiles.size();++i){auto flags=p.st().tiles[i].flags;if((flags&tile_t::flag_walkable) && !(flags&(tile_t::flag_partially_walkable|tile_t::flag_unbuildable))){tile=p.st().game->gfx_tiles[i].raw_value;found=true;break;}}assert(found);for(unsigned at=0;at+8<=map.size();){unsigned n=unsigned(map[at+4])|unsigned(map[at+5])<<8|unsigned(map[at+6])<<16|unsigned(map[at+7])<<24;if(!memcmp(map.data()+at,"MTXM",4))for(unsigned j=0;j<n;j+=2){map[at+8+j]=tile;map[at+9+j]=tile>>8;}at+=8+n;}loader.load_map_data(map.data(),map.size(),setup);p.st().game->triggers.clear();for(auto& t:p.st().running_triggers)t.clear();}
+static unit_t* create(state_functions& f,UnitTypes type,xy pos,unsigned owner=0){f.reveal_sight_at(pos,11,1u<<owner,true);auto* u=f.trigger_create_unit(f.get_unit_type(type),pos,owner);if(!u)fprintf(stderr,"create failed type%u pos%d,%d map%u,%u\n",unsigned(type),pos.x,pos.y,unsigned(f.st.game->map_width),unsigned(f.st.game->map_height));assert(u);return u;}
+int main(int argc,char**argv){assert(argc==3);auto assets=data_loading::data_files_directory(argv[1]);
+ {game_player p(assets);init(p,argv[2]);auto& f=p.funcs();auto& st=p.st();auto* inside=create(f,UnitTypes::Terran_Marine,{500,500});auto* outside=create(f,UnitTypes::Terran_Marine,{1000,1000});create(f,UnitTypes::Terran_Command_Center,{1500,1500},1);CampaignAI ai;code(ai,{12,2,0,0,14,2,120,0,47,2,1,0,14,36});rect area{{400,400},{700,700}};ai.start(f,0x54534554,0,{550,550},&area);assert(inside->order_type->id==Orders::AttackMove && outside->order_type->id==Orders::AttackMove);f.set_unit_order(inside,f.get_order_type(Orders::PlayerGuard));f.set_unit_order(outside,f.get_order_type(Orders::PlayerGuard));st.current_frame=120;ai.step(f);st.current_frame=121;ai.step(f);assert(inside->order_type->id==Orders::AttackMove && outside->order_type->id==Orders::PlayerGuard);puts("clear_combatdata: only scoped own party members can rejoin next attack, outside members retained PASS");}
+ xy previous{};unsigned prior_digest=0;
+ for(unsigned pass=0;pass<2;++pass){game_player p(assets);init(p,argv[2]);auto& f=p.funcs();auto& st=p.st();st.alliances[0][1]=st.alliances[1][0]=2;auto* inside=create(f,UnitTypes::Terran_Marine,{500,500});auto* outside=create(f,UnitTypes::Terran_Marine,{900,900});auto* ally=create(f,UnitTypes::Terran_Marine,{550,550},1);auto* tiny=create(f,UnitTypes::Terran_Marine,{650,650});CampaignAI ai;code(ai,{72,40,0,36,101,36});rect area{{400,400},{600,600}};ai.start(f,0x54534554,0,{500,500},&area);for(unsigned n=0;n<96;++n){f.next_frame();ai.step(f);}assert(inside->order_type->id==Orders::AttackMove && outside->order_type->id!=Orders::AttackMove && ally->order_type->id!=Orders::AttackMove && tiny->order_type->id!=Orders::AttackMove);auto target=inside->order_target.pos;unsigned hash=2166136261u;ai.digest([&](unsigned v){hash=(hash^v)*16777619;});if(pass)assert(target==previous && hash==prior_digest);previous=target;prior_digest=hash;
+ auto before=inside->sprite->position;for(unsigned n=0;n<200;++n){f.next_frame();ai.step(f);}auto d=inside->sprite->position-before;assert(d.x*d.x+d.y*d.y>32*32);
+ f.trigger_give_unit_to(inside,1);f.set_unit_order(inside,f.get_order_type(Orders::PlayerGuard));for(unsigned n=0;n<100;++n){f.next_frame();ai.step(f);}assert(inside->order_type->id==Orders::PlayerGuard);
+ code(ai,{101,36});rect small{{650,650},{651,651}};ai.start(f,0x54534554,0,{650,650},&small);for(unsigned n=0;n<100;++n){f.next_frame();ai.step(f);}assert(tiny->order_type->id!=Orders::AttackMove);
+ }
+ puts("junkyard_dog: inherited location, native reachable wandering, collision-box containment, owner transfer cleanup and deterministic RNG/digest PASS");
+}

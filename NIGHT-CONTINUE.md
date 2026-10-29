@@ -1389,3 +1389,37 @@ starcraft-kampanij-t-sinys-07-30, one-shotCOUNT1 Oct29 Europe/Vilnius. Actualres
 one-shotafterrun; secondlastscheduled, noadditionalautoruns. Stopnearcurrentlimit
 94%used, notgoalcomplete. Next:111/101, realT5progression/victory, catalogue+asset
 closure expansion onlyafteroriginalmap/publiccontrolvictory+defeat/saveproof.
+
+
+## 2026-10-29 02:25 continuation: sixteen-mission verified checkpoint
+Finalsource77ee612af31c2ed4 (b641 backend, final280px dialogue inset only).
+AppendedSC T5Revolution scenario31: originalmap/MBRF/estt05/story/hero responses/
+17WAVs/animatedbrief/campaignprogress. Rootcause neutralparticipant3Force3 never
+scheduledRscu; triggerload now includesneutral7+occupied/computergame, excludes
+passiverescue3/inactive/closed. Overbroadincludepassive trial BROKE T4teleports,
+REJECTED; finalgatingrestoresT4win27129. NativeRescuePassive orders nowNeutralidle;
+CampaignRuntime doesproximityrescue. Neutralaggressioncallback usesboundedadapter
+withnativeattackorders, fixesBWP1 laterupstreamcomputerAIerror, win10765.
+AI47scoped clearcommitted and101bounded deterministicreachable wandering, original
+locationbounds inheritedchildthreads/digest. Arrays1700IDs+ownerbytes;36MiB/8MiB.
+Simulationstatechanged: removedoldUIcrossbuildaliases; older saves unavailable,
+metadata/files preserved. Existingcampaignprofile/progress compatible.
+All16original publiccontrol/paidvictoriesPASS onb641; final77eeT5win29112 heroesalive,
+16voices, exactcompletedreplay. FinalBW P1/Z1 completedreplay10765/13605PASS.
+All16defeatfixturesPASS; final16menu/story/brief/startup/active replay+48/17248PASS.
+ASan neutraldirect/Force/delayedcolony/closed-inactive-passiveexclusion/hostile
+retaliation+replay, scopedAI47/101 movement/owner/RNG, five slots PASS. Audio239
+WAVs2MiBbyteexactIO0/cleanunload,17T5WAVsindependentStormLibexact. NativeARM11PASS.
+Originalmodel final77eeT5story/animatedbrief/paddedframe/loading/live/pause/native
+Slot4save+loadPASS; heap31206248,linearfree25600 with96KiBtemporaryart. Emulator
+STOPPED/config/profile/progress/saves byte-restored; nophysicalSD.
+Overlay campaign-sixteen-update-2026-10-29.zip23700961bytes SHA256
+fa1833033b823fa9e327e158c80884df4f6158a83f0334680b9267c7e36546a9,119hashes/newT5assets/
+CRC/exact3DSXPASS. Stageexe current. ReportCAMPAIGN_SIXTEEN_VALIDATION.md; private
+rawlogs/receipts/emubackups inlocal-data/campaign-sixteen-validation. Hostfinalobj
+/tmp/sc3ds-sixteen-final-engine.o. PythonPillow bundledruntime path fromdependencies,
+plainpython3 lacksPIL. Toolsverify/package now catalogue-driven; originalesttexts
+cp1252decode. Furthergoalincomplete:111allies_watch BWZ6, newlatermissiontests.
+Fresh6000audit61/64runtime no-rejection, notwins; unusedcutT7/T10stillreject;
+longerauditnew101 onBWT8pending. Existing07:30one-shot stillcorrectreset07:25:27;
+delete02:25one-shotwhenendingthisturn, noextrascheduledcontinuationsauthorized.

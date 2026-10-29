@@ -35,8 +35,8 @@ inline void draw_campaign_top(const Frontend& f,BriefingArt& art,C2D_TextBuf tex
  C2D_DrawRectSolid(0,0,0,400,240,C2D_Color32(0,0,0,51));
  C2D_DrawRectSolid(12,18,0,376,206,C2D_Color32(4,8,14,215));
  art.frame();
- if(loading){ui_text(text,"Mission objectives",200,42,.64f,white,true);ui_limited(text,f.objectives.c_str(),48,73,.65f,304,7,white);}
- else if(f.briefing_done)ui_centered(text,"Press (Y) to replay briefing",{40,42,320,158},.62f,green);
+ if(loading){ui_text(text,"Mission objectives",188,42,.64f,white,true);ui_limited(text,f.objectives.c_str(),48,73,.65f,Frontend::briefing_width,7,white);}
+ else if(f.briefing_done)ui_centered(text,"Press (Y) to replay briefing",{48,42,280,158},.62f,green);
  else if(f.briefing_page<f.briefing.size())ui_limited(text,f.briefing[f.briefing_page].c_str(),48,42,Frontend::briefing_font,Frontend::briefing_width,Frontend::briefing_rows,white);
 }
 inline void draw_campaign_bottom(const Frontend& f,BriefingArt& art,UiArt& menu,C2D_TextBuf text,MenuAnimation& animation,unsigned tick){

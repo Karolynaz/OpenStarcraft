@@ -24,7 +24,7 @@ struct Frontend {
  std::vector<std::string> briefing;std::vector<unsigned> briefing_voices;unsigned briefing_page=0;bool briefing_paginated=false;
  // Shared by pagination and drawing: top-screen text must never be clipped
  // using the old, smaller bottom-screen paragraph dimensions.
- static constexpr float briefing_font=.65f,briefing_width=304.f;
+ static constexpr float briefing_font=.65f,briefing_width=280.f;
  static constexpr unsigned briefing_rows=8;
  std::string story,location,objectives;std::vector<std::string> story_lines;
  std::vector<unsigned> briefing_portraits,briefing_times,briefing_groups,briefing_slots;

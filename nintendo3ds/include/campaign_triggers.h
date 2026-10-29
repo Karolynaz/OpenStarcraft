@@ -15,6 +15,16 @@ bool test_trigger_condition(const trigger::condition& c,int owner)const override
 void on_combat_kill(unit_t* victim,int killer_owner)override{
  if(campaign.active && killer_owner>=0 && killer_owner<12 && unsigned(victim->unit_type->id)<228)++campaign.kills[killer_owner][unsigned(victim->unit_type->id)];
 }
+bool on_neutral_aggression(unit_t* unit,unit_t* target)override{
+ if(!campaign.active || unit->owner>=8)return false;
+ // The bounded campaign adapter owns AI dispatch, including provoked neutral
+ // participants. Native targeting, damage and acquisition still do the fighting.
+ st.players[unit->owner].controller=player_t::controller_occupied;
+ set_unit_order(unit,unit->unit_type->human_ai_idle);
+ action_state state;action_functions commands(st,state);commands.action_select(unit->owner,unit);
+ commands.action_order(unit->owner,get_order_type(Orders::AttackDefault),target->sprite->position,target,nullptr,false);
+ return true;
+}
 void on_kill_unit(unit_t* u)override{
  if(!campaign.active || campaign.suppress_deaths || ut_turret(u) || u->owner>=12 || unsigned(u->unit_type->id)>=228 || u->index>=1700)return;
  unsigned id=get_unit_id_32(u).raw_value;if(campaign.death_ids[u->index]==id)return;campaign.death_ids[u->index]=id;++campaign.deaths[u->owner][unsigned(u->unit_type->id)];
@@ -28,7 +38,7 @@ bool campaign_action(execute_trigger_struct& ets,int owner,running_trigger& rt,r
  auto arithmetic=[](int& value,unsigned amount,unsigned op){if(op==7)value=int(amount);else if(op==8)value+=int(amount);else if(op==9)value=std::max(0,value-int(amount));};
  auto location=[&](unsigned id)->const bwgame::location&{if(!id || id>st.locations.size())throw std::runtime_error("Campaign action location bounds");return st.locations[id-1];};
  switch(a.type){
- case 15:case 16:{xy center=st.game->start_locations[owner];if(a.type==16){const auto& l=location(a.location);center=(l.area.from+l.area.to)/2;}campaign_ai.start(*this,unsigned(a.group2_n),unsigned(owner),center);return true;}
+ case 15:case 16:{xy center=st.game->start_locations[owner];const rect* area=nullptr;if(a.type==16){const auto& l=location(a.location);center=(l.area.from+l.area.to)/2;area=&l.area;}campaign_ai.start(*this,unsigned(a.group2_n),unsigned(owner),center,area);return true;}
  case 41:if(a.string_index<=0 || unsigned(a.string_index)>st.game->map_strings.size())throw std::runtime_error("Campaign next scenario string bounds");campaign.next_scenario=unsigned(a.string_index);return true;
  case 14:campaign.timer(unsigned(a.time_n),a.num_n);return true;
  case 54:campaign.countdown_paused=true;return true;

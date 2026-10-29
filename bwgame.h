@@ -337,6 +337,7 @@ struct state_functions {
 	virtual void on_unit_destroy(unit_t* u) {}
 	virtual void on_kill_unit(unit_t* u) {}
 	virtual void on_combat_kill(unit_t* victim, int killer_owner) {}
+	virtual bool on_neutral_aggression(unit_t* unit, unit_t* target) { return false; }
 
 	virtual void on_player_eliminated(int owner) {}
 	virtual void on_victory_state(int owner, int state) {}
@@ -7746,9 +7747,10 @@ struct state_functions {
 		if (target) {
 			u->auto_target_unit = nullptr;
 			if (!us_hidden(target) && !unit_target_is_undetected(u, target) && target->owner != u->owner) {
-				st.players[u->owner].controller = player_t::controller_computer_game;
 				st.alliances[u->owner][target->owner] = 0;
 				st.alliances[target->owner][u->owner] = 0;
+				if (on_neutral_aggression(u, target)) return;
+				st.players[u->owner].controller = player_t::controller_computer_game;
 				error("a neutral unit attacked something. this triggers computer player behavior which is not supported yet :(");
 			}
 		}
@@ -8229,7 +8231,9 @@ struct state_functions {
 			error("GuardPost");
 			break;
 		case Orders::RescuePassive:
-			error("RescuePassive");
+			// Proximity rescue is handled by the campaign adapter; wait here
+			// like initially placed rescuable units.
+			set_unit_order(u, get_order_type(Orders::Neutral));
 			break;
 		case Orders::Neutral:
 			order_Neutral(u);
@@ -12770,7 +12774,7 @@ struct state_functions {
 			error("hidden ComputerAI");
 			break;
 		case Orders::RescuePassive:
-			error("hidden RescuePassive");
+			set_unit_order(u, get_order_type(Orders::Neutral));
 			break;
 		default:
 			break;
@@ -21948,7 +21952,10 @@ struct game_load_functions : state_functions {
 			}
 			for (auto& t : game_st.triggers) {
 				for (int i = 0; i != 8; ++i) {
-					if (st.players[i].controller != player_t::controller_occupied) continue;
+					// Neutral campaign participants may run the script that later
+					// makes them rescuable. Passive rescue slots do not run triggers.
+					const auto controller = st.players[i].controller;
+					if (controller != player_t::controller_occupied && controller != player_t::controller_computer_game && controller != player_t::controller_neutral) continue;
 					if (!t.enabled[i] && !t.enabled.at(17 + st.players[i].force) && !t.enabled[17]) continue;
 					st.running_triggers[i].emplace_back();
 					auto& rt = st.running_triggers[i].back();

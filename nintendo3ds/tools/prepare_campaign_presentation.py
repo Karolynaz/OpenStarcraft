@@ -32,12 +32,13 @@ def bank(path,items,side=512,height=256,positions=None):
 def owned(name):return raw/name.lower().replace('\\','_').replace('/','_')
 def pages(name):
  result=[]
- for page in owned(name).read_text().split('</PAGE>'):
+ for page in owned(name).read_text(encoding='cp1252').split('</PAGE>'):
   bg=re.search(r'</BACKGROUND\s+([^>]+)>',page,re.I)
   if not bg:continue
   text=re.sub(r'</[^>]*>','',page).strip();result.append((bg[1],text))
  return result
 summaries={
+ 'terran05':'The Sons of Korhal turn to Antiga Prime, where colonists are ready to rise against Confederate rule. Join Sarah Kerrigan, help the rebels take control, and protect their new foothold while Confederate forces close in.',
  'terran02':'Raynor has helped your colonists survive the journey. A nearby outpost has fallen silent as the alien infestation spreads. Investigate Backwater Station and bring its surviving defenders home.',
  'terran03':'The infestation on Mar Sara is spreading beyond the Confederacy\'s control. Your colonists need to evacuate. Hold your position until the rescue transports arrive.',
  'terran04':'After leaving Mar Sara, Raynor and the Sons of Korhal need answers about the Confederacy\'s involvement with the Zerg. Infiltrate the Jacobs Installation and recover the data held inside.',
