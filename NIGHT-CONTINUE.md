@@ -1445,3 +1445,29 @@ shouldsetswitch8 tospawnnextcrew; pilotcurrentlywaitswhennoCivilian. Original4gr
 3/4/5/6ships (18total); noBWT2catalogue/shippeddatauntilactualwin/replayproof.
 Temporarydiagnosticengine /tmp/sc3ds-bwt2-diagnostic-engine.cpp expandsheaderlocally
 withscore/switchlogging only, no committedproductchange. Continuefromevidence.
+
+Laterdiagnostic correction: BWT2'ssectortransitionIS working, nottriggerblocked.
+/tmp/sc3ds-bwt2-diagnostic.log: capture scoresenemy6=3 at1357; switch8sameframe;
+nextcrew4civilians/3Ghosts createdat1388. Pilotmovesallcivilians throughfire; by2161
+allciviliansandGhostsdead, sector2skippedwith0captures andnextscript waits. DoNOT
+"fix" triggertimingtohidebadteststrategy. Pilot4 hold/escorttrialalso flawed: its
+waypointskipleftfirstsectorwith2ships. Pilot5 removesskipandholdscrew2civilians
+untilmilitaryarrives, cloakattempts forGhosts, stillstalls3ships/90000; notvictory.
+Need realGhost/Medicstealth/escortstrategy, inspectoriginalunitproperties/terrain.
+Privatecopiesofpilot2-5/diagnosticcpp/logs savedcampaign-seventeen-validation.
+LongoriginalBWT8runtimeauditwithnew101 reachesoriginaloutcome25969/706units
+withoutrejection; nofullwinclaim. Broad64*36000 auditrunning/tmp/sc3ds-seventeen-
+all-long-audit.log using17hostobj, shouldcollectbeforeending. No sourceedits.
+
+Finalpost-checkpointtests: all17paid/publiccontrolvictorydrivers freshlyrebuilt
+against25f9hostengine and rerunASanPASS, privatepermissionlogs/regressions.json
+campaign-seventeen-validation; nofailures. Broad64originalnormalizedrecords up to
+36000ticks/originaloutcome:61withoutrejection; expzerg06opcode111at1522; unusedcut
+terran07/terran10parseerrors. Privateall-long-runtime.csv/summary.json saved.
+BWT2pilot6-7still3captures, noproductchange, copiedprivately. NoteCloakoption is
+TOGGLE, mustnotperformeach240frames; pilot7avoidsrepeatbutstrategyremainsunsolved.
+Report17updated. EmulatorstatusRunningFalse; config/profile/progress/savesrestored.
+Quota87% at03:55, reset07:25:29Vilnius; scheduled07:30isappropriate. Endingwith
+verified17package/commits; next07:30shouldreadthissectionandnotredo17regressions.
+Nextpriority111boundedresource-area/townexpansion orsmartBWT2Ghost/Medicescort,
+thenmoreoriginalmissionvictory/catalogue/assetclosure. AllcampaigngoalINCOMPLETE.

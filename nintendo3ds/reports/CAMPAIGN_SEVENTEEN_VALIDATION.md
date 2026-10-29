@@ -22,8 +22,8 @@ these use temporary absent actors, not shipped map changes. All17 presentation
 state/cast/page/replay/start/cancel tests PASS. All257 original dialogue WAVs
 pass byte-exact bounded2MiB mixer playback, IO0 and clean unload. The18 new WAVs
 also independently match original BroodWar.mpq extraction through StormLib.
-The previous16 victory drivers were verified at the preceding checkpoint; they
-are not represented as rerun after this catalogue-only addition.
+Final source25f9: all17 public-control/paid original victory drivers were rerun
+under ASan and passed; raw per-mission logs and regressions.json are retained.
 
 Original-model emulator: real campaign progress opens Dunes of Shakuras, original
 story/animated briefing/race frame fit, Start/objectives/loading, active world,
@@ -45,4 +45,10 @@ Earlier source-incompatible saves remain unavailable as explained in the16 repor
 All campaigns are not yet verified. BW Terran2 remains an unpublished pilot:
 three captured ships so far; sector transitions still under investigation.
 BW Zerg6 AI111/resource-area expansion and remaining later-mission playthroughs
-are outstanding. The64-record load/short-run audit is not a victory audit.
+are outstanding. The final64-record runtime audit runs each map up to36000 ticks or an original
+outcome:61 have no runtime rejection; BW Zerg6 rejects opcode111 at1522, and two
+unused/cut Terran records fail parsing. This uncontrolled audit is not a victory
+audit. BWT8 reaches an original outcome at25969 without its former opcode101
+rejection. Shipyards diagnostic logging confirms the second crew is created;
+the pilot sends civilians into enemy fire. No product trigger workaround was
+added for that test strategy failure.
