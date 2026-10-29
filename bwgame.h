@@ -177,6 +177,8 @@ struct game_state {
 	std::array<type_indexed_array<bool, TechTypes>, 12> tech_available;
 
 	std::array<xy, 12> start_locations;
+	std::array<uint8_t,12> start_location_order{};
+	unsigned start_location_count=0;
 
 	int max_unit_width;
 	int max_unit_height;
@@ -12952,8 +12954,13 @@ struct state_functions {
 				u->sprite = nullptr;
 			}
 		}
-		if (u_status_flag(u, (unit_t::status_flags_t)0x4000)) {
-			error("update_dead_unit: fixme some creep stuff?");
+		if (u_status_flag(u, unit_t::status_flag_4000)) {
+			// The bounded creep recession queue can fill during mass building
+			// deaths. Retain the provider's position until its remaining tiles
+			// can be queued; never recycle this unit while cleanup is pending.
+			if (st.creep_life.free_list_size && remove_creep_provider(u))
+				u_unset_status_flag(u, unit_t::status_flag_4000);
+			if (u_status_flag(u, unit_t::status_flag_4000) && !u->sprite) return;
 		}
 		if (u->sprite) {
 			if (update_tiles && st.players[u->owner].controller == player_t::controller_occupied) {
@@ -21384,6 +21391,7 @@ struct game_load_functions : state_functions {
 	}
 
 	void load_map_data(uint8_t* data, size_t data_size, std::function<void()> setup_f = {}, bool initial_processing = true) {
+		game_st.start_location_count=0;
 
 		using data_loading::data_reader_le;
 
@@ -21778,6 +21786,8 @@ struct game_load_functions : state_functions {
 
 				if (unit_type->id == UnitTypes::Special_Start_Location) {
 					game_st.start_locations[owner] = { x, y };
+					auto first=game_st.start_location_order.begin(),last=first+game_st.start_location_count;
+					if(std::find(first,last,uint8_t(owner))==last)game_st.start_location_order[game_st.start_location_count++]=uint8_t(owner);
 					// todo: some callback to set initial screen position?
 					continue;
 				}

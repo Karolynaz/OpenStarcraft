@@ -127,6 +127,7 @@ class CampaignAI {
   }return n;
  }
  Thread& launch(unsigned pc,unsigned owner,bool brood,xy center,unsigned frame,rect area){for(auto& child:threads_)if(!child.active){child={pc,frame,owner,brood,true,center};child.area=area;return child;}throw std::runtime_error("Campaign AI thread capacity");}
+ #include "campaign_expansion.h"
  void interpret(state_functions& f,Thread& t){
   const auto& bytes=t.brood?brood_:original_;auto& side=sides_[t.owner];
   auto byte=[&](){return read(bytes,t.pc++,1);};auto word=[&](){unsigned v=read(bytes,t.pc,2);t.pc+=2;return v;};
@@ -135,7 +136,7 @@ class CampaignAI {
    case 0:t.pc=word();break;
    case 1:case 106:{unsigned id=word(),address=word();if(id>=228)throw std::runtime_error("Campaign AI ownership bounds");const bool owns=unit_count(f,t.owner,id,false)!=0;if(owns==(op==106))t.pc=address;break;}
    case 2:t.wake=f.st.current_frame+std::max(1u,word());return;
-   case 3:case 4:side.enabled=true;side.center=t.center;break;
+   case 3:case 4:register_town(t.owner,t.center);side.enabled=true;side.center=t.center;break;
    case 6:{unsigned n=byte(),id=word();byte();if(id>=228)throw std::runtime_error("Campaign AI build bounds");side.desired[id]=std::max(side.desired[id],n);break;}
    case 7:{unsigned level=byte(),id=word();byte();if(id>=61)throw std::runtime_error("Campaign AI upgrade bounds");side.upgrades[id]=std::max(side.upgrades[id],level);break;}
    case 8:{unsigned id=word();byte();if(id>=44)throw std::runtime_error("Campaign AI research bounds");side.tech[id]=true;break;}
@@ -170,6 +171,9 @@ class CampaignAI {
    case 45:side.nuclear=true;side.nuke_minutes=byte();side.nuke_due=f.st.current_frame+side.nuke_minutes*60u*24u;break;
    case 92:guard_regions(f,t.owner);break;
    case 102:side.nuke_due=f.st.current_frame+side.nuke_minutes*60u*24u;break;
+   case 17:{unsigned n=byte(),address=word();request_nearest_expansion(f,t,n,address);break;}
+   case 112:{unsigned n=byte(),address=word();if(town_count(f,t.owner)<n)t.pc=address;break;}
+   case 111:{unsigned area=byte(),address=word();request_expansion(f,t,area,address);break;}
    case 110:{guard_regions(f,t.owner);for(unsigned p=0;p<8;++p)if(p!=t.owner && sides_[p].enabled && !hostile(f,t.owner,p) && f.st.alliances[t.owner][p]){defending_owners_|=1u<<p;for(auto& region:defended_)if(region&(1u<<t.owner))region|=1u<<p;}break;}
    case 47:for(auto* u:f.find_units(t.area))if(u->owner==t.owner && u->index<committed_.size())committed_[u->index]=0;break;
    case 101:for(auto* u:f.find_units(t.area))if(u->owner==t.owner && !f.unit_dying(u) && !f.ut_turret(u) && f.unit_can_move(u) && !f.us_hidden(u) && u->index<roaming_.size()){
@@ -208,7 +212,7 @@ class CampaignAI {
    if(f.u_completed(u)){if(f.unit_is(u,worker))workers.push_back(u);else if((f.ut_building(u) || f.unit_is(u,UnitTypes::Zerg_Larva)) && parents.size()<128)parents.push_back(u);if(f.unit_is(u,gas))refinery=u;}}
   auto* builder=f.get_unit(side.builder);if(builder && (f.unit_dying(builder) || f.ut_building(builder) || (st.current_frame>side.build_frame+96 && builder->order_type->id!=Orders::PlaceBuilding && builder->order_type->id!=Orders::PlaceProtossBuilding && builder->order_type->id!=Orders::DroneStartBuild && builder->order_type->id!=Orders::ConstructingBuilding && builder->order_type->id!=Orders::DroneLand))){side.builder={};builder=nullptr;}
   unsigned gas_workers=0;for(auto* w:workers){auto o=w->order_type->id;if(o==Orders::HarvestGas || o==Orders::ReturnGas || o==Orders::MoveToGas || o==Orders::WaitForGas)++gas_workers;}
-  for(auto* w:workers)if(w!=builder && !f.us_hidden(w) && idle(w)){
+  for(auto* w:workers)if(w!=builder && !expansion_worker(f.get_unit_id_32(w)) && !f.us_hidden(w) && idle(w)){
    unit_t* target=nullptr;if(refinery && gas_workers<(workers.size()>7?3u:1u)){target=refinery;++gas_workers;}else {int distance=0x7fffffff;for(auto* m:ptr(st.visible_units))if(f.unit_is_mineral_field(m) && !f.unit_dying(m) && f.is_reachable(w,m)){auto d=m->sprite->position-w->sprite->position;int n=d.x*d.x+d.y*d.y;if(n<distance){distance=n;target=m;}}}
    if(target){a.action_select(owner,w);a.action_default_order(owner,target->sprite->position,target,nullptr,false);}
   }
@@ -225,7 +229,7 @@ class CampaignAI {
    auto* type=f.get_unit_type(UnitTypes(id));if(!f.has_available_resources_for(owner,type))continue;
    if(f.ut_building(type) && !f.ut_addon(type)){
     bool morph=false;for(auto* parent:parents)if(z && f.unit_can_build(parent,type)){a.action_select(owner,parent);if(a.action_morph_building(owner,type)){morph=true;break;}}if(morph)break;
-    if(builder)continue;unit_t* w=nullptr;for(auto* candidate:workers)if(f.unit_can_build(candidate,type) && !f.us_hidden(candidate)){w=candidate;break;}if(!w)continue;
+    if(builder)continue;unit_t* w=nullptr;for(auto* candidate:workers)if(!expansion_worker(f.get_unit_id_32(candidate)) && f.unit_can_build(candidate,type) && !f.us_hidden(candidate)){w=candidate;break;}if(!w)continue;
     auto place=[&](xy pos){if(pos.x<type->placement_size.x/2 || pos.y<type->placement_size.y/2 || pos.x>=int(st.game->map_width) || pos.y>=int(st.game->map_height))return false;auto tile=(pos-type->placement_size/2)/32;pos=tile*32+type->placement_size/2;if(!f.can_place_building(w,owner,type,pos,true,true))return false;a.action_select(owner,w);auto order=z?Orders::DroneStartBuild:p?Orders::PlaceProtossBuilding:Orders::PlaceBuilding;if(!a.action_build(owner,a.get_order_type(order),type,{size_t(tile.x),size_t(tile.y)}))return false;side.builder=f.get_unit_id_32(w);side.build_frame=st.current_frame;return true;};
     bool built=false;if(UnitTypes(id)==gas){for(auto* g:ptr(st.visible_units))if(f.unit_is(g,UnitTypes::Resource_Vespene_Geyser)){auto d=g->sprite->position-side.center;if(d.x*d.x+d.y*d.y<600*600 && place(g->sprite->position)){built=true;break;}}}else for(unsigned j=0;j<12;++j){if(side.search>=640)side.search=0;if(place(side.center+spiral(side.search++)*32)){built=true;break;}}if(built)break;
    }else for(auto* parent:parents)if(parent->build_queue.empty() && f.unit_can_build(parent,type)){a.action_select(owner,parent);bool ok=false;if(f.ut_addon(type)){auto pos=parent->sprite->position-parent->unit_type->placement_size/2+type->addon_position+type->placement_size/2;if(f.can_place_building(parent,owner,type,pos,true,true)){f.place_building(parent,a.get_order_type(Orders::PlaceAddon),type,parent->sprite->position);ok=true;}}else ok=z?a.action_morph(owner,type):a.action_train(owner,type);if(ok){++counts[id];break;}}
@@ -237,11 +241,11 @@ class CampaignAI {
  }
 public:
  template<class Load>void load(Load load){load(original_,"scripts/aiscript.bin");load(brood_,"scripts/bwscript.bin");if(original_.size()>128*1024 || brood_.size()>128*1024)throw std::runtime_error("Campaign AI script size");}
- void start(state_functions& f,unsigned id,unsigned owner,xy center,const rect* location=nullptr){if(owner>=8)throw std::runtime_error("Campaign AI owner bounds");
+ void start(state_functions& f,unsigned id,unsigned owner,xy center,const rect* location=nullptr){if(owner>=8)throw std::runtime_error("Campaign AI owner bounds");init_sites(f);
   if(id==0x63697553u){auto& s=sides_[owner];s.enabled=true;s.suicide=true;s.center=center;attack(f,owner,true);return;} // Suic
   bool expansion=false;unsigned pc=entry(id,expansion);if(!pc)throw std::runtime_error("Missing original campaign AI script");auto& thread=launch(pc,owner,expansion,center,f.st.current_frame,location?*location:rect{{0,0},{int(f.st.game->map_width),int(f.st.game->map_height)}});interpret(f,thread);
  }
- void step(state_functions& f){for(auto& t:threads_)if(t.active && f.st.current_frame>=t.wake)interpret(f,t);update_guards(f);defend(f);wander(f);for(unsigned p=0;p<8;++p){nuclear(f,p);economy(f,p);}}
- template<class Add>void digest(Add add)const{add(defending_owners_);for(auto region:defended_)add(region);for(const auto& g:guards_){add(g.active);add(g.owner);add(g.type);add(g.deaths);add(g.unit.raw_value);add(g.position.x);add(g.position.y);}for(auto id:committed_)add(id);for(unsigned i=0;i<roaming_.size();++i){add(roaming_[i]);add(roaming_owner_[i]);}for(const auto& t:threads_){add(t.pc);add(t.wake);add(t.owner);add(t.brood);add(t.active);add(t.center.x);add(t.center.y);add(t.depth);for(auto pc:t.calls)add(pc);add(t.killable);add(t.kill_pending);add(t.area.from.x);add(t.area.from.y);add(t.area.to.x);add(t.area.to.y);}for(const auto& s:sides_){add(s.enabled);add(s.suicide);add(s.target_expansion);add(s.nuclear);add(s.nuke_minutes);add(s.nuke_due);add(s.spotter.raw_value);add(s.missile.raw_value);add(s.center.x);add(s.center.y);add(s.search);add(s.build_frame);add(s.builder.raw_value);for(auto n:s.maximum)add(n);for(auto n:s.desired)add(n);for(auto n:s.defense)add(n);for(auto n:s.attack)add(n);for(auto n:s.upgrades)add(n);for(auto n:s.tech)add(n);}}
+ void step(state_functions& f){for(auto& t:threads_)if(t.active && f.st.current_frame>=t.wake)interpret(f,t);update_expansions(f);update_guards(f);defend(f);wander(f);for(unsigned p=0;p<8;++p){nuclear(f,p);economy(f,p);}}
+ template<class Add>void digest(Add add)const{for(const auto& t:towns_){add(t.active);add(t.owner);add(t.center.x);add(t.center.y);}add(sites_ready_);add(site_count_);for(unsigned i=1;i<=site_count_;++i){add(sites_[i].center.x);add(sites_[i].center.y);}for(const auto& e:expansions_){add(e.active);add(e.brood);add(e.owner);add(e.site);add(e.pc);add(e.search);add(e.position.x);add(e.position.y);add(e.located);add(e.worker.raw_value);add(e.depot.raw_value);}add(defending_owners_);for(auto region:defended_)add(region);for(const auto& g:guards_){add(g.active);add(g.owner);add(g.type);add(g.deaths);add(g.unit.raw_value);add(g.position.x);add(g.position.y);}for(auto id:committed_)add(id);for(unsigned i=0;i<roaming_.size();++i){add(roaming_[i]);add(roaming_owner_[i]);}for(const auto& t:threads_){add(t.pc);add(t.wake);add(t.owner);add(t.brood);add(t.active);add(t.center.x);add(t.center.y);add(t.depth);for(auto pc:t.calls)add(pc);add(t.killable);add(t.kill_pending);add(t.area.from.x);add(t.area.from.y);add(t.area.to.x);add(t.area.to.y);}for(const auto& s:sides_){add(s.enabled);add(s.suicide);add(s.target_expansion);add(s.nuclear);add(s.nuke_minutes);add(s.nuke_due);add(s.spotter.raw_value);add(s.missile.raw_value);add(s.center.x);add(s.center.y);add(s.search);add(s.build_frame);add(s.builder.raw_value);for(auto n:s.maximum)add(n);for(auto n:s.desired)add(n);for(auto n:s.defense)add(n);for(auto n:s.attack)add(n);for(auto n:s.upgrades)add(n);for(auto n:s.tech)add(n);}}
 };
 }}

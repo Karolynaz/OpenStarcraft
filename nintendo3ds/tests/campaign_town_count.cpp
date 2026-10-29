@@ -1,0 +1,16 @@
+#include "campaign_ai.h"
+#include <cassert>
+#include <fstream>
+#include <cstdio>
+using namespace bwgame;using port3ds::detail::CampaignAI;
+static void put(a_vector<uint8_t>& b,unsigned at,unsigned v,unsigned n){for(unsigned i=0;i<n;++i)b.at(at+i)=v>>(i*8);}
+static void code(CampaignAI& ai,const a_vector<uint8_t>& instructions){a_vector<uint8_t> bank(36);put(bank,0,4,4);put(bank,4,0x54534554,4);put(bank,8,36,4);bank.insert(bank.end(),instructions.begin(),instructions.end());ai.load([&](a_vector<uint8_t>& out,const a_string& name){if(name=="scripts/aiscript.bin")out=bank;else{out.assign(12,0);put(out,0,4,4);}});}
+static void init(game_player& p,const char* path){std::ifstream in(path,std::ios::binary);a_vector<uint8_t> map((std::istreambuf_iterator<char>(in)),{});game_load_functions loader(p.st());auto setup=[&]{loader.setup_info.create_no_units=true;for(auto& v:p.st().players){v.race=race_t::terran;v.controller=player_t::controller_occupied;}};loader.load_map_data(map.data(),map.size(),setup);
+ // Isolated flat arena: repeat one fully walkable/buildable owned tileset tile.
+ // This fixture geometry is never exported or substituted for a mission map.
+ unsigned tile=0;bool found=false;for(unsigned i=0;i<p.st().tiles.size();++i){auto flags=p.st().tiles[i].flags;if((flags&tile_t::flag_walkable) && !(flags&(tile_t::flag_partially_walkable|tile_t::flag_unbuildable))){tile=p.st().game->gfx_tiles[i].raw_value;found=true;break;}}assert(found);for(unsigned at=0;at+8<=map.size();){unsigned n=unsigned(map[at+4])|unsigned(map[at+5])<<8|unsigned(map[at+6])<<16|unsigned(map[at+7])<<24;if(!memcmp(map.data()+at,"MTXM",4))for(unsigned j=0;j<n;j+=2){map[at+8+j]=tile;map[at+9+j]=tile>>8;}at+=8+n;}loader.load_map_data(map.data(),map.size(),setup);p.st().game->triggers.clear();for(auto& t:p.st().running_triggers)t.clear();}
+static unit_t* create(state_functions& f,UnitTypes type,xy pos,unsigned owner=0){f.reveal_sight_at(pos,11,1u<<owner,true);auto* u=f.trigger_create_unit(f.get_unit_type(type),pos,owner);if(!u)fprintf(stderr,"create failed type%u pos%d,%d map%u,%u\n",unsigned(type),pos.x,pos.y,unsigned(f.st.game->map_width),unsigned(f.st.game->map_height));assert(u);return u;}
+
+int main(int n,char**v){assert(n==3);auto assets=data_loading::data_files_directory(v[1]);game_player p(assets);init(p,v[2]);auto& f=p.funcs();auto& st=p.st();st.current_minerals[0]=0;auto* base=create(f,UnitTypes::Terran_Command_Center,{400,400});auto* worker=create(f,UnitTypes::Terran_SCV,{1400,1400});CampaignAI ai;code(ai,{3,36});ai.start(f,0x54534554,0,{400,400});code(ai,{4,36});ai.start(f,0x54534554,0,{1400,1400});
+ auto query=[&](unsigned n){code(ai,{112,uint8_t(n),48,0,108,0,0,0x20,0x03,0x20,0x03,36,108,32,0,0x60,0x03,0x20,0x03,36});ai.start(f,0x54534554,0,{400,400});};
+ auto count=[&](UnitTypes t){unsigned n=0;for(auto* u:ptr(st.player_units[0]))if(f.unit_is(u,t) && !f.unit_dying(u))++n;return n;};query(2);assert(count(UnitTypes::Terran_Marine)==1 && !count(UnitTypes::Terran_Firebat));f.kill_unit(worker);query(2);assert(count(UnitTypes::Terran_Firebat)==1);f.kill_unit(base);query(1);assert(count(UnitTypes::Terran_Firebat)==2);puts("try_townpoint includes live areatowns and removes empty towns; true/false native script branches PASS");}

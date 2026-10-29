@@ -1491,3 +1491,60 @@ Overlaycampaign-heroes-update-2026-10-29.zip41757747bytes SHA256
  e92d965b8d1827ca0efef106149ebe4f94442cf0d88fa0e5967ddc7f5ddbbf0a,126hash/CRC/exactexe.
 Stageexe matchesout38de; sourcehostobj/tmp/sc3ds-hero-final-engine.o. Report
 CAMPAIGN_HERO_COMMANDS.md. Enabledmissionsstill17, noallcampaigncompletionclaim.
+
+## 2026-10-29 final authorized continuation checkpoint
+
+Final source src-63c47a7913e9b844, host /tmp/sc3ds-eighteen-engine.o.
+18 enabled missions: prior17 plus SC Terran6 Norad II, scenario33.
+All18 ASan victory drivers passed on final source; Norad II original winner0
+frame15768, paid SCVs/refinery/factory/starport/control tower/two Dropships,
+Raynor and crashed cruiser survived; completed save exact digest. Test uses
+public group perform(Move), NOT move_selected (single-unit helper). Original
+Bring condition observed two ships before one died during victory dialogue.
+Next scenario empty until another verified Terran mission is enabled.
+18 menu/startup/active saves+48 exact continuation then17248/firstoutcome PASS;
+18 original defeat fixtures PASS. Added24 owned WAVs byte-exact StormLib;
+133 presentation resources. ARM11 native build PASS.
+Original-model emulator actual story/animated briefing/start/loading/world/pause
+PASS, >1min nativeplay. Normal31366080, linearfree25600 (4MiB cache): very tight
+linear headroom; full native mission completion not claimed. Screenshot/logs in
+local-data/campaign-eighteen-validation. EmulatorSTOPPED; config/profile/progress
+and all virtual saves byte-restored. No physicalSD writes.
+
+AI expansion adapter op17 nearest/op111 specified site/op112 town count;
+32 requests/32 towns/250 site slots zero sentinel. Site IDs preserve CHK start
+encounter order then sorted connected resource clusters. Independent deterministic
+adapter, NOT byte-identical retail resarea numbering. Production still ownerwide
+Side, not retail per-town queues. Paid native worker/depot construction and child
+launch after completion. Core creep queue remains1024, retains dead provider until
+all remaining tiles queued. Tests:18 three-race expansion cases; live-town count;
+owner-normalized site order/reload; saturated queue/live-provider creep; original
+BWZ6 save1600+4000 exact and2000+4000 exact PASS. Broad64-record audit62 no rejection
+through36000ticks/originaloutcome; other2 unused/cut T7/T10 failparse. NOT proof of
+62 victories. BWZ6 not enabled/menu; original-model active-replay fixture also
+PASS normal30286544/linearfree451584 using2MiB cache. Private expansion evidence
+local-data/campaign-expansion-validation. Earlier source49382 tested17 victories;
+final63c4 reruns all18. Remaining static unhandled opcodes90/42 not reached by broad
+audit; must investigate behavior before implementing, no blind no-ops.
+
+Private overlay campaign-eighteen-update-2026-10-29.zip60517106bytes SHA256
+f163404d463bd71d9b185a4e25346d01c405c26ac65dea85946b08a74f606aa7
+133assets + T5/BWP2/T6 maps/brief/audio; requires prior full15 install. CRC/hash/
+exact executable PASS. Staged exe matches out. Older-source saves incompatible;
+profile/progress preserved, start a fresh mission. Earlier17/hero/expansion ZIPs
+preserved as fallbacks. Expansion fallback source49382 ZIP41766124bytes SHA256
+b6cf9874778931f3c8fa0d766ed4e7fd9a0df7d19493b10bd81e51bc23f7afe3.
+Report nintendo3ds/reports/CAMPAIGN_EIGHTEEN_VALIDATION.md.
+
+Goal NOT complete:18 verified/enabled missions, later SC/BW need real victories.
+Private failed pilots P5 Choosing Sides, BW T2 Shipyards, Z5 Amerigo remain /tmp;
+no map/unit/stat/trigger cheats shipped. P5 convoy must use public perform(Move)
+for groups and route turn compression; move_selected only moves first unit.
+BWT2 original second-stage Ghosts have Cloak/Lockdown; civilian escort still fails
+naive pilots. Z5 Storm explicitly disabled by original map, other hero spells
+work. Future useful next: native memory headroom audit, P5 transport victory or
+BWT2 cloak/Lockdown+Medic escort; then add only after actual original victory,
+loss and exact save proofs. Do not reclassify unused cutT7/T10 as shippedmissions.
+
+This was the last authorized scheduled continuation. Do not create another
+follow-up automation. Delete starcraft-kampanij-t-sinys-07-30 at turn end.
