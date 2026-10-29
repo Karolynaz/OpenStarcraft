@@ -1566,3 +1566,37 @@ losesaddon/buildingearly. Newdefendpilot gathersarmy1280,1040 toprotect it while
 mining andtrainingDropship; Kerrigan16moves416,1840. Previousnaivestrategies failed,
 not productbugs. Final original objective location1=3616,1568..3776,1696 requires
 PsiEmitter217; carrier can transport it. Needactualwin/loss/saveproof beforeadding.
+
+## 2026-10-29 nineteenth mission complete / native victory verified
+Final source7000481789ad5afc /tmp/sc3ds-nineteen-final-engine.o. AddedSC Terran7
+The Trump Card keyterran08 scenario34. Formalcampaign_terran_seventh.cpp original
+winner0frame8466, Kerrigan16alive, exactcompletedsavereplay. Realpaid Starport
+relocation/controltower/3Dropships; nativeMatrix beforeflight; unload assoon as
+inside original3616,1568..3776,1696 location. Previouspilots died atlastapproach;
+leftedge3632,1600 + immediateunload solved. No unit/fund/map/trigger overrides.
+All19ASanvictories/openings-save48-17248/defeat PASS finalsource. Five-slot
+independence/date/replay/backup/foreignmetadata test PASS; addedTerran7labelassert.
+SaveSlots numberingnowcounts chronological race+game catalogue, notmapfilename
+suffix (unusedcutT7 makespublishedT7fileterran08).16ownedWAVs byteexactStormLib,
+140presentationresources. NativeARM11PASS. Actualoriginalmodel replayed FULL
+8466framecompletedpubliccontroljournal toVICTORY onfinal7000source; screenshot
+local-data/campaign-nineteen-final-validation/native-victory.png. Freshnativeworld
+andpausedgoals/dialogue/story/briefalsoverified. Nativecompletedreplaynormal31366584,
+linearfree123904 /4MiBSFX. Freshworldnormal31342072/linearfree25600 tight. Emulator
+STOPPED and config/profile/progress/allsaves byte-restored fromnineteen-validation/
+emulator-before; nophysicalSD. No nativebuildrunning.
+ZIPcampaign-nineteen-update-2026-10-29.zip80534080bytes SHA256
+2032a7d75a81faf41af6ea4aed8c276d4ac66674b4fd3c773cfadcf386ded77d
+140assets+T5/BWP2/T6/T7 maps/audio. Requirespriorfull15install, source7000strictsaves.
+CRC/hash/exeverified; stageexematchesout. ReportCAMPAIGN_NINETEEN_VALIDATION.md.
+
+NEXT investigated SC Terran8 TheBigPush keyterran09. RawUNIT6ownedliftablebuildings
+havevalid_flags20 andflags4 (in transit) butloader ignoresbit4 andloadsallgrounded.
+Private/tmp/sc3ds-t8-probe.cpp/log confirms at120ticks all6 flying0. Original goal
+eliminateConfederates/Duke29survive. Initialown3Wraiths,2Dropships,4SCVs,marines/
+ghosts,2CC/Starport/Factory/Barracks/ScienceFacility allbottomright~3800,3900.
+NeedcorrectpreplacedinTransit state + test movement/landing/addon/save; do not
+blindlyforce lifting animation or shift original positions. Existingnative
+order_BuildingLiftoff atbwgame5144 handlesflags/occupancy/finder/elevation/shadow;
+order_LiftingOff ends~5205. NoT8codeedit yet. OtherP5/BWT2/Z5pilots still private.
+User asked continueallmissions in ordinary turns; nofurtherautomationauthorized.
