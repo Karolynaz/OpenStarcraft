@@ -1782,3 +1782,54 @@ tries to protect the northern mining line while massing. Earlier pilots leave
 workers outside army acquisition range and lose economy around frame33000;
 idle army can survive much longer but cannot win once income is gone. Avoid
 promoting a startup test or loss to a completed mission. Stable count remains21.
+
+2026-10-29 CHECKPOINT TWENTY-TWO COMPLETE (supersedes unfinished Z7 notes above).
+SC Zerg7 The Culling enabled as scenario37 after original victory at frame68317.
+Source src-a98a180455a86d49. ASan object /tmp/sc3ds-twenty-two-engine.o. New formal
+campaign_zerg_seventh.cpp: paid first Hatchery/local enemy gas clearance/western
+expansion, upgraded Hydras clear mainland, Ventral Sacs cargo/flight/unload and
+actual island infantry, original victory, exact completed-save replay. Read-only
+separate native terrain model guides host navigation only; never changes actual
+campaign. No free actors/resources, map/AI/trigger/stat changes. Native originals
+include unreachable island groups; earlier ground-only failures were strategy
+errors. Working script /tmp/sc3ds-twenty-two-regress.py records all22 wins PASS.
+All22 openings/menu/save48 +17248/original outcome, original loss fixtures PASS;
+atomic routes incl Z6->Z7 fallback/five slots/source labels/backup PASS. All22
+presentation states PASS;161 resources. All22 banks all speech byteexact bounded
+4MiB mixer IO0/fakequeues0. Z7 has120 total responses,6 mission/briefing WAVs;
+6 independently StormLib byteexact. ARM11 verification PASS.
+
+Original-model FULL68317 journal reconstructed and native Victory shown. Replay
+normal31730168 bytes, linearfree123904; fresh Z7 story/briefing portrait/speech/
+Start/objectives-loading/world checked, fresh normal31486448 linearfree25600.
+36MiB/8MiB preserved. Long native journal reconstruction took ~407 seconds:
+performance limitation, not an interactive full playthrough. Emulator STOPPED;
+config/profile/progress/all saves/executable BYTE-RESTORED with
+/tmp/sc3ds-twenty-two-emulator.py restore. Backup in twenty-two-validation/
+emulator-before. Physical SD untouched. Staged/out executable a98 match.
+Private package campaign-twenty-two-update-2026-10-29.zip134447501 bytes SHA256
+8ebf38fdcc0270845fa0c9c448ec7265e87c2b8901aafa9ccea18fb3306e4a36.
+161presentation resources +T5/BWP2/T6/T7/Z5/Z6/Z7 maps/brief/audio, overlay prior
+full15 install or later overlay. CRC/hashes/privacy/exe equality PASS. No profiles/
+progress/saves; strict source saves require starting a fresh mission. Report
+CAMPAIGN_TWENTY_TWO_VALIDATION.md, evidence local-data/campaign-twenty-two-validation.
+
+Further private Z8 Eye for an Eye driver work NOT enabled/certified. Raw zerg08
+starts2Drones,3Hatcheries,4Nydus,6Hydra,9lings,2Ultras,5Overlords, Kerrigan; zero
+initial funds. Owners1/2Protoss. Must destroy bases, no DT74 escape, hero survive.
+Escape pads432,544 /3568,1024 /2704,3008; DT can run around them toward map edge.
+/ tmp path names below are actual /tmp (no space):
+/tmp/sc3ds-z8-nydus-guards.cpp survives to13130 before northeast DT escape;
+both original Ultralisks sent through Nydus3424,576, then toward2672,3312 stop
+first southern DT. Earlier global context chases vacate chokepoints: only pursue
+when within200 of detector and nearby guard; keep initial guards local. Native
+DT hp40/shields80 and rapid movement. Gate Overlord nearest assignment, lower
+southern detector to3264, NE to1120. /tmp/sc3ds-z8-three-guards.cpp attempted split
+Ultras and fixed gas IDs/nearest builder but loses first DT at2993; not a native
+bug. The older two-Ultra version is the stronger starting point. Source cpps/logs
+and /tmp/sc3ds-z8-prepare-three-guards.py preserved. No Z8 product change.
+
+Overall goal remains incomplete:22 enabled/victory-tested, not all62. BWT2, T8,
+P5 and later mission blockers remain as above. No further automations authorized.
+Usage checked once this continuation: ordinary usage allowed,15% five-hour used;
+no reset/purchases/model changes. Do useful work, not artificial token spending.
