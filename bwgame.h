@@ -5141,12 +5141,7 @@ struct state_functions {
 		}
 	}
 
-	void order_BuildingLiftoff(unit_t* u) {
-		if (!u_grounded_building(u) || !ut_flying_building(u)) {
-			u_unset_status_flag(u, unit_t::status_flag_order_not_interruptible);
-			order_done(u);
-			return;
-		}
+	void make_building_airborne(unit_t* u) {
 		if (u->building.addon) building_abandon_addon(u);
 		if (unit_is_factory(u)) u->building.rally.unit = u;
 		set_unit_tiles_unoccupied(u, u->sprite->position);
@@ -5159,6 +5154,28 @@ struct state_functions {
 		check_unit_collision(u);
 		unit_finder_remove(u);
 		unit_finder_insert(u);
+	}
+
+	void set_initial_building_in_transit(unit_t* u) {
+		if (!u_grounded_building(u) || !ut_flying_building(u)) return;
+		make_building_airborne(u);
+		// UNIT coordinates already describe the airborne position. Do not
+		// replay the 42px takeoff movement used by a player-issued lift.
+		u->flingy_top_speed = fp8::integer(1);
+		if (u->sprite->images.back().modifier == 10) {
+			u->sprite->images.back().offset.y = 42;
+			u->sprite->images.back().flags &= ~image_t::flag_y_frozen;
+		}
+		sprite_run_anim(u->sprite, iscript_anims::LiftOff);
+	}
+
+	void order_BuildingLiftoff(unit_t* u) {
+		if (!u_grounded_building(u) || !ut_flying_building(u)) {
+			u_unset_status_flag(u, unit_t::status_flag_order_not_interruptible);
+			order_done(u);
+			return;
+		}
+		make_building_airborne(u);
 		if (u->sprite->images.back().modifier == 10) {
 			u->sprite->images.back().frozen_y_value = get_image_map_position(&u->sprite->images.back()).y;
 			u->sprite->images.back().flags |= image_t::flag_y_frozen;
@@ -21852,6 +21869,7 @@ struct game_load_functions : state_functions {
 					set_unit_order(u, get_order_type(Orders::Burrowed));
 				}
 				if ((valid_flags & 1) && (flags & 1) && !u_cloaked(u)) cloak_unit(u);
+				if ((valid_flags & 4) && (flags & 4)) set_initial_building_in_transit(u);
 
 				if (unit_is(u, UnitTypes::Zerg_Broodling)) {
 					set_remove_timer(u);

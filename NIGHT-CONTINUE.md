@@ -1600,3 +1600,30 @@ blindlyforce lifting animation or shift original positions. Existingnative
 order_BuildingLiftoff atbwgame5144 handlesflags/occupancy/finder/elevation/shadow;
 order_LiftingOff ends~5205. NoT8codeedit yet. OtherP5/BWT2/Z5pilots still private.
 User asked continueallmissions in ordinary turns; nofurtherautomationauthorized.
+
+## Tested intermediate: initial InTransit loader / T8 paid pilot
+Sourcef90764e80ce4eb0e, /tmp/sc3ds-transit-engine.o; nativeout=f907, stagedexe=stable
+7000. NativevirtualSDexe returned7000. Latestreleased19ZIP unchanged. Added
+make_building_airborne factor usedby existingplayerliftoff; loader appliesvalid4/
+flags4 toinitialliftablebuildings, no42pxposition shift; airspeed/shadow/LiftOff
+animinit. campaign_initial_transit.cpp originalT8sixflags/positions/flyingproduction
+restriction/move/save48/land + privatevalidmasknegative PASS. All19victoryregressions
+PASS sourcef907; ARM11PASS. Originalmodelactiveflightfixture journal600/selected
+Starportcorrectair/shadow/Land UI; nativeheap31588568linearfree123904. GenericSC16
+fixtureaudio NOToriginalT8voicebank; noT8victoryclaim. EmulatorSTOPPED, config/
+profile/progress/allsaves byte-restored, SDvirtualexe stable7000. PhysicalSDuntouched.
+ReportCAMPAIGN_INITIAL_TRANSIT.md. Privateevidencecampaign-transit-validation.
+
+T8privatepilot /tmp/sc3ds-t8-transport.cpp/log (copiedinevidence) nowlandsbaseand
+transports4SCVswithprovidedDropship: deliveredframe673 tohome1600,3600. Initial
+supply20/20 preventsrecruiting untilworkersbuilddepot; NOTcoreproductionbug.
+Firstnaivehome2595,3052clusterhasnogas anddockSCVsstranded. Betterhome1600,3600 has
+mineralcluster+geyser1472,3744; limitlandingtargets py>=hy-64 soavoidnorthbunkers.
+Reservationcenters180px prevent6buildingschoosingsamelandingtile. Currentpilot
+has13workers/19tanks at48k butmarinesremain4 untilbarracksland/build delayed;
+phase1 at~52k kills~80enemies, laterlossesandmineraldepletion, at220k winner-1 Duke1.
+No unit/resource/map/trigger edits. Needimproveeconomy/expansion orairfleet/targeting
+ratherthanweakeningoriginalAI. OriginalT8goal eliminateConfeds, Duke29survive.
+Futureconsider supplydepotworker/economypriorities, reservegas3 butover10kgasatlate
+stage suggestsmineralincome bottleneck; train moreworkers andexpandsecond mineral
+base, or use initial3Wraith+NoradII29airpush. DoNOTenableT8untilrealwin/loss/saveproof.
