@@ -1833,3 +1833,67 @@ Overall goal remains incomplete:22 enabled/victory-tested, not all62. BWT2, T8,
 P5 and later mission blockers remain as above. No further automations authorized.
 Usage checked once this continuation: ordinary usage allowed,15% five-hour used;
 no reset/purchases/model changes. Do useful work, not artificial token spending.
+
+IN-PROGRESS NEXT CHECKPOINT (do not confuse with completed22 above): SC Zerg8
+Eye for an Eye private driver won at39028; now formal campaign_zerg_eighth.cpp
+and catalogue scenario38. Source src-a4ec4ee1972865cd, engine object
+/tmp/sc3ds-twenty-three-engine.o. All23 ASan wins and openings/defeat/routes/slots/
+presentation checks PASS, all23 bounded dialogue banks byteexact IO0 PASS.
+Z8 has199 unit/mission responses including11 independently StormLib-exact WAVs.
+168 presentation resources prepared, native ARM11 build PASS. Full39028 native
+journal currently LOADING in emulator; backup at campaign-twenty-three-validation/
+emulator-before; MUST STOP AND RESTORE via /tmp/sc3ds-twenty-three-emulator.py
+restore when finished. Physical SD untouched. Need capture Victory, fresh Z8
+story/brief/Start/world, logs/memory, restore, final report/NIGHT and local commit.
+Pending private ZIP campaign-twenty-three-update-2026-10-29.zip153743473 bytes,
+SHA2565c598af59d6053b87f9d44647a45aec94eb3d6c188e3ae160e5e9752900b481b.
+168assets +T5/BWP2/T6/T7/Z5/Z6/Z7/Z8, overlay/full15 prerequisite, strict saves.
+Source freeze while native build/replay: no fingerprinted code edits underway.
+
+Z8 strategy now works: native Nydus sends both initial Ultras to southern guard;
+Kerrigan holdsNE and casts leading Ensnare (+64,-96), four paid Mutas guardNW,
+four paid Mutas guardSouth; remaining air force attacks after28Mutas. Native
+Overlord Speed researched; close local guards chase only detected DTs, never
+vacate all three exits for a distant cloaked actor. Actual authored LOSS areas:
+location17 NW(0,0)..(224,352),19 NE(3808,320)..(4096,576),18 South(2368,3904)..
+(2880,4096). Killing after entering an area cannot cancel an already scheduled
+original defeat. Guard BEFORE those rectangles: NW256,672/lord256,576; southern
+Ultras2768,3648,Hydra/ling2688,3616,lord2720,3584. Initial gas overassignment and
+low-tech unit spam starved tech; fixed gas IDs, nearby builder, max12lings/12Hydra
+until Spire. Do not report those driver errors as engine defects. No original
+units/resources/triggers/AI/stat changes in working Z8. Public orders only.
+
+Next original Z9 The Invasion of Aiur rawzerg09: starts4Drones,6lings,2Hydra,
+3Overlords,Hatch576,304,Evo368,224,Pool304,352,Sunken448,384,ownbeacon528,480.
+Crystal beacon owner3 at1872,2912; formation type173 owner6. BringDrone there,
+hold while harvesting, then carry crystal to ownbeacon. EnemyProtoss2minor,
+4/7major with multiple Carriers/Reavers/cannons; no current Z9 pilot. Original
+maps/AI/trigger logic not yet certified by victory. Z10 Temple+crystal afterwards.
+
+CHECKPOINT TWENTY-THREE COMPLETE — supersedes the in-progress notice above.
+Source a4ec4ee1972865cd, all23 original ASan victories + required checks PASS.
+Full39028 original-model replay now confirmed native Victory, fresh Z8 story,
+brief portrait/speech, Start/objectives-loading/world confirmed. Replay normal
+31628104, linearfree123904; fresh normal31473408, linearfree25600. Emulator STOPPED
+and settings/profile/progress/all saves/executable BYTE-RESTORED via twenty-three
+emulator script. All evidence/logs/screens in campaign-twenty-three-validation.
+Physical SD untouched. Report CAMPAIGN_TWENTY_THREE_VALIDATION.md. Latest verified
+private ZIP153743473bytes SHA2565c598af59d6053b87f9d44647a45aec94eb3d6c188e3ae160e5e9752900b481b,
+168assets+eight later maps/brief/audio. Overlay existing full15 or later overlay,
+strict source saves require fresh mission, old packages preserved. Stage/out a4ec
+match. Original result-art task also complete in ignored update image screens;
+6native victory/defeat backgrounds,18UI parts,6previews, contact sheet. No external
+push or physical SD. Overall goal NOT complete:23 enabled/victory-tested.
+
+Z9 trigger inspection (read-only original): location2(1824,2816)..(2080,2976)
+accepts Drone, removes it through original action25 and starts600-second timer.
+No need to keep that removed actor alive; defend the colony during the timer.
+On expiry original triggers create a Drone and powerup219 at location3 center
+1792,2912, move tracking location24, and ask return to own beacon location1
+(448,416)..(608,544), center528,480. Formation173 owner6 at1984,2896. Original
+field gives starting funds; no original Z9 driver yet. Potential legitimate paid
+Overlord delivery/return with native Ventral Sacs; build a defense before starting
+harvest, because original AI activates around switches/approach areas. Need actual
+original timer, native crystal pickup/cargo/return and victory, not a synthetic
+trigger fixture. Do not assume burrowing is needed: the first Drone is removed
+by the authored sequence. Preserve current23 source until a Z9 win proves next.

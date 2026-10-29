@@ -38,6 +38,7 @@ def pages(name):
   text=re.sub(r'</[^>]*>','',page).strip();result.append((bg[1],text))
  return result
 summaries={
+ 'zerg08':'With the Garm Brood purged, Kerrigan turns back to the Protoss on Char. Destroy their bases, intercept the Dark Templar before they escape, and keep Kerrigan alive.',
  'zerg07':'While Kerrigan pursued Tassadar, the Dark Templar struck down the Cerebrate Zasz. Without its master, the Garm Brood has gone berserk. Establish a colony and destroy the uncontrolled brood, including its isolated outposts.',
  'zerg06':'Kerrigan has recovered the secrets of the Ghost program. The Protoss remain on Char, and Tassadar has drawn her attention. Drive back the intruders, then guide Kerrigan to the challenge that awaits her.',
  'zerg05':'Kerrigan has emerged from the Chrysalis. To recover the secrets of her suppressed powers, she infiltrates a Terran science vessel. Guide her through the installation, unlock its passages, and reach the supercomputer.',
