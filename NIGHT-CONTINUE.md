@@ -1471,3 +1471,23 @@ Quota87% at03:55, reset07:25:29Vilnius; scheduled07:30isappropriate. Endingwith
 verified17package/commits; next07:30shouldreadthissectionandnotredo17regressions.
 Nextpriority111boundedresource-area/townexpansion orsmartBWT2Ghost/Medicescort,
 thenmoreoriginalmissionvictory/catalogue/assetclosure. AllcampaigngoalINCOMPLETE.
+
+## 2026-10-29 07:30: campaign hero command checkpoint
+Quota reset confirmed0%, actualnextreset12:30:28Vilnius. Noadditionalautomations;
+delete07:30one-shotatend. Source38de8aa4a2d77845: heroUIaliases17, fullnamesforhero
+units, InfestedKerrigan Storm/Ensnare/Consume/Cloak. ScopednativePersonnelCloaking
+exceptioninbwgame/actions, NOTghostclassification; KerriganstillcannotLockdown.
+Noavailability/research/energyoverride. OriginalZ5Stormdisabled, other3enabled.
+Newtests campaign_hero_commands.cpp (17alias/name/native-enabled checks+cloakexact
+save48frames; isolatedownedmapfixture), campaign_hero_spells.cpp (nativevisible
+cloak/energy/decloak, ensnaretimer, Consumeunitloss+energy, TassadarStormdamage).
+All17victorydrivers freshlyrerunASan38dePASS, local-data/campaign-hero-final-validation.
+NativeARM11PASS; original-modelslot5syntheticKerriganfixtureloadedselectedcloaked,
+4icons/keybadges/portrait/energy/fullnamefit. NativeScreenshot local-data/campaign-
+hero-validation/native-hero.png. Normal30853416,linearfree173056. Touchattempt
+normalized.75/.4didnotprovebinding; doNOTclaimtouchverified. EmulatorSTOPPED,
+config/profile/progress/allsaves byte-restored toemulator-before backup. NoSD.
+Overlaycampaign-heroes-update-2026-10-29.zip41757747bytes SHA256
+ e92d965b8d1827ca0efef106149ebe4f94442cf0d88fa0e5967ddc7f5ddbbf0a,126hash/CRC/exactexe.
+Stageexe matchesout38de; sourcehostobj/tmp/sc3ds-hero-final-engine.o. Report
+CAMPAIGN_HERO_COMMANDS.md. Enabledmissionsstill17, noallcampaigncompletionclaim.

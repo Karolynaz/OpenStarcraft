@@ -18846,7 +18846,7 @@ struct state_functions {
 			return true;
 		case TechTypes::Personnel_Cloaking:
 			if (!ut_hero(u) && !player_has_researched(owner, TechTypes::Personnel_Cloaking)) return false;
-			if (!unit_is_ghost(u)) return false;
+			if (!unit_is_ghost(u) && !unit_is(u, UnitTypes::Hero_Infested_Kerrigan)) return false;
 			return true;
 		case TechTypes::Restoration:
 			if (!player_has_researched(owner, TechTypes::Restoration)) return false;

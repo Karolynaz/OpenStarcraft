@@ -98,6 +98,34 @@ const char* unit_name(const unit_t* u) {
     case UnitTypes::Hero_Fenix_Zealot:case UnitTypes::Hero_Fenix_Dragoon:return "Fenix";
     case UnitTypes::Hero_Zeratul:return "Zeratul";
     case UnitTypes::Hero_Samir_Duran:return "Samir Duran";
+    case UnitTypes::Hero_Sarah_Kerrigan:return "Sarah Kerrigan";
+    case UnitTypes::Hero_Infested_Kerrigan:return "Infested Kerrigan";
+    case UnitTypes::Hero_Infested_Duran:return "Infested Duran";
+    case UnitTypes::Hero_Alexei_Stukov:return "Alexei Stukov";
+    case UnitTypes::Hero_Tassadar:return "Tassadar";
+    case UnitTypes::Hero_Tassadar_Zeratul_Archon:return "Tassadar / Zeratul";
+    case UnitTypes::Hero_Danimoth:return "Danimoth";
+    case UnitTypes::Hero_Raszagal:return "Raszagal";
+    case UnitTypes::Hero_Matriarch:return "Matriarch";
+    case UnitTypes::Hero_Unclean_One:return "Unclean One";
+    case UnitTypes::Hero_Gui_Montag:return "Gui Montag";
+    case UnitTypes::Hero_Alan_Schezar:return "Alan Schezar";
+    case UnitTypes::Hero_Tom_Kazansky:return "Tom Kazansky";
+    case UnitTypes::Hero_Magellan:return "Magellan";
+    case UnitTypes::Hero_Edmund_Duke_Tank_Mode:case UnitTypes::Hero_Edmund_Duke_Siege_Mode:return "Edmund Duke";
+    case UnitTypes::Hero_Arcturus_Mengsk:return "Arcturus Mengsk";
+    case UnitTypes::Hero_Hyperion:return "Hyperion";
+    case UnitTypes::Hero_Norad_II:return "Norad II";
+    case UnitTypes::Hero_Gerard_DuGalle:return "Gerard DuGalle";
+    case UnitTypes::Hero_Torrasque:return "Torrasque";
+    case UnitTypes::Hero_Devouring_One:return "Devouring One";
+    case UnitTypes::Hero_Kukulza_Mutalisk:case UnitTypes::Hero_Kukulza_Guardian:return "Kukulza";
+    case UnitTypes::Hero_Yggdrasill:return "Yggdrasill";
+    case UnitTypes::Hero_Aldaris:return "Aldaris";
+    case UnitTypes::Hero_Artanis:return "Artanis";
+    case UnitTypes::Hero_Mojo:return "Mojo";
+    case UnitTypes::Hero_Warbringer:return "Warbringer";
+    case UnitTypes::Hero_Gantrithor:return "Gantrithor";
     case UnitTypes::Hero_Hunter_Killer:return "Hunter Killer";
     case UnitTypes::Hero_Dark_Templar:return "Dark Templar";
     default:break;
@@ -851,31 +879,36 @@ unsigned Engine::options(OptionPage page,MenuOption* output,unsigned capacity) c
         const auto index=n;add(label,OptionKind::order,unsigned(order),true,enabled);if(n>index)output[index].icon=unsigned(type->icon);
     };
     switch(u->unit_type->id) {
-    case UnitTypes::Zerg_Queen:
+    case UnitTypes::Zerg_Queen:case UnitTypes::Hero_Matriarch:
         ability("Parasite",Orders::CastParasite,TechTypes::Parasite);ability("Spawn Broodlings",Orders::CastSpawnBroodlings,TechTypes::Spawn_Broodlings);ability("Ensnare",Orders::CastEnsnare,TechTypes::Ensnare);ability("Infest Command Center",Orders::CastInfestation,TechTypes::Infestation);break;
-    case UnitTypes::Zerg_Defiler:
+    case UnitTypes::Zerg_Defiler:case UnitTypes::Hero_Unclean_One:
         ability("Dark Swarm",Orders::CastDarkSwarm,TechTypes::Dark_Swarm);ability("Plague",Orders::CastPlague,TechTypes::Plague);ability("Consume",Orders::CastConsume,TechTypes::Consume);break;
-    case UnitTypes::Zerg_Overlord:
+    case UnitTypes::Zerg_Overlord:case UnitTypes::Hero_Yggdrasill:
         add("Load unit",OptionKind::order,unsigned(Orders::PickupTransport),true,f.unit_provides_space(u));add("Unload all",OptionKind::unload,0,false,!f.loaded_units(u).empty());break;
     case UnitTypes::Protoss_High_Templar:
         ability("Psionic Storm",Orders::CastPsionicStorm,TechTypes::Psionic_Storm);ability("Hallucination",Orders::CastHallucination,TechTypes::Hallucination);
         add("Merge nearest Templar",OptionKind::merge,0,false,true);break;
+    case UnitTypes::Hero_Tassadar:
+        ability("Psionic Storm",Orders::CastPsionicStorm,TechTypes::Psionic_Storm);ability("Hallucination",Orders::CastHallucination,TechTypes::Hallucination);break;
+    case UnitTypes::Hero_Infested_Kerrigan:
+        ability("Psionic Storm",Orders::CastPsionicStorm,TechTypes::Psionic_Storm);ability("Ensnare",Orders::CastEnsnare,TechTypes::Ensnare);ability("Consume",Orders::CastConsume,TechTypes::Consume);
+        add("Toggle Cloak",OptionKind::cloak,0,false,f.unit_can_use_tech(u,f.get_tech_type(TechTypes::Personnel_Cloaking)));break;
     case UnitTypes::Protoss_Dark_Templar:add("Merge nearest Dark Templar",OptionKind::merge,1,false,true);break;
     case UnitTypes::Protoss_Dark_Archon:
         ability("Feedback",Orders::CastFeedback,TechTypes::Feedback);ability("Mind Control",Orders::CastMindControl,TechTypes::Mind_Control);ability("Maelstrom",Orders::CastMaelstrom,TechTypes::Maelstrom);break;
-    case UnitTypes::Protoss_Arbiter:ability("Recall",Orders::CastRecall,TechTypes::Recall);ability("Stasis Field",Orders::CastStasisField,TechTypes::Stasis_Field);break;
-    case UnitTypes::Protoss_Corsair:ability("Disruption Web",Orders::CastDisruptionWeb,TechTypes::Disruption_Web);break;
+    case UnitTypes::Protoss_Arbiter:case UnitTypes::Hero_Danimoth:ability("Recall",Orders::CastRecall,TechTypes::Recall);ability("Stasis Field",Orders::CastStasisField,TechTypes::Stasis_Field);break;
+    case UnitTypes::Protoss_Corsair:case UnitTypes::Hero_Raszagal:ability("Disruption Web",Orders::CastDisruptionWeb,TechTypes::Disruption_Web);break;
     case UnitTypes::Protoss_Shuttle:add("Load unit",OptionKind::order,unsigned(Orders::PickupTransport),true,true);add("Unload all",OptionKind::unload,0,false,!f.loaded_units(u).empty());break;
-    case UnitTypes::Terran_Marine:case UnitTypes::Terran_Firebat:add("Stim Packs",OptionKind::stim,0,false,f.unit_can_use_tech(u,f.get_tech_type(TechTypes::Stim_Packs)));break;
-    case UnitTypes::Terran_Siege_Tank_Tank_Mode:case UnitTypes::Terran_Siege_Tank_Siege_Mode:add("Toggle Siege Mode",OptionKind::siege,0,false,f.unit_can_use_tech(u,f.get_tech_type(TechTypes::Tank_Siege_Mode)));break;
-    case UnitTypes::Terran_Vulture:ability("Spider Mine",Orders::PlaceMine,TechTypes::Spider_Mines);break;
-    case UnitTypes::Terran_Wraith:add("Toggle Cloak",OptionKind::cloak,0,false,f.unit_can_use_tech(u,f.get_tech_type(TechTypes::Cloaking_Field)));break;
+    case UnitTypes::Terran_Marine:case UnitTypes::Hero_Jim_Raynor_Marine:case UnitTypes::Terran_Firebat:case UnitTypes::Hero_Gui_Montag:add("Stim Packs",OptionKind::stim,0,false,f.unit_can_use_tech(u,f.get_tech_type(TechTypes::Stim_Packs)));break;
+    case UnitTypes::Terran_Siege_Tank_Tank_Mode:case UnitTypes::Terran_Siege_Tank_Siege_Mode:case UnitTypes::Hero_Edmund_Duke_Tank_Mode:case UnitTypes::Hero_Edmund_Duke_Siege_Mode:add("Toggle Siege Mode",OptionKind::siege,0,false,f.unit_can_use_tech(u,f.get_tech_type(TechTypes::Tank_Siege_Mode)));break;
+    case UnitTypes::Terran_Vulture:case UnitTypes::Hero_Jim_Raynor_Vulture:ability("Spider Mine",Orders::PlaceMine,TechTypes::Spider_Mines);break;
+    case UnitTypes::Terran_Wraith:case UnitTypes::Hero_Tom_Kazansky:add("Toggle Cloak",OptionKind::cloak,0,false,f.unit_can_use_tech(u,f.get_tech_type(TechTypes::Cloaking_Field)));break;
     case UnitTypes::Terran_Ghost:case UnitTypes::Hero_Sarah_Kerrigan:case UnitTypes::Hero_Samir_Duran:case UnitTypes::Hero_Infested_Duran:case UnitTypes::Hero_Alexei_Stukov:
         add("Toggle Cloak",OptionKind::cloak,0,false,f.unit_can_use_tech(u,f.get_tech_type(TechTypes::Personnel_Cloaking)));
-        ability("Lockdown",Orders::CastLockdown,TechTypes::Lockdown);add("Nuclear Strike",OptionKind::order,unsigned(Orders::NukePaint),true,true);break;
+        ability("Lockdown",Orders::CastLockdown,TechTypes::Lockdown);add("Nuclear Strike",OptionKind::order,unsigned(Orders::NukePaint),true,true);if(f.unit_is(u,UnitTypes::Hero_Infested_Duran))ability("Consume",Orders::CastConsume,TechTypes::Consume);break;
     case UnitTypes::Terran_Medic:ability("Heal",Orders::MedicHeal,TechTypes::Healing);ability("Restoration",Orders::CastRestoration,TechTypes::Restoration);ability("Optical Flare",Orders::CastOpticalFlare,TechTypes::Optical_Flare);break;
-    case UnitTypes::Terran_Science_Vessel:ability("Defensive Matrix",Orders::CastDefensiveMatrix,TechTypes::Defensive_Matrix);ability("EMP Shockwave",Orders::CastEMPShockwave,TechTypes::EMP_Shockwave);ability("Irradiate",Orders::CastIrradiate,TechTypes::Irradiate);break;
-    case UnitTypes::Terran_Battlecruiser:ability("Yamato Gun",Orders::FireYamatoGun,TechTypes::Yamato_Gun);break;
+    case UnitTypes::Terran_Science_Vessel:case UnitTypes::Hero_Magellan:ability("Defensive Matrix",Orders::CastDefensiveMatrix,TechTypes::Defensive_Matrix);ability("EMP Shockwave",Orders::CastEMPShockwave,TechTypes::EMP_Shockwave);ability("Irradiate",Orders::CastIrradiate,TechTypes::Irradiate);break;
+    case UnitTypes::Terran_Battlecruiser:case UnitTypes::Hero_Hyperion:case UnitTypes::Hero_Norad_II:case UnitTypes::Hero_Gerard_DuGalle:ability("Yamato Gun",Orders::FireYamatoGun,TechTypes::Yamato_Gun);break;
     case UnitTypes::Terran_Dropship:add("Load unit",OptionKind::order,unsigned(Orders::PickupTransport),true,true);add("Unload all",OptionKind::unload,0,false,!f.loaded_units(u).empty());break;
     default:break;
     }
@@ -978,7 +1011,7 @@ bool Engine::perform(unsigned code,int x,int y) {savegame::Writer::Guard record(
             else if(kind==OptionKind::stim)ok=a.action_stim_pack(0)||ok;
             else if(kind==OptionKind::siege)ok=(f.unit_is_sieged_tank(member)?a.action_unsiege(0,false):a.action_siege(0,false))||ok;
             else if(kind==OptionKind::cloak) {
-                const auto tech=f.unit_is_ghost(member)?TechTypes::Personnel_Cloaking:TechTypes::Cloaking_Field;
+                const auto tech=(f.unit_is_ghost(member) || f.unit_is(member,UnitTypes::Hero_Infested_Kerrigan))?TechTypes::Personnel_Cloaking:TechTypes::Cloaking_Field;
                 if(!f.unit_can_use_tech(member,f.get_tech_type(tech)))continue;
                 if(f.u_requires_detector(member))a.action_decloak(0);else if(member->energy>=fp8::integer(f.get_tech_type(tech)->energy_cost))a.action_cloak(0);else continue;
                 ok=true; // Native action_cloak changes state but returns false.
