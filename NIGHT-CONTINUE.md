@@ -1756,3 +1756,29 @@ P5needinteriorlandinggoal3392,3360..3616,3552; west3232,3424unloadwalksaroundcli
 anddies. T8originalsixinitialairbornefixincluded, paidpilotnooriginalwinyet.
 No moreautomationsauthorized; noexternalpush orphysicalSD. Workcontinuesordinary
 userturns, allcampaigngoalNOTcomplete:21enabledandvictorytested. Allrunprocessesdone.
+
+
+2026-10-29 continuation: original result reference art exported from owned data.
+Six native 640x480 victory/defeat backgrounds (three races), 18 score UI pieces,
+six separate 400x240 previews and REZULTATU FONAI.png are in the ignored private
+`update image screens` directory. RGB pixels match owned decoded PCXs exactly;
+all PNGs reopen, previews verify 400x240. Reproducible generic tools and source
+asset list in nintendo3ds/tools/prepare_result_reference.py and
+result_reference_assets.txt; report RESULT_REFERENCE_EXPORT.md. No artist redraws
+overwritten, assets not committed or wired into runtime. Existing 21-mission c87
+executable/package unchanged, no SD writes or emulator changes this continuation.
+
+SC Z7 The Culling remains private driver work, NOT enabled or victory-certified.
+Paid first Hatchery near (1984,3360) can start original no-base map. Private ASan
+pilots /tmp/sc3ds-z7-*.cpp and corresponding logs use current twenty-one engine.o,
+original owned zerg07.chk, public controls, real costs and original AI/triggers.
+No sanitizer fault in completed pilots, but none has won. Original mass Hydras
+reached 90+ army; fixing detector escort reduced enemies to99, then lost. Sending
+all Overlords ahead loses supply; keep escorts behind infantry, do not chase
+flying Overlords before bases. Later tech pilots built Lair/Hive/Greater Spire
+normally but failed strategically. Original script is not proved faulty by this.
+Latest pilot /tmp/sc3ds-z7-mineral-guards.cpp reserves gas for 2/2 upgrades and
+tries to protect the northern mining line while massing. Earlier pilots leave
+workers outside army acquisition range and lose economy around frame33000;
+idle army can survive much longer but cannot win once income is gone. Avoid
+promoting a startup test or loss to a completed mission. Stable count remains21.
