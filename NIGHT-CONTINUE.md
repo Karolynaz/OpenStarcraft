@@ -1547,4 +1547,5 @@ BWT2 cloak/Lockdown+Medic escort; then add only after actual original victory,
 loss and exact save proofs. Do not reclassify unused cutT7/T10 as shippedmissions.
 
 This was the last authorized scheduled continuation. Do not create another
-follow-up automation. Delete starcraft-kampanij-t-sinys-07-30 at turn end.
+follow-up automation. starcraft-kampanij-t-sinys-07-30 was deleted successfully.
+Code checkpoint:854b852 (this documentation follow-up records automation cleanup).
