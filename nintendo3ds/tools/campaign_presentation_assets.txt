@@ -113,3 +113,4 @@ rez/glurdyz.bin
 rez/estt06.txt
 
 rez/estt08.txt
+rez/estz05.txt

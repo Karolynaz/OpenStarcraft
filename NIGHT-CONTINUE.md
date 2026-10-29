@@ -1627,3 +1627,50 @@ ratherthanweakeningoriginalAI. OriginalT8goal eliminateConfeds, Duke29survive.
 Futureconsider supplydepotworker/economypriorities, reservegas3 butover10kgasatlate
 stage suggestsmineralincome bottleneck; train moreworkers andexpandsecond mineral
 base, or use initial3Wraith+NoradII29airpush. DoNOTenableT8untilrealwin/loss/saveproof.
+
+## 2026-10-29 twentieth mission complete — The Amerigo
+Final source7625881d2c2b4a5c; /tmp/sc3ds-twenty-engine.o. AddedSC Zerg5 original
+zerg05 scenario35. campaign_zerg_fifth.cpp originalwinner0frame60776, Kerrigan51
+alive, exact completed replay. Public controls only: original unlock2208,2384,
+Teleport1(688,3648)->Teleport2(784,1584), nativecloak/combat, natural Zerg HP regen
+at safe784,1584 betweenfights. OriginalStormdisabled; nofreeunits/stats/funds.
+Initial direct-goal drivers failed because they missed unlock/teleport; later
+solo runs needed nativecombat against detector floortraps and regen. Attack near
+invinciblebeacon stalls; switchMove whenx<650y>1950 solved finalentry. Earlier
+private/tmp/sc3ds-z5-clear wins106718; near-goal/formal60776. No underlying cloak
+bug: private diagnosticconfirmed nativefloortraps203/209/211 are detectors.
+
+All20ASanvictories PASS; all20openings/menu/save48/17248 PASS; all20original
+lossfixtures PASS. Routes atomicprogress/Z4->Z5 andfiveindependentslots/date/
+backup/foreignsource PASS. All20presentations PASS. All20audio banks everydialogue
+byteexactthrough4MiBboundedmixer IO0/fakeallocation0 PASS; new147unitresponses+
+20missionspeech, latter20allbyteexactvsStormLib.147presentationresources. Native
+ARM11PASS. InitialTransit testexpandedtoassertall6originalcoordinates, PASS final20.
+
+Original-model emulatorFULL60776journalreplay toVICTORY onfinal7625; screenshot
+local-data/campaign-twenty-validation/native-victory.png. AlsofreshZ5story/original
+briefingportraits/dialogue/Start/world verified. Replaynormal31768728linearfree
+123904 /4MiBSFX; freshworldnormal31758544linearfree25600. Original36/8limitskept.
+Nativechecksarejournalreplay/opening, notinteractivefullhandheldplaythrough.
+EmulatorSTOPPED; config/profile/progress/allsaves/virtualexebyterestored with
+/tmp/sc3ds-twenty-emulator.py restore. Backupcampaign-twenty-validation/emulator-before.
+Virtualexe restoredprevious7000; staged/out exe both7625. PhysicalSDuntouched.
+ZIPcampaign-twenty-update-2026-10-29.zip99640646bytes SHA256
+2ae37ab13aebc217c48bab0c64c93870517dad7b53a10ced62cdc38d7ee73acb
+147assets+T5/BWP2/T6/T7/Z5maps/brief/audio, CRC/hashes/exe verified, no profiles/
+progress/saves. Requirespriorfull15install. Strictsourcesaves: startfresh.
+ReportCAMPAIGN_TWENTY_VALIDATION.md. Earlier19ZIPpreserved.
+
+Fresh36kaudit onf907:64entries,62usable no runtimerejection:38running24original
+outcomes;2unusedcutterran07/terran10loadreject. NOTvictorycertification. Toolnow
+reportswinner+running/original-outcome status, max144k. Fresh7625audit120k FINISHED:64entries/62usable no runtimerejection,26running and
+36originaldefeats withoutplayerinput;2unusedcutloadrejects unchanged, ASanstderr0.
+Evidence twenty-validation/runtime-120000.csv. Native/audio/20regression finished.
+
+NextprivateBWT2pilot /tmp/sc3ds-bwt2-beacons.cpp/log usesactualremainingownBeacon195
+insteadfixed18-waypoint count (oldpilotscaptured3thenlostpilotsatphaseB). Native
+Ghostcloak/Lockdown/Medicheal, alloriginalmap/controls. Finishedwithoutwin at90k; privatebeacon-state diagnosis now /tmp/sc3ds-bwt2-beacon-state.log.
+T8paidpilotstillnotwin; initial6airbornefixcommita92535c. P5transportpilots can
+reachislandwest3232,3424 butgroundroutearoundcliffkillsTassadar; interiorgoal
+3392,3360..3616,3552 needsbetterprotectedlanding. Do NOTenable fromload alone.
+No moreautomationsauthorized; usercontinuesordinaryturns. No nativebuildrunning.
