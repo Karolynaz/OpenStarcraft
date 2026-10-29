@@ -1712,3 +1712,47 @@ challengepoint (Tassadar79onlyspawnsafterheroentry, sosearchingforhimcannotwork)
 OriginalZ6goal requiresclearregions4/5 thenheroentryloc1alone(loc6AnyUnit<=1),
 hallucinatedTassadarexpires/killed thenoriginalwin. Newpilotexec96064, checklog.
 No changesforZ6enabledyet. No moreautomationsauthorized. Continueordinaryuserturn.
+
+## Twenty-first mission — original Zerg6 victory / native replay
+Finalsourcec87b5b69ed3a4e88; /tmp/sc3ds-twenty-one-engine.o. Addedzerg06 TheDarkTemplar
+scenario36. campaign_zerg_sixth.cpp originalwinner0frame42378, Kerrigan51alive,
+actualcargo and nativeVentralSacslevel1, completedexactreplay. PaidZ3Mutaliskmacro
+(enemyowner1) clearsProtoSS thenoriginalchallenge. FootMove stops1576,1316 edge;
+Overlordtransportto1904,2032, unload andmoveotherunitsaway fromloc6 soKerriganalone.
+Early200/200Ventralresearch weakenedarmy andlost82733; deferuntilobjectivescontain
+alone, temporarilystopLarvamorphs untilresearchbought, thenresume. Thiswins42378.
+OriginaltriggersTassadarillusion resolution/dialogue/victory, nounts/funds/stat/AI/
+terrain/triggermods. Fog-offnavigationinformation only. PrivatefailedpriorZ6pilots
+notproductbugs. FormalteststillderivedfromZ3macro withconstantZergbranch; no gameplay
+implementationchanges beyondcatalogue/presentation. Generatedownednormalizedmap
+205451bytes human3->0,172unitresponses/14missionspeech, all14byteexactStormLib.
+154presentationresources. FallbackstoryforZ6 retained (ownedrezhaslocationonly).
+
+All21ASanvictories PASS sourcec87. All21openings/menu/save48/17248 PASS; all21original
+lossfixtures PASS. Atomicprogress/Z5fallbackwithoutnextfilename->Z6 andfiveslots/
+Zerg6label/date/backup/foreignsource PASS. All21presentationstates PASS. All21banks
+alldialogue byteexactbounded4MiBhostmixer IO0/fakeallocation0 PASS. ARM11PASS.
+Original-modelFULL42378journalreplay toVICTORY finalc87; native-victory.png under
+campaign-twenty-one-validation. FreshZ6story/briefinganimatedKerrigan/speechtext/
+Start/loading/worldalsoverified. Replaynormal31433232linearfree123904 /4MiBSFX;
+freshnormal31329728linearfree25600. 36MiB/8MiBunchanged. Nativeisjournalreplay+
+opening, notfullinteractivehandheldplaythrough. EmulatorSTOPPED; config/profile/
+progress/allsaves/virtualexe byte-restored via /tmp/sc3ds-twenty-one-emulator.py
+restore; backupcampaign-twenty-one-validation/emulator-before. Virtualexe7000
+restored; finalstaged/outc87. PhysicalSDuntouched. No nativebuildrunning.
+LatestZIPcampaign-twenty-one-update-2026-10-29.zip117851058bytes SHA256
+5cec873f0f5dc68c807612294df0caba88614b3c25e5cf48033b93003bd25bb0
+154assets+T5/BWP2/T6/T7/Z5/Z6maps/brief/audio. CRC/hashes/exe PASS; no profiles/
+progress/saves. Overlaypriorfull15install orneweroverlay. Strictsource saves:
+startfresh. ReportCAMPAIGN_TWENTY_ONE_VALIDATION.md. Earlier20/20triggerZIPspreserved.
+
+Next potentialSC Z7TheCulling rawzerg07:human0start4Drones/4Mutas/8Hydra/4Overlords,
+NOinitialHatchery. Enemyowner4Zerg151units; objectiveeradicateGarmBrood, noKerrigan.
+NeedpaidfirstHatcherynearstartminerals beforeZergmacrocanrun (oldmacroifnoHome
+continuesforever). CurrentZ7notstarted. OtherremainingZ8owner1/2Protoss preventDT
+escape+Kerrigan survive; Z9originalDronecrystalcarry/hold/return; Z10Templethencrystal.
+BWT2orderedescortstillcaptures3thenlosesatB, nofullwin; beaconscreationfixedalready.
+P5needinteriorlandinggoal3392,3360..3616,3552; west3232,3424unloadwalksaroundcliff
+anddies. T8originalsixinitialairbornefixincluded, paidpilotnooriginalwinyet.
+No moreautomationsauthorized; noexternalpush orphysicalSD. Workcontinuesordinary
+userturns, allcampaigngoalNOTcomplete:21enabledandvictorytested. Allrunprocessesdone.

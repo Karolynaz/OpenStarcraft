@@ -38,6 +38,7 @@ def pages(name):
   text=re.sub(r'</[^>]*>','',page).strip();result.append((bg[1],text))
  return result
 summaries={
+ 'zerg06':'Kerrigan has recovered the secrets of the Ghost program. The Protoss remain on Char, and Tassadar has drawn her attention. Drive back the intruders, then guide Kerrigan to the challenge that awaits her.',
  'zerg05':'Kerrigan has emerged from the Chrysalis. To recover the secrets of her suppressed powers, she infiltrates a Terran science vessel. Guide her through the installation, unlock its passages, and reach the supercomputer.',
  'terran08':'The Confederacy has blockaded Antiga Prime. Protect Kerrigan and carry the stolen Psi Emitter into the Confederate base so the Sons of Korhal can break the blockade.',
  'terran06':'Raynor must reach the downed Norad II. Secure the Terran colony, prepare transports, and bring Raynor with two Dropships to the crash site.',
