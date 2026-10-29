@@ -6,3 +6,4 @@
 *.MPQ
 .DS_Store
 __pycache__/
+/update image screens/
