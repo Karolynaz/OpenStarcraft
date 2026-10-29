@@ -38,6 +38,7 @@ def pages(name):
   text=re.sub(r'</[^>]*>','',page).strip();result.append((bg[1],text))
  return result
 summaries={
+ 'expprotoss02':'The survivors of Aiur have reached Shakuras, the refuge of the Dark Templar. Build a colony, find their people, and confront the Zerg that have followed the refugees through the warp gate.',
  'terran05':'The Sons of Korhal turn to Antiga Prime, where colonists are ready to rise against Confederate rule. Join Sarah Kerrigan, help the rebels take control, and protect their new foothold while Confederate forces close in.',
  'terran02':'Raynor has helped your colonists survive the journey. A nearby outpost has fallen silent as the alien infestation spreads. Investigate Backwater Station and bring its surviving defenders home.',
  'terran03':'The infestation on Mar Sara is spreading beyond the Confederacy\'s control. Your colonists need to evacuate. Hold your position until the rescue transports arrive.',

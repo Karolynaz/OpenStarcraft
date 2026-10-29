@@ -1423,3 +1423,25 @@ cp1252decode. Furthergoalincomplete:111allies_watch BWZ6, newlatermissiontests.
 Fresh6000audit61/64runtime no-rejection, notwins; unusedcutT7/T10stillreject;
 longerauditnew101 onBWT8pending. Existing07:30one-shot stillcorrectreset07:25:27;
 delete02:25one-shotwhenendingthisturn, noextrascheduledcontinuationsauthorized.
+
+## 2026-10-29 continuation: seventeenth mission verified
+Source25f92e80eb908e7b: appendBW Protoss2DunesofShakuras scenario32, map/MBRF/
+originalestp02x story/location, animatedbrief/cast,18originalWAVs/heroresponses.
+No backend changes since16. Paid publiccontrol originalwin35681, NW384,512 colony,
+4DT rescue/objectivechange/Nexussurvives/voices>=4, exactcompletedsavereplayPASS.
+All17defeatfixtures/menu-story-brief-startup/active replay+48/17248continuationPASS.
+Presentation17PASS,257WAVsbyteexact2MiBmixerIO0/cleanunload,18newWAVsStormLibexact.
+NativeARM11PASS; originalmodelstory/animatedbrief/ornateupperframe/loading/live/
+pauseobjectivesPASS, scenario32normalheap31318424,linearfree25600with96KiBshot.
+EmulatorSTOPPED/config/profile/progress/all saves byte-restored, nophysicalSD.
+ReportCAMPAIGN_SEVENTEEN_VALIDATION.md; privateevidencelocal-data/campaign-seventeen-
+validation. Stagedexe matchesout25f9. Overlaycampaign-seventeen-update-2026-10-29.zip
+41756970bytes SHA256fd4ffd4ccd0df7a941c6a633a35e83e0098775e103b4a2bd2968bdace5434060,
+126hashes/CRC/exactexePASS; --missions terran05 expprotoss02 includesbothnewmissions
+forpriorfull15install. Preserve16fallbackZIP. Hostobj/tmp/sc3ds-seventeen-engine.o.
+BWT2privatepilot /tmp/sc3ds-bwt2-pilot2.cpp captures3ships at673/961/1393 thenstalls
+220000. Capturedships owner2staged, owner1uncaptured. After3originalenemy6customscore
+shouldsetswitch8 tospawnnextcrew; pilotcurrentlywaitswhennoCivilian. Original4groups
+3/4/5/6ships (18total); noBWT2catalogue/shippeddatauntilactualwin/replayproof.
+Temporarydiagnosticengine /tmp/sc3ds-bwt2-diagnostic-engine.cpp expandsheaderlocally
+withscore/switchlogging only, no committedproductchange. Continuefromevidence.

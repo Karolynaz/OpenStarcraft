@@ -91,6 +91,7 @@ glue/readyz/zframeh4.pcx
 rez/estp01.txt
 rez/estp01x.txt
 rez/estp02.txt
+rez/estp02x.txt
 rez/estp03.txt
 rez/estp04.txt
 rez/estt01.txt
