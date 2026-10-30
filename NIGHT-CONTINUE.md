@@ -1927,3 +1927,25 @@ beacon route after original teleport, properly escort/cloak/lockdown. Preserve
 original triggers. BWP3 previous macro driver mishandles gas and distant builders;
 Scouts70 ARE allowed; Carriers72 disabled. Need paid air/DT solution to two
 Cerebrates151 at432,2240 and848,2336. Not yet proved a corebug or victory.
+
+Final24 extended BW audit: campaign-twenty-four-validation/bw-120k-audit.csv and
+bw-120k-summary.json:32 normalized BW entries,16running120000/16original unattended
+defeats, zero load/tick/ASan errors. This is compatibility only, NOT completability.
+Report updated. Source and package unchanged.
+
+Next BW private experiments copied into24-validation/next-bw-investigation, not
+shipped or enabled. BWP3 read-only native topology confirms initial SE home and
+southwest Cerebrates are disconnected; ground DT rush cannot work. Northwest
+landing1152,1376 reaches wrong island; two-DT cargo is count2 (not space4), full
+Shuttle contains4DT. Direct flight crosses multiple Spore Colonies and dies; west
+coast32,2368 drop attempt also loses transports. No proven engine defect in these
+failures. PUNI permitsShuttle69/Scout70/Robotics155; Carriers72 remain disabled.
+Private macro bug: repeatedly reassigning gas every48frames interrupted income;
+fixed prototype uses stable3workers and480 refresh. Still no BWP3 victory.
+The6/12Scout/direct-Spore and early transport prototypes lose; do not mistake
+them for product bugs or promote the map. Main resources deplete near22k and
+workers then travel to other islands. Need proper expansion (NW928..1152,432..560),
+paid transport and protected DT landing, with coherent defense/escort.
+BWT2 read-only reach-filtered escort still captures3 then dies/stalls sectorB;
+original transitions continue working. No additional mission enabled after24.
+All test/emulator processes complete or stopped; no background automation added.

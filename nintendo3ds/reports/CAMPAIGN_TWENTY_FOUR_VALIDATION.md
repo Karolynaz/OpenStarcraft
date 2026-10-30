@@ -41,6 +41,10 @@ research availability or original trigger sequence is replaced or cheated.
 - All24 audio banks stream byte-exact through the bounded4MiB fake3DS mixer, IO0;
   BWZ2's30 mission/briefing WAVs independently match BroodWar.mpq StormLib bytes.
 - **175** private presentation resources and24 exported maps verified.
+- All **32** normalized owned BW map entries audited with this ASan engine through
+  120000 frames or original outcome:16 remain running,16 original unattended
+  defeats, zero load/tick/ASan errors. This compatibility audit is not victory
+  proof and does not enable those unvalidated missions.
 - ARM11 build passes ARMv6K/VFPv2/no Thumb-2 or NEON verification.
 
 Original-model emulator reconstructs the **entire32311-frame journal** and shows
