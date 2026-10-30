@@ -1897,3 +1897,33 @@ harvest, because original AI activates around switches/approach areas. Need actu
 original timer, native crystal pickup/cargo/return and victory, not a synthetic
 trigger fixture. Do not assume burrowing is needed: the first Drone is removed
 by the authored sequence. Preserve current23 source until a Z9 win proves next.
+
+
+## 2026-10-30 — BW focus, checkpoint24 complete
+
+Latest verified source src-cefee4a794895e2a, host ASan object
+/tmp/sc3ds-twenty-four-engine.o. BW Zerg2 Reign of Fire now scenario39. Three shared
+fixes: native group destinations for scripted Order46; neutral/rescue campaign
+artefact PowerupIdle; carried-item search accepts original item owner as well as
+carrier owner for Move Location. Original autonomous intro now destroys generators,
+delivers SCV217, rescues2Drones/grants850/200. Native original paid24Muta strike wins
+32311, exact completed replay; original armed public-control loss2575. All24 ASan
+victories/openings/save48/17248/defeats/routes/slots/presentation/audio pass. Focused
+group,18artefact cases, autonomous intro active replay pass; oldsource negative
+controls fail as expected. All30 BWZ2 mission/brief WAVs independently StormLib
+byteexact. 175assets. Full32311 original-model journal shows Victory; fresh story/
+brief/Start/world checked. Replay normal32195952, linearfree123904; fresh32082856,
+linearfree25600. Emulator STOPPED and byte-RESTORED. Physical SD untouched.
+Report CAMPAIGN_TWENTY_FOUR_VALIDATION.md; evidence campaign-twenty-four-validation.
+Private ZIP campaign-twenty-four-update-2026-10-30.zip173898907bytes SHA256
+c181f7fef961e9f3fbd467c710586d260975f2251bb3565cc3b2f48234983a6b.
+Overlay full15 or later, start fresh, no profiles/saves/progress. Stage/out match.
+Overall goal still incomplete:24verified, BW onlyP1/P2,T1,Z1/Z2.
+
+BWT2 escort retest on final24 still captures3 then pilot/marines die sectorB;
+/tmp/sc3ds-bwt2-escort-current.log. Prototype platform-local nearest-human-beacon
+driver stalls before firstcapture, not a product fix. Need sector-specific
+beacon route after original teleport, properly escort/cloak/lockdown. Preserve
+original triggers. BWP3 previous macro driver mishandles gas and distant builders;
+Scouts70 ARE allowed; Carriers72 disabled. Need paid air/DT solution to two
+Cerebrates151 at432,2240 and848,2336. Not yet proved a corebug or victory.

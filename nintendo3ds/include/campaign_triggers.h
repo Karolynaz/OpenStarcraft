@@ -38,6 +38,28 @@ bool campaign_action(execute_trigger_struct& ets,int owner,running_trigger& rt,r
  auto arithmetic=[](int& value,unsigned amount,unsigned op){if(op==7)value=int(amount);else if(op==8)value+=int(amount);else if(op==9)value=std::max(0,value-int(amount));};
  auto location=[&](unsigned id)->const bwgame::location&{if(!id || id>st.locations.size())throw std::runtime_error("Campaign action location bounds");return st.locations[id-1];};
  switch(a.type){
+ case 46:{
+  // Use native group destinations instead of collapsing the entire scripted
+  // squad onto one center. Narrow UMS rendezvous/Bring chains depend on this.
+  if(a.num_n<0 || a.num_n>2){handled=false;return true;}
+  const auto& src=location(a.location);const auto& dst=location(a.group2_n);
+  const xy target=(dst.area.from+dst.area.to)/2;
+  const auto* order=get_order_type(a.num_n==0?Orders::Move:a.num_n==1?Orders::Patrol:Orders::AttackMove);
+  action_state state;action_functions commands(st,state);
+  for(int p:trigger_players(owner,a.group_n)){
+   static_vector<unit_t*,12> batch;
+   auto send=[&](){if(batch.empty())return;commands.action_select(p,batch);commands.action_order(p,order,target,nullptr,nullptr,false);batch.clear();};
+   for(auto* u:find_units(src.area)){
+    if(u->owner!=p || !campaign_matches(u,a.extra_n) || !unit_is_at_elevation_flags(u,src.elevation_flags) || !u_can_move(u) || unit_is_rescuable(u) || unit_is_fighter(u) || unit_is(u,UnitTypes::Terran_Nuclear_Missile))continue;
+    if(ut_building(u) && (u->order_type->id==Orders::BuildingLand || u->order_type->id==Orders::BuildingLiftoff))continue;
+    if(u_burrowed(u)){unburrow_unit(u);set_queued_order(u,false,order,target);continue;}
+    if(!unit_can_receive_order(u,order,p))continue;
+    batch.push_back(u);if(batch.size()==12)send();
+   }
+   send();
+  }
+  return true;
+ }
  case 15:case 16:{xy center=st.game->start_locations[owner];const rect* area=nullptr;if(a.type==16){const auto& l=location(a.location);center=(l.area.from+l.area.to)/2;area=&l.area;}campaign_ai.start(*this,unsigned(a.group2_n),unsigned(owner),center,area);return true;}
  case 41:if(a.string_index<=0 || unsigned(a.string_index)>st.game->map_strings.size())throw std::runtime_error("Campaign next scenario string bounds");campaign.next_scenario=unsigned(a.string_index);return true;
  case 14:campaign.timer(unsigned(a.time_n),a.num_n);return true;

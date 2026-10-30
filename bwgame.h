@@ -17383,7 +17383,11 @@ struct state_functions {
 			u->detected_flags = 0x80000000;
 			u->secondary_order_timer = 0;
 		}
-		if (st.players[u->owner].controller == player_t::controller_rescue_passive) {
+		// Campaign artefacts keep their pickup idle even when the scenario owns
+		// them through a neutral/rescue slot (e.g. BW Zerg2's Psi Emitter).
+		if (is_campaign_powerup(u)) {
+			set_unit_order(u, get_order_type(Orders::PowerupIdle));
+		} else if (st.players[u->owner].controller == player_t::controller_rescue_passive) {
 			set_unit_order(u, get_order_type(Orders::Neutral));
 		} else {
 			if (st.players[u->owner].controller == player_t::controller_neutral) set_unit_order(u, get_order_type(Orders::Neutral));
@@ -19190,7 +19194,10 @@ struct state_functions {
 				if (trigger_unit_pred(owner, n, player, uid)) return true;
 			}
 		}
-		if (ut_worker(u) && u->worker.powerup && trigger_players_pred(owner, player, u->owner)) {
+		if (ut_worker(u) && u->worker.powerup &&
+			(trigger_players_pred(owner, player, u->owner) || trigger_players_pred(owner, player, u->worker.powerup->owner))) {
+			// Location tracking may name the artefact's original neutral owner,
+			// while Bring/search commands may name the worker carrying it.
 			if (trigger_unit_pred(owner, u->worker.powerup, 17, uid)) return true;
 		}
 

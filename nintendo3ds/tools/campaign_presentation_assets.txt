@@ -117,3 +117,4 @@ rez/estz05.txt
 rez/estz06.txt
 rez/estz07.txt
 rez/estz08.txt
+rez/estz02x.txt
