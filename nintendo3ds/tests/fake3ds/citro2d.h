@@ -17,6 +17,7 @@ inline void C3D_TexSetWrap(C3D_Tex*,unsigned,unsigned){}
 inline void C3D_TexFlush(C3D_Tex*){}
 inline void C3D_TexBind(unsigned,C3D_Tex* tex){fake::binding().bound=tex;}
 inline void C2D_Flush(){}
+inline void C2D_Prepare(){fake::binding().cached=nullptr;}
 inline void C3D_AlphaBlend(unsigned,unsigned,unsigned,unsigned dst,unsigned,unsigned){fake::depth_state().additive=dst==GPU_ONE;}
 inline void C3D_AlphaTest(bool enabled,unsigned,unsigned){fake::depth_state().alpha=enabled;}
 inline void C3D_DepthTest(bool enabled,unsigned,unsigned write){fake::depth_state().enabled=enabled;fake::depth_state().write=write;}

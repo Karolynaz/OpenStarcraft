@@ -2026,3 +2026,31 @@ CC, so corrected fixture to ordinary custom arena (not a product issue). Existin
 bottom exactoriginal resize and every pixel of6twiddledbanks PASS. ARM11 main.cpp
 -fsyntax-only PASS (NO object/executable); no GPU/emulator validation yet. Evidence
 local-data/result-screen-validation. Wait for user's remaining corrections.
+
+
+## 2026-10-31 — three race briefing upper-room extensions, still NO BUILD
+
+User asked same outpainting for protoss/terran/zerg-fonas.png in update image
+screens/02 briefing. Built-in imagegen created800x960 upper-room continuations.
+Private selected sources local-data/briefing-outpaint-2026-10-31/generated, prompts
+JSON there and user-facing screens/top/generation-prompts.json. Final400x240 top
+crops in update image screens/02 briefing/screens/top. No original files altered.
+
+prepare_briefing_screens.py makes briefing-upper-RACE.bin(native400x240 on one
+256KiB page) plus briefing-loading-RACE.bin(same crop squeezed256x128 then drawn
+400x240,64KiB). BriefingArt draws native new room above behind unchanged dialogue
+box/race frame/hero text. Also uses same room thumbnail for objectives/loading.
+The native upper page is cleared in release_room before core loads; only existing
+64KiB thumbnail+32KiB frame survive warming, no new gameplay linear-memory burden.
+Story-specific backgrounds/scroll/location swap from preceding edit remain.
+Existing bottom briefing room+overlays/animations+portraits are byte-identical to
+release24 (all3 room banks checked). C2D_Prepare invalidates texture cache whenever
+briefing/story/portrait resources change; host fake models invalidation.
+
+Stage manifest211 resources(allhashes/sizes pass). All3top crops/sizes/opacity and
+every pixel of6native/loading GPU banks checked. All24host ASan story/briefing
+renderer/lifetime tests pass, including native400x240 upper draw, clear on release
+and retained2small textures only. ARM11 main.cpp -fsyntax-only PASS(no executable
+produced). Evidence local-data/briefing-upper-validation. Released24 ZIP and old
+stage/out3dsx byte-unchanged; NO new build/package/emulator/physicalSD. Wait for
+user's remaining corrections before next authorized build. No missions added.

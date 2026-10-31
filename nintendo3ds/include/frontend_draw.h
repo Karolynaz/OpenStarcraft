@@ -34,7 +34,7 @@ inline void draw_campaign_top(const Frontend& f,BriefingArt& art,C2D_TextBuf tex
    if(y>=18 && y+Frontend::story_line_height<=18+Frontend::story_view_height)ui_text(text,f.story_lines[i].c_str(),18,y,Frontend::story_font,green);}
   return;
  }
- art.shot();
+ if(loading)art.shot();else art.briefing_top();
  C2D_DrawRectSolid(0,0,0,400,240,C2D_Color32(0,0,0,51));
  C2D_DrawRectSolid(12,18,0,376,206,C2D_Color32(4,8,14,215));
  art.frame();
