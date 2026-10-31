@@ -180,6 +180,6 @@ for key,title,scenario,race,bw in re.findall(r'\{"([^"]+)","([^"]+)",(\d+),(\d+)
 if args.screens:
  from prepare_campaign_screens import prepare
  prepare(args.screens,root/'campaign-screen-previews',raw,root)
-manifest={p.name:{'bytes':p.stat().st_size,'sha256':hashlib.sha256(p.read_bytes()).hexdigest()} for p in campaign.iterdir() if p.suffix in ('.intro','.location','.brief-info','.brief-cast','.motion') or p.name.endswith(('-shot.bin','-story.bin','-animations.bin')) or p.name.startswith('briefing-')}
+manifest={p.name:{'bytes':p.stat().st_size,'sha256':hashlib.sha256(p.read_bytes()).hexdigest()} for p in campaign.iterdir() if p.suffix in ('.intro','.location','.brief-info','.brief-cast','.motion') or p.name.endswith(('-shot.bin','-story.bin','-animations.bin')) or p.name.startswith(('briefing-','result-'))}
 (campaign/'presentation-manifest.json').write_text(json.dumps(manifest,indent=2)+'\n')
 print(f'{len(manifest)} private presentation resources prepared')

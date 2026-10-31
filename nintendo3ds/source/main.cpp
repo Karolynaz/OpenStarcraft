@@ -10,6 +10,7 @@
 #include "command_grid.h"
 #include "frontend_draw.h"
 #include "pause_menu.h"
+#include "result_draw.h"
 #include "save_slots.h"
 #include "selection_draw.h"
 #include "source_id.h"
@@ -90,6 +91,7 @@ int main() {
     front.init(root);
     while(!front.quit){
     int launch_scenario=-1;port3ds::MatchSetup match_setup;
+    unsigned continue_campaign=~0u;
     std::string launch_map,restore_path;bool return_custom=false,pending_restore=false;port3ds::SaveInfo restore_info;
     front.play=front.load=false;
 
@@ -157,6 +159,7 @@ int main() {
         port3ds::FramePacer frame_pacer;
         port3ds::Controls controls;
         unsigned scenario = unsigned(launch_scenario), loaded_scenario = scenario;
+        port3ds::ResultArt result_art;
         port3ds::UiArt hud_art;hud_art.load("sdmc:/3ds/openbw/ui/hud.bin");
         auto hud_buf=C2D_TextBufNew(4096);
         port3ds::InputRouter input;port3ds::UnitDoubleClick double_click;
@@ -215,6 +218,7 @@ int main() {
             // Present the loading message for one frame before blocking SD IO.
             if (load_now) {
                 loading_screen();double_click.reset();
+                result_art.clear();
                 placing = false; attacking=false;drag_pending=drag_box=false;ability_page=catalogue_page=0;menu=Menu::none;result_shown=false;
                 // Release resident PCM and sprite scratch before the core's
                 // temporary MPQ/GRP initialization peak on original hardware.
@@ -290,7 +294,7 @@ int main() {
                 auto axis=[](int v){return std::abs(v)<=20?0.f:std::copysign(std::min(1.f,(std::abs(v)-20)/136.f),float(v));};
                 menu_x=std::max(0.f,std::min(319.f,menu_x+axis(circle.dx)*190*ui_seconds));
                 menu_y=std::max(0.f,std::min(239.f,menu_y-axis(circle.dy)*190*ui_seconds));
-                if(std::abs(circle.dx)>20 || std::abs(circle.dy)>20){const int hit=port3ds::PauseMenu::hit(int(menu_x),int(menu_y),port3ds::PauseMenu::count(menu));if(hit>=0)choice=unsigned(hit);}
+                if(std::abs(circle.dx)>20 || std::abs(circle.dy)>20){const int hit=(menu==Menu::result?port3ds::ResultScreen::hit(int(menu_x),int(menu_y)):port3ds::PauseMenu::hit(int(menu_x),int(menu_y),port3ds::PauseMenu::count(menu)));if(hit>=0)choice=unsigned(hit);}
             }else controls.stick(circle.dx,circle.dy,ui_seconds);
             if(std::abs(circle.dx)>20 || std::abs(circle.dy)>20) camera_manual_until=now+8000000;
             auto command=[&](port3ds::Command c) {
@@ -331,7 +335,7 @@ int main() {
                 menu=Menu::none;
             };
             auto activate_menu=[&]() {
-                if(menu==Menu::result){return_custom=choice==0;exit_requested=true;return;}
+                if(menu==Menu::result){const auto ended=engine.snapshot();continue_campaign=port3ds::ResultScreen::next_mission(scenario,ended.campaign && ended.winner==0,ended.next_scenario);return_custom=true;exit_requested=true;return;}
                 if(menu==Menu::system) {
                     if(choice<2){scan_slots();menu=choice==0?Menu::save_slots:Menu::load_slots;choice=0;return;}
                     if(choice==2){menu=Menu::end_confirm;choice=1;return;}
@@ -416,7 +420,7 @@ int main() {
             }
             if(down&KEY_TOUCH) {
                 touchPosition t{};hidTouchRead(&t);
-                if(overlay(menu)){const int hit=port3ds::PauseMenu::hit(t.px,t.py,menu_count());if(hit>=0){choice=unsigned(hit);activate_menu();}}
+                if(overlay(menu)){const int hit=(menu==Menu::result?port3ds::ResultScreen::hit(t.px,t.py):port3ds::PauseMenu::hit(t.px,t.py,menu_count()));if(hit>=0){choice=unsigned(hit);activate_menu();}}
                 else if(port3ds::UiRect{255,156,55,22}.hit(t.px,t.py)){menu=Menu::system;choice=0;menu_x=160;menu_y=60;}
                 else if(menu==Menu::none || menu==Menu::catalogue){
                     if(menu==Menu::none)refresh_world();
@@ -460,6 +464,13 @@ int main() {
             if(state.winner>=0 && !result_shown) {
                 if(state.campaign && state.winner==0)front.complete_mission(scenario,state.next_scenario);
                 result_shown=true;paused=true;scheduler.reset();menu=Menu::result;choice=0;action=state.observer?(state.winner==0?"Red wins":state.winner==1?"Blue wins":state.winner==2?"Green wins":"Battle finished"):(state.winner==0?"Victory!":state.winner==3?"Draw":"Defeat");
+                // Result pages replace the world: free its linear textures and
+                // PCM before allocating the two native-resolution result pages.
+                sound.unload();graphics.clear();hud_art.clear();presentation_art.clear();
+                const bool result_ok=result_art.load(root,state.human_race,state.winner==0);
+                C2D_Prepare();
+                load_stage(scenario,result_ok?"result-art-ready":"result-art-off");
+                menu_x=160;menu_y=218;next_text=0;
             }
             port3ds::SoundEvent sound_events[256];
             const auto sound_count=engine.drain_sounds(sound_events,256);
@@ -509,7 +520,7 @@ int main() {
                 if(menu==Menu::none && attacking)std::snprintf(help,sizeof help,"%.64s\nA confirm target\nB cancel targeting\nCircle Pad: aim",target_help);
                 else if(menu==Menu::none) std::snprintf(help,sizeof help,"A action / B cancel\nSELECT all / R+X army / R+Y workers\nX/Y powers / L+X/L+Y more\nL+D-pad: save group\nR+D-pad: recall group\nTwice: center camera\nSTART pause/menu\nSTART menu");
                 else {
-                    const char* results[]={state.campaign?"Campaign menu":"Play Custom","Exit"};
+                    const char* results[]={"Ok"};
                     const char* system[]={"Save Game","Load Game","End Game","Options","Return to Game (B)"};
                     const char* options[]={"Scenarios",auto_camera?"Auto camera: ON":"Auto camera: OFF",log?"CSV: ON":"CSV: OFF","Reload current",engine.fog_enabled()?"Fog: ON (player)":"Fog: OFF (observer)","Exit application","Back (B)"};
                     const char* ending[]={"End Game","Cancel (B)"};
@@ -551,6 +562,12 @@ int main() {
             frame_pacer.began(C3D_FrameCounter(0),C3D_FrameCounter(1));
             const u64 waited=now_us()-wait_begin;
             gpu_sum+=C3D_GetDrawingTime()*1000;
+            if(menu==Menu::result){
+                C2D_TargetClear(top,bg);C2D_SceneBegin(top);
+                port3ds::draw_result_top(result_art,state,action,hud_buf);
+                C2D_TargetClear(bottom,bg);C2D_SceneBegin(bottom);
+                port3ds::draw_result_bottom(result_art,hud_buf);
+            }else{
             C2D_TargetClear(top, bg); C2D_SceneBegin(top);
             if (graphics.ready()) graphics.terrain(controls.camera_x,controls.camera_y);
             else {
@@ -689,6 +706,7 @@ int main() {
                 }
                 graphics.cursor(engine.cursor_image(port3ds::CursorKind::arrow,now-cursor_since),menu_x,menu_y,engine);
             }
+            } // World and pause UI are replaced by the result screens.
             if(pending_load || warming){
                 C2D_SceneBegin(top);C2D_DrawRectSolid(0,0,0,400,240,C2D_Color32(0,0,0,255));
                 if(front.briefing_loading)port3ds::draw_campaign_top(front,presentation_art,text_buf,true);
@@ -715,6 +733,8 @@ int main() {
     }
     if(!return_custom)break;
     front.screen=(match_setup.observer || port3ds::campaign::scenario(unsigned(launch_scenario)))?port3ds::Frontend::Screen::campaign:port3ds::Frontend::Screen::custom;front.transition=0;front.preview_dirty=true;front.x=240;front.y=218;
+    front.dialog=port3ds::Frontend::Dialog::none;
+    if(continue_campaign<port3ds::campaign::count){front.brood=port3ds::campaign::missions[continue_campaign].brood;front.open_briefing(continue_campaign);}
     C2D_Prepare();
     }
     presentation_art.clear();

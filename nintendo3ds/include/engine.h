@@ -53,6 +53,8 @@ struct Snapshot {
     std::string objectives,transmission,next_scenario;unsigned mission_camera_serial=0;int mission_camera_x=0,mission_camera_y=0;
     unsigned battle_seconds=0,end_reason=0,score[2]{};
     bool countdown_active=false;unsigned countdown_seconds=0;
+    unsigned human_race=1,units_completed=0,buildings_completed=0;
+    unsigned minerals_gathered=0,gas_gathered=0;
 };
 struct SoundEvent { unsigned id = 0; int x = 0, y = 0; };
 struct UnitView {

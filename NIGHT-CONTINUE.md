@@ -1982,3 +1982,47 @@ metadata/Start flow), and pixel-by-pixel crop/24twiddled-bank test all PASS.
 Evidence local-data/story-screen-swap-validation. No new native executable or
 emulator visual check, per user. Wait for user's further UI corrections before
 generating next build. Campaign goal remains incomplete at24 victory-validated.
+
+
+## 2026-10-31 — result art, top statistics, one bottom Ok; NO BUILD
+
+User's request to wait for more corrections before native build remains active.
+NO make/3dsx/package/emulator/physicalSD run. Previous checkpoint24 ZIP and out/
+stage3dsx still BYTE-IDENTICAL (verified). Source edits are awaiting next build.
+
+Six original640x480 race victory/defeat images from update image screens/03
+laimejus pralaimejus were extended upward using built-in imagegen. Selected
+outpaints800x960 private under local-data/result-outpaint-2026-10-31/generated;
+rendered outputs under original folder/screens/top400x240 and bottom320x240.
+BOTTOM uses original640x480 LANCZOS resize, never generated character artwork.
+Top uses upper240rows after resize400x480. Prompts saved screens/generation-prompts.json.
+prepare_result_screens.py reproducibly makes6native2page banks result-RACE-
+victory/defeat.bin. Stage presentation manifest205 validates allhashes/sizes;
+full presentation prep preserves result banks. No images committed/published.
+
+ResultScreen/ResultArt/ResultDraw now replace both world screens after result:
+race-appropriate native top background+statistics dialog, original bottom artwork
+and only Ok. Touch/A confirm; B retains return-to-menu. Ok after campaign win
+opens authored next installed mission's story; fallback to later episode entry
+only when no authored filename; no wrap and no skip of uninstalled branch.
+Defeat/custom/last-or-uninstalled-next returns menu. Existing atomic victory
+progress save stays in place. Native stats read totalcompleted Men/buildings,
+totalgathered minerals/gas; remainingcounts use existing liveview. These are
+display-only Snapshot fields; no simulation/order/replay-state mutations.
+Snapshot ABI CHANGED: DO NOT link old24 engine.o with new headers. Private host
+engine /tmp/sc3ds-results-engine.o uses /tmp/sc3ds-results-include source id
+src-a0effef3fad34c04, built for stats tests before final main-only C2D_Prepare
+cache-invalidation edit. Not a released/native build. Generate fresh sourceID/
+engine on next authorized build. C2D_Prepare runs after deleting world textures
+and loading resultpages. Graphics/audio/HUD released BEFORE resultart allocation,
+which keeps512KiB linear art out of active gameplay peaks. Core remains allocated.
+
+Host ASan result_screen sixpair native dimensions/rendertextcapture/Okhit/
+continuation/custom/defeat/last/unavailable routes/texturecleanup PASS. Host ASan
+result_stats actual customthree-race choice/mining/paidSCV/native completion
+counters/exact save replay PASS. Initial test used T1's travelling colony without
+CC, so corrected fixture to ordinary custom arena (not a product issue). Existing
+24 story art lifecycle/renderer host test still PASS. All12 PNG sizes/opacity,
+bottom exactoriginal resize and every pixel of6twiddledbanks PASS. ARM11 main.cpp
+-fsyntax-only PASS (NO object/executable); no GPU/emulator validation yet. Evidence
+local-data/result-screen-validation. Wait for user's remaining corrections.

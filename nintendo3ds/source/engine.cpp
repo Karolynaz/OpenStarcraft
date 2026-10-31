@@ -479,6 +479,11 @@ Snapshot Engine::snapshot() const {
     s.width = st.game->map_tile_width; s.height = st.game->map_tile_height;
     s.minerals = st.current_minerals[0]; s.gas = st.current_gas[0];
     const auto race = static_cast<unsigned>(st.players[0].race);
+    s.human_race=race;
+    s.units_completed=std::max(0,st.total_non_buildings_ever_completed[0]);
+    s.buildings_completed=std::max(0,st.total_buildings_ever_completed[0]);
+    s.minerals_gathered=std::max(0,st.total_minerals_gathered[0]);
+    s.gas_gathered=std::max(0,st.total_gas_gathered[0]);
     s.supply = st.supply_used[0][race].integer_part();
     s.supply_max = std::min(200,st.supply_available[0][race].integer_part());
     const auto& funcs = impl_->player->funcs();
