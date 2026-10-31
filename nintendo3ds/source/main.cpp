@@ -110,7 +110,7 @@ int main() {
                 if(auto measure=C2D_TextBufNew(160)){front.paginate_briefing([&](const char* line){return port3ds::ui_width(measure,line,port3ds::Frontend::briefing_font);},port3ds::Frontend::briefing_width,port3ds::Frontend::briefing_rows);C2D_TextBufDelete(measure);}
             }
             if(front.dialog==port3ds::Frontend::Dialog::story && front.story_lines.empty()){
-                if(auto measure=C2D_TextBufNew(160)){front.layout_story([&](const char* line){return port3ds::ui_width(measure,line,port3ds::Frontend::story_font);},282);C2D_TextBufDelete(measure);}
+                if(auto measure=C2D_TextBufNew(160)){front.layout_story([&](const char* line){return port3ds::ui_width(measure,line,port3ds::Frontend::story_font);},port3ds::Frontend::story_width);C2D_TextBufDelete(measure);}
             }
             const std::string wanted_animation=front.rich_briefing && front.presentation()?(front.dialog==port3ds::Frontend::Dialog::story?"":std::string(root)+"campaign/"+port3ds::campaign::missions[front.mission].key+"-animations.bin"):std::string(root)+"ui/animations.bin";
             if(animation_path!=wanted_animation){animation.clear();animation_path=wanted_animation;if(!animation_path.empty() && !animation.load(animation_path.c_str())){std::snprintf(front.error,sizeof front.error,"Install the updated briefing animation package.");front.dialog=port3ds::Frontend::Dialog::error;front.play=false;}}

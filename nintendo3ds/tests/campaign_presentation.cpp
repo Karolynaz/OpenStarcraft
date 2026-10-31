@@ -7,8 +7,8 @@ int main(int argc,char**argv){using namespace port3ds;assert(argc==2);
   assert(f.rich_briefing && f.dialog==Frontend::Dialog::story && !f.story.empty() && !f.location.empty() && !f.objectives.empty());
   assert(f.briefing.size()==f.briefing_voices.size() && f.briefing.size()==f.briefing_portraits.size() && f.briefing.size()==f.briefing_cast.size() && f.briefing.size()==f.briefing_slots.size());
   if(i==0)assert(f.briefing_cast[0][3]==17 && f.briefing_slots[0]==3);
-  f.layout_story([](const char* t){return std::strlen(t)*7.f;},282);assert(!f.story_lines.empty());
-  f.scroll_story(100000);assert(f.story_scroll>=0);f.scroll_story(-100000);assert(f.story_scroll==0);
+  f.layout_story([](const char* t){return std::strlen(t)*7.f;},Frontend::story_width);assert(!f.story_lines.empty());
+  f.scroll_story(100000);assert(f.story_scroll==std::max(0.f,float(f.story_lines.size())*Frontend::story_line_height-Frontend::story_view_height));f.scroll_story(-100000);assert(f.story_scroll==0);
   f.update_presentation(4,false);assert(f.story_scroll>=0 && !f.play);
   f.paginate_briefing([](const char* t){return std::strlen(t)*8.f;},Frontend::briefing_width,8);
   for(unsigned j=0;j<f.briefing.size();++j){assert(f.briefing_portraits[j]<=110 && f.briefing_slots[j]<=4);for(auto id:f.briefing_cast[j])assert(id<=110);assert(std::count(f.briefing[j].begin(),f.briefing[j].end(),'\n')<8);}

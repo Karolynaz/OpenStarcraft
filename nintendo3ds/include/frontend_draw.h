@@ -26,12 +26,15 @@ inline void ui_limited(C2D_TextBuf buf,const char* value,float x,float y,float s
  C2D_TextBufDelete(measure);
 }
 inline void draw_campaign_top(const Frontend& f,BriefingArt& art,C2D_TextBuf text,bool loading=false){
- art.shot();const auto green=C2D_Color32(104,205,68,255),white=C2D_Color32(183,185,241,255);
+ const auto green=C2D_Color32(104,205,68,255),white=C2D_Color32(183,185,241,255);
  if(f.dialog==Frontend::Dialog::story && !loading){
-  // The photo is already a centered 400px-wide crop, with no baked-in labels.
-  C2D_DrawRectSolid(0,130,0,400,110,C2D_Color32(0,0,0,135));
-  ui_limited(text,f.location.c_str(),16,138,.64f,368,5,green);return;
+  art.story_top();
+  C2D_DrawRectSolid(0,0,0,400,240,C2D_Color32(0,0,0,185));
+  for(unsigned i=0;i<f.story_lines.size();++i){const float y=18+i*Frontend::story_line_height-f.story_scroll;
+   if(y>=18 && y+Frontend::story_line_height<=18+Frontend::story_view_height)ui_text(text,f.story_lines[i].c_str(),18,y,Frontend::story_font,green);}
+  return;
  }
+ art.shot();
  C2D_DrawRectSolid(0,0,0,400,240,C2D_Color32(0,0,0,51));
  C2D_DrawRectSolid(12,18,0,376,206,C2D_Color32(4,8,14,215));
  art.frame();
@@ -42,8 +45,10 @@ inline void draw_campaign_top(const Frontend& f,BriefingArt& art,C2D_TextBuf tex
 inline void draw_campaign_bottom(const Frontend& f,BriefingArt& art,UiArt& menu,C2D_TextBuf text,MenuAnimation& animation,unsigned tick){
  const auto green=C2D_Color32(104,205,68,255),bright=C2D_Color32(195,255,146,255);
  if(f.dialog==Frontend::Dialog::story){
-  C2D_DrawRectSolid(0,0,0,320,240,C2D_Color32(0,0,0,255));
-  for(unsigned i=0;i<f.story_lines.size();++i){float y=20+i*Frontend::story_line_height-f.story_scroll;if(y>=18 && y+Frontend::story_line_height<=198)ui_text(text,f.story_lines[i].c_str(),18,y,Frontend::story_font,green);}
+  art.story_bottom();
+  C2D_DrawRectSolid(0,100,0,320,140,C2D_Color32(0,0,0,145));
+  ui_limited(text,f.location.c_str(),16,108,.62f,288,5,green);
+  C2D_DrawRectSolid(0,204,0,320,36,C2D_Color32(0,0,0,190));
   ui_centered(text,"Cancel (B)",{14,208,136,28},.55f,f.hover==111?bright:green);ui_centered(text,"Briefing (A)",{170,208,136,28},.55f,f.hover==115?bright:green);return;
  }
  art.room(f,animation,tick);art.portraits(f,animation,tick);

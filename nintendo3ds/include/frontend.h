@@ -32,6 +32,7 @@ struct Frontend {
  bool rich_briefing=false,briefing_done=false,briefing_loading=false,briefing_speaking=false;
  unsigned briefing_serial=0;float briefing_elapsed=0,story_scroll=0,story_pause=3;
  static constexpr float story_font=.62f,story_line_height=18.6f;
+ static constexpr float story_width=364.f,story_view_height=204.f;
  unsigned briefing_slot()const{return !briefing_done && briefing_page<briefing_slots.size()?briefing_slots[briefing_page]:4;}
  unsigned briefing_portrait()const{return !briefing_done && briefing_page<briefing_portraits.size()?briefing_portraits[briefing_page]:110;}
  bool presentation()const{return dialog==Dialog::story || dialog==Dialog::briefing;}
@@ -47,11 +48,11 @@ struct Frontend {
    story_lines.push_back(line);at+=n;if(at<story.size() && story[at]=='\n')++at;
   }
  }
- void scroll_story(float delta){story_scroll=std::max(0.f,std::min(std::max(0.f,float(story_lines.size())*story_line_height-174.f),story_scroll+delta));story_pause=3;}
+ void scroll_story(float delta){story_scroll=std::max(0.f,std::min(std::max(0.f,float(story_lines.size())*story_line_height-story_view_height),story_scroll+delta));story_pause=3;}
  void begin_briefing(){dialog=Dialog::briefing;x=270;y=194;hover=116;briefing_page=0;briefing_done=briefing.empty();briefing_elapsed=0;++briefing_serial;}
  void replay_briefing(){if(rich_briefing && dialog==Dialog::briefing)begin_briefing();}
  void update_presentation(float dt,bool speaking){
-  if(dialog==Dialog::story){story_pause=std::max(0.f,story_pause-dt);if(!story_pause)story_scroll=std::min(std::max(0.f,float(story_lines.size())*story_line_height-174.f),story_scroll+dt*9);}
+  if(dialog==Dialog::story){story_pause=std::max(0.f,story_pause-dt);if(!story_pause)story_scroll=std::min(std::max(0.f,float(story_lines.size())*story_line_height-story_view_height),story_scroll+dt*9);}
   if(!rich_briefing || dialog!=Dialog::briefing || briefing_done)return;
   briefing_elapsed+=dt;
   const unsigned ms=briefing_page<briefing_times.size()?briefing_times[briefing_page]:5000;

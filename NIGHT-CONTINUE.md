@@ -1949,3 +1949,36 @@ paid transport and protected DT landing, with coherent defense/escort.
 BWT2 read-only reach-filtered escort still captures3 then dies/stalls sectorB;
 original transitions continue working. No additional mission enabled after24.
 All test/emulator processes complete or stopped; no background automation added.
+
+
+## 2026-10-31 — completed scene crops + story-screen swap, NO NEW BUILD
+
+User requests no new build until further corrections arrive. That instruction
+remains active. Do not run make/package/install now. Last released24 ZIP and
+its staged/out 3DS executable are byte-unchanged (checked against ZIP). Source
+now has tested UI edits; current source_id header still belongs to released24,
+and will be regenerated only at a future authorized native build. No SD writes.
+
+18 user scene outpaints created with built-in imagegen, saved non-destructively
+under user folder z /_original_4_3/_filled, all800x960 opaque. Latest request:
+scale to400x480, upper crop(0,0,400,240); bottom crop(40,240,360,480) gives320x240.
+All36 PNGs are in _filled/screens/top and bottom. Workspace private copies:
+nintendo3ds/local-data/image-outpaint-2026-10-31/screens. No purchased/generated
+art committed or published. Prompts in private generation-prompts.json.
+
+prepare_campaign_screens.py maps original owned est location-card backgrounds
+to24 per-mission -story.bin banks (native400x240+320x240,2x256KiB pages). Stage
+presentation manifest now199 validresources. Common writer extracted unchanged
+to tools/ui_bank.py. Full presentation tool accepts optional --screens FILLED.
+Story mode now top background+scrolling green history (364px width/204px view),
+bottom background+mission/location labels+Cancel/Briefing. Touch scroll on lower
+screen still controls top text; stick/D-pad/A/B retained. Both story texture pages
+released before briefing room/voices; existing64KiB photo+32KiB race frame only
+survive warming. Briefing/loading itself retains prior photo layout.
+
+Host ASan campaign_story_art (actual draw-text capture, all24 artwork sizes,
+release/lifetime), campaign_presentation(all24 history/scroll/input/brief/audio
+metadata/Start flow), and pixel-by-pixel crop/24twiddled-bank test all PASS.
+Evidence local-data/story-screen-swap-validation. No new native executable or
+emulator visual check, per user. Wait for user's further UI corrections before
+generating next build. Campaign goal remains incomplete at24 victory-validated.
