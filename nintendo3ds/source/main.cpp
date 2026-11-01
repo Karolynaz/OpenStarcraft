@@ -102,9 +102,9 @@ int main() {
         while(aptMainLoop()){
             hidScanInput();const u32 down=hidKeysDown();circlePosition stick{};hidCircleRead(&stick);
             const auto now=now_us();const float menu_dt=std::min<u64>(now-last,50000)/1000000.f;front.stick(stick.dx,stick.dy,menu_dt);last=now;
-            if(front.dialog==port3ds::Frontend::Dialog::story && (hidKeysHeld()&KEY_TOUCH)){touchPosition t{};hidTouchRead(&t);if(touch_y>=0 && t.py<198)front.scroll_story(touch_y-int(t.py));touch_y=t.py;}else touch_y=-1;
+            if(front.dialog==port3ds::Frontend::Dialog::story && (hidKeysHeld()&KEY_TOUCH)){touchPosition t{};hidTouchRead(&t);if(touch_y>=0)front.scroll_story(touch_y-int(t.py));touch_y=t.py;}else touch_y=-1;
             if(down&KEY_TOUCH){touchPosition t{};hidTouchRead(&t);front.x=t.px;front.y=t.py;front.hover=front.hit(t.px,t.py);front.activate(front.hover);}
-            if(down&KEY_A)front.activate(front.dialog==port3ds::Frontend::Dialog::story?(front.hover==111?111:115):front.hit(int(front.x),int(front.y)));
+            if(down&KEY_A)front.confirm();
             if((down&KEY_START) && front.rich_briefing && front.dialog==port3ds::Frontend::Dialog::briefing)front.activate(116);
             if(down&KEY_Y)front.replay_briefing();
             if(down&KEY_B)front.back();

@@ -48,8 +48,7 @@ inline void draw_campaign_bottom(const Frontend& f,BriefingArt& art,UiArt& menu,
   art.story_bottom();
   C2D_DrawRectSolid(0,100,0,320,140,C2D_Color32(0,0,0,145));
   ui_limited(text,f.location.c_str(),16,108,.62f,288,5,green);
-  C2D_DrawRectSolid(0,204,0,320,36,C2D_Color32(0,0,0,190));
-  ui_centered(text,"Cancel (B)",{14,208,136,28},.55f,f.hover==111?bright:green);ui_centered(text,"Briefing (A)",{170,208,136,28},.55f,f.hover==115?bright:green);return;
+  return;
  }
  art.room(f,animation,tick);art.portraits(f,animation,tick);
  // Native 640x480 BIN coordinates, uniformly halved. Retain the original

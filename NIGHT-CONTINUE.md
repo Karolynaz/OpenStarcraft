@@ -2054,3 +2054,30 @@ and retained2small textures only. ARM11 main.cpp -fsyntax-only PASS(no executabl
 produced). Evidence local-data/briefing-upper-validation. Released24 ZIP and old
 stage/out3dsx byte-unchanged; NO new build/package/emulator/physicalSD. Wait for
 user's remaining corrections before next authorized build. No missions added.
+
+
+## 2026-11-01 — user authorized new UI build, verified and packaged
+
+Removed story-screen Cancel/Briefing labels/action bar/invisible hitboxes. A now
+always enters briefing; LEFT/RIGHT inert, B back and vertical/touch scrolling
+retained. Native source src-bad96e699308d125; previous NO BUILD instruction now
+superseded by explicit latest user request. Includes all prior private story,
+briefing-upper and result-art changes.
+
+24/24 fresh-engine ASan campaign victory drivers PASS; openings/defeat/routes/
+five slots/presentation and UI/result counter exact replay PASS. Original-model
+emulator fresh BWZ2 story->briefing->loading->world PASS; completed T5 journal
+replay Victory->Ok->T6 story->LEFT+A briefing->START world observed/captured.
+No claim of interactive full mission completion. Linear margin still25,600bytes
+in fresh BWZ2/T6 at audio-ready. Emulator stopped; config/profile/progress/all
+saves/executable byte-restored. PhysicalSD untouched.
+
+Latest private package local-data/releases/campaign-ui-update-2026-11-01.zip,
+176963481 bytes,211resources; SHA256
+c4858a712dfe592d8dc42a003463b18e66722b9b955df58d4cc5bd90b5e9abb5.
+Overlay existing full15-mission installation/later updates, not standalone. Start
+fresh mission (old-source saves restricted). Stage/out byte-identical. Prior
+checkpoint24 package preserved. Evidence local-data/campaign-nov01-validation;
+report reports/CAMPAIGN_UI_2026_11_01_VALIDATION.md. Fresh ASan engine object
+/tmp/sc3ds-nov01-engine.o matches current Snapshot ABI. No new missions added:24
+existing victory-tested routes, allBWcampaign completion remains unfinished.

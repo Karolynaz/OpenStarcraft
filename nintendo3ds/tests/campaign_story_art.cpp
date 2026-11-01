@@ -28,7 +28,7 @@ int main(int argc,char**argv){
   assert(text_calls::values==std::vector<std::string>{"STORY HISTORY"});
   text_calls::values.clear();UiArt menu;MenuAnimation animation;
   draw_campaign_bottom(f,art,menu,nullptr,animation,0);
-  assert((text_calls::values==std::vector<std::string>{"MISSION NAME","LOCATION","Cancel (B)","Briefing (A)"}));
+  assert((text_calls::values==std::vector<std::string>{"MISSION NAME","LOCATION"}));
   f.begin_briefing();assert(art.sync(f,argv[1]));
   fake::draws.clear();assert(art.briefing_top());
   assert(fake::draws.size()==1 && fake::draws[0].sub.width==400 && fake::draws[0].sub.height==240 && fake::draws[0].sx==1 && fake::draws[0].sy==1);
