@@ -101,14 +101,16 @@ struct Frontend {
  bool leaving=false;Screen destination=Screen::campaign;
  MapPreview preview;bool preview_dirty=true;float transition=1;
  float x=234,y=185;int hover=-1;
- std::string directory,base,settings;
+ std::string directory,base,settings,user_root,asset_root;
+ std::string campaign_folder()const{return asset_root.empty()?base+"/../campaign/":asset_root+"campaign/";}
+ std::string progress_path()const{return (user_root.empty()?base+"/../":user_root)+"campaign/progress.cfg";}
  struct Map{std::string name;bool folder;};std::vector<Map> maps;
  static const char* race_name(unsigned r){return r==0?"Zerg":r==2?"Protoss":"Terran";}
  unsigned scenario()const{if(campaign_start)return campaign::missions[mission].scenario;if(observer_test<4)return observer_test==1?12:observer_test==2?14:5;return race==0?15:race==2?13:4;}
  unsigned capacity()const{return preview.valid?std::min(3u,preview.players):0;}
  bool ai_available(unsigned i)const{return capacity()>i+1;}
  const char* ai_name(unsigned i)const{return !ai_available(i) || ai[i]==4?"Off":ai[i]==3?"Random":race_name(ai[i]);}
- std::string map_path()const{if(campaign_start)return base+"/../campaign/"+campaign::missions[mission].key+".chk";if(observer_test<4)return base+(observer_test==3?"/AI/three-islands.scm":"/AI/islands.scm");return selected_map<maps.size()?directory+"/"+maps[selected_map].name:"";}
+ std::string map_path()const{if(campaign_start)return campaign_folder()+campaign::missions[mission].key+".chk";if(observer_test<4)return base+(observer_test==3?"/AI/three-islands.scm":"/AI/islands.scm");return selected_map<maps.size()?directory+"/"+maps[selected_map].name:"";}
  MatchSetup match(unsigned seed)const{MatchSetup m;if(campaign_start)return m;m.enabled=true;if(observer_test<4){m.observer=true;m.difficulty=AiDifficulty::medium;int r=observer_test==1?2:observer_test==2?0:1;m.races={{r,r,-1}};if(observer_test==3){m.races={{1,2,0}};m.teams={{0,1,1}};m.side_difficulty={{1,0,0}};}return m;}m.game_type=game_type;m.difficulty=difficulty?AiDifficulty::medium:AiDifficulty::easy;m.races[0]=int(race);for(unsigned i=0;i<2;++i){seed=seed*1664525u+1013904223u;m.races[i+1]=!ai_available(i) || ai[i]==4?-1:ai[i]==3?int((seed>>16)%3):int(ai[i]);}return m;}
  static UiRect campaign_button(unsigned i){return i==2?UiRect{92,205,136,24}:UiRect{18+int(i)*148,174,136,24};}
  void navigate(Screen to){if(leaving || transition<1 || screen==to)return;destination=to;leaving=true;transition=1;}
@@ -132,11 +134,14 @@ struct Frontend {
   };visit("",0);
   std::sort(maps.begin(),maps.end(),[](const Map& a,const Map& b){return a.folder!=b.folder?a.folder>b.folder:a.name<b.name;});
  }
- void init(const char* root){base=std::string(root)+"maps";directory=base;settings=std::string(root)+"player1.cfg";
+ void init(const char* root,const char* userdata=nullptr){asset_root=root;base=asset_root+"maps";directory=base;user_root=userdata?userdata:root;settings=user_root+"player1.cfg";
+  // Installed bundles keep authored assets read-only; user-added custom maps
+  // and all profile/progress files remain on the SD card.
+  if(userdata){const auto custom=user_root+"maps";if(auto* dir=opendir(custom.c_str())){closedir(dir);directory=custom;}}
   if(FILE* f=std::fopen(settings.c_str(),"r")){unsigned v,r;if(std::fscanf(f,"OPENBW_PROFILE1\nversion=%u\nrace=%u",&v,&r)==2){brood=v==1;race=r<3?r:1;}char line[128];while(std::fgets(line,sizeof line,f)){unsigned value;if(std::sscanf(line,"difficulty=%u",&value)==1)difficulty=value==1?1:0;}std::fclose(f);}else save();scan();
-  if(FILE* progress=std::fopen((std::string(root)+"campaign/progress.cfg").c_str(),"r")){char line[80];while(std::fgets(line,sizeof line,progress)){std::string route=line;if(route.compare(0,5,"next=")==0){route=route.substr(5);while(!route.empty() && (route.back()=='\n' || route.back()=='\r'))route.pop_back();auto ep=campaign::key_episode(route);if(ep<next_missions.size())next_missions[ep]=route;}for(unsigned i=0;i<campaign::count;++i)if(std::string(line)==std::string(campaign::missions[i].key)+"=1\n" || (i==0 && std::string(line)=="terran=1\n"))completed[i]=true;}std::fclose(progress);}
+  if(FILE* progress=std::fopen(progress_path().c_str(),"r")){char line[80];while(std::fgets(line,sizeof line,progress)){std::string route=line;if(route.compare(0,5,"next=")==0){route=route.substr(5);while(!route.empty() && (route.back()=='\n' || route.back()=='\r'))route.pop_back();auto ep=campaign::key_episode(route);if(ep<next_missions.size())next_missions[ep]=route;}for(unsigned i=0;i<campaign::count;++i)if(std::string(line)==std::string(campaign::missions[i].key)+"=1\n" || (i==0 && std::string(line)=="terran=1\n"))completed[i]=true;}std::fclose(progress);}
  }
- bool complete_mission(unsigned scenario,const std::string& filename){auto i=campaign::index(scenario);if(i>=campaign::count)return false;auto done=completed;auto routes=next_missions;done[i]=true;const auto& m=campaign::missions[i];routes[(m.brood?3:0)+m.race]=campaign::next_key(scenario,filename);const auto path=base+"/../campaign/progress.cfg",temp=path+".tmp";FILE* out=std::fopen(temp.c_str(),"w");if(!out)return false;bool ok=std::fprintf(out,"OPENBW_CAMPAIGN1\n")>0;for(unsigned j=0;j<done.size();++j)ok=(std::fprintf(out,"%s=%u\n",campaign::missions[j].key,done[j]?1:0)>0)&&ok;for(const auto& route:routes)if(!route.empty())ok=(std::fprintf(out,"next=%s\n",route.c_str())>0)&&ok;const bool closed=std::fclose(out)==0;if(!ok || !closed || std::rename(temp.c_str(),path.c_str()))return false;completed=done;next_missions=routes;return true;}
+ bool complete_mission(unsigned scenario,const std::string& filename){auto i=campaign::index(scenario);if(i>=campaign::count)return false;auto done=completed;auto routes=next_missions;done[i]=true;const auto& m=campaign::missions[i];routes[(m.brood?3:0)+m.race]=campaign::next_key(scenario,filename);const auto path=progress_path(),temp=path+".tmp";FILE* out=std::fopen(temp.c_str(),"w");if(!out)return false;bool ok=std::fprintf(out,"OPENBW_CAMPAIGN1\n")>0;for(unsigned j=0;j<done.size();++j)ok=(std::fprintf(out,"%s=%u\n",campaign::missions[j].key,done[j]?1:0)>0)&&ok;for(const auto& route:routes)if(!route.empty())ok=(std::fprintf(out,"next=%s\n",route.c_str())>0)&&ok;const bool closed=std::fclose(out)==0;if(!ok || !closed || std::rename(temp.c_str(),path.c_str()))return false;completed=done;next_missions=routes;return true;}
  void save(){
   const auto temp=settings+".tmp";FILE* f=std::fopen(temp.c_str(),"w");if(!f){save_failed=true;return;}
   const bool ok=std::fprintf(f,"OPENBW_PROFILE1\nversion=%u\nrace=%u\nname=Player1\ndifficulty=%u\n",brood?1:0,race,difficulty)>0;
@@ -176,12 +181,12 @@ struct Frontend {
    if(UiRect{178,196,124,28}.hit(px,py))return 10;
   }return -1;
  }
- void open_briefing(unsigned index){mission=index;briefing.clear();briefing_voices.clear();briefing_portraits.clear();briefing_times.clear();briefing_groups.clear();briefing_cast.clear();briefing_slots.clear();story.clear();story_lines.clear();location.clear();objectives.clear();rich_briefing=briefing_done=briefing_loading=false;story_scroll=0;story_pause=3;briefing_elapsed=0;briefing_page=0;++briefing_serial;briefing_paginated=false;const auto path=base+"/../campaign/"+campaign::missions[mission].key+".brief";FILE* file=std::fopen(path.c_str(),"rb");
+ void open_briefing(unsigned index){mission=index;briefing.clear();briefing_voices.clear();briefing_portraits.clear();briefing_times.clear();briefing_groups.clear();briefing_cast.clear();briefing_slots.clear();story.clear();story_lines.clear();location.clear();objectives.clear();rich_briefing=briefing_done=briefing_loading=false;story_scroll=0;story_pause=3;briefing_elapsed=0;briefing_page=0;++briefing_serial;briefing_paginated=false;const auto path=campaign_folder()+campaign::missions[mission].key+".brief";FILE* file=std::fopen(path.c_str(),"rb");
     if(!file){std::snprintf(error,sizeof error,"Install the private campaign data package.");dialog=Dialog::error;return;}
     std::string page;for(unsigned n=0;n<16384;++n){int c=std::fgetc(file);if(c==EOF){if(!page.empty())briefing.push_back(page);break;}if(c=='\f'){briefing.push_back(page);page.clear();}else if(c=='\r'){}else if(c>=32 || c=='\n')page+=char(c);}std::fclose(file);
     if(briefing.empty()){std::snprintf(error,sizeof error,"Campaign briefing is empty.");dialog=Dialog::error;return;}
     briefing_voices.assign(briefing.size(),0);if(FILE* voices=std::fopen((path+"-audio").c_str(),"r")){for(auto& id:briefing_voices){unsigned value=0;if(std::fscanf(voices,"%u",&value)!=1)break;if(value>=1200 && value<2300)id=value;}std::fclose(voices);}
-    const auto stem=base+"/../campaign/"+campaign::missions[mission].key;
+    const auto stem=campaign_folder()+campaign::missions[mission].key;
     story=read_text(stem+".intro");location=read_text(stem+".location");
     if(!story.empty()){if(FILE* meta=std::fopen((stem+".brief-info").c_str(),"r")){
       std::vector<std::string> spoken;std::vector<unsigned> voices;bool valid=true;FILE* cast_file=std::fopen((stem+".brief-cast").c_str(),"r");

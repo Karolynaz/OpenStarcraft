@@ -22,6 +22,7 @@ def pages(name):
   text=re.sub(r'</[^>]*>','',page).strip();result.append((bg[1],text))
  return result
 summaries={
+ 'expzerg03':'With the Psi Disrupter destroyed, Kerrigan prepares to retake Korhal. Fenix leads the Swarm into Kel-Morian mining territory to establish a colony and gather ten thousand minerals. Infesting Terran command centers can provide additional forces for the coming assault.',
  'expzerg02':'The UED Psi Disrupter prevents Kerrigan from controlling the renegade Zerg on Braxis. Raynor\'s raiders will cut its power, then Mengsk\'s SCV will carry a Psi Emitter. Gather the scattered Zerg, establish a colony and destroy the Disrupter.',
  'zerg08':'With the Garm Brood purged, Kerrigan turns back to the Protoss on Char. Destroy their bases, intercept the Dark Templar before they escape, and keep Kerrigan alive.',
  'zerg07':'While Kerrigan pursued Tassadar, the Dark Templar struck down the Cerebrate Zasz. Without its master, the Garm Brood has gone berserk. Establish a colony and destroy the uncontrolled brood, including its isolated outposts.',

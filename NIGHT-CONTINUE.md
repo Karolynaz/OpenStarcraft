@@ -2142,3 +2142,35 @@ all touched virtualSDfiles/config byte-restored; physicalSD untouched. Evidence
 local-data/briefing-panels-validation, report BRIEFING_PANELS_2026_11_02_VALIDATION.md.
 No mission expansion/victory testing in this UI task. Existing24victory-tested
 routes remain the campaign status; allBWcampaign completion still unfinished.
+
+## 2026-11-02 — BW Zerg 3 victory, standalone CIA/CCI delivery
+
+Current source src-cec9ff4aa9e3a9e8; see reports/CAMPAIGN_2026_11_02_VALIDATION.md.
+Enabled expzerg03/scenario40. Original victory0 f33071/min10030/Fenix1, next
+Zerg04a.scx; paid public-control colony/defenses, unmodified owned map/AI/triggers.
+Public Fenix-loss defeat1 f680. Exact completed save replay PASS. All25freshASan
+victory drivers, openings/active exactsave/frame17248, defeat fixtures, routes,
+five slots, presentation, native-art lifecycle PASS. Fixture fixes: wait existing
+briefing entrance; BWZ3 public Fenix loss because owner2 rescue survives player0
+absence. New ASan read-only asset/userdata root check PASS.
+
+Standalone local CIA/CCI now bundle static owned assets in ROMFS, mutable saves/
+profile/progress/cache/logs still SD. New tools/package_ctr.py and app.rsf. NoZIP.
+out/StarCraft-3DS.cia 1154352064bytes SHA256
+dc58201889df2a7ca5bcd61e8d7c36cc70b1b4cda6e31f219aff68f35ad87e39
+out/StarCraft-3DS.3ds 1154338816bytes SHA256
+78a920c7c191e809b72202c306c5b27e916d7896b3f1caffc76bc1cd5ae150df
+Identical NCCH/TMD/superblock hashes PASS. CIA installation itself untested:
+installer GUI unavailable on locked Mac. CCI original-model emulator fresh BWZ3
+ROMFS title/story/briefing/world PASS; exact completed journal loaded via slot5
+shows Victory22:57. Native evidence local-data/campaign-nov02-work. Heap audio-ready
+32069280fresh/32113288replay, lowest linearfree25600. Emulator stopped; entire
+original virtualSD/config restored; physicalSD untouched. Stage/out3dsx synced.
+
+Fresh ASan object /tmp/sc3ds-nov02-engine.o matches current headers. Completedsave
+/tmp/sc3ds-expzerg03-completed.sav and regression/pilot evidence retained. BWZ4a
+pilot2 lost f131895 after reducing414enemies to~200: not enabled, no victoryclaim.
+BWT2 pilot remains unproved (ship/beacon/second-sector sequence), BWP3 unproved.
+Allcampaign completion unfinished; 25 enabled proven routes only. Do not conflate
+old32BW compatibility simulations with victories. User requested use current5h
+window then CIA/.3ds, explicitly noZIP; no further automations created.
