@@ -42,8 +42,8 @@ int main(int argc,char**argv){
   assert(fake::draws[1].x==0 && fake::draws[1].y==111 && fake::draws[2].x==212 && fake::draws[3].y==0 && fake::draws[4].y==182);
   fake::draws.clear();art.portraits(f,empty_animation,1);
   for(const auto& face:fake::draws){
-   assert(face.sub.width==48 && face.sub.height==48 && face.sx==73.f/48 && face.sy==67.f/48);
-   bool found=false;for(unsigned i=0;i<4;++i){const auto r=BriefingLayout::face(i);found=found || (face.x==r.x && face.y==r.y);}
+   assert(face.sub.width==48 && face.sub.height==48 && face.sx==64.f/48 && face.sy==64.f/48);
+   bool found=false;for(unsigned i=0;i<4;++i){const auto r=BriefingLayout::face(i);found=found || (face.x==r.x+(r.w-64)/2.f && face.y==r.y+(r.h-64)/2.f);}
    assert(found && face.sx>0 && face.sy>0); // Native Figma rectangle, never mirrored.
   }
   text_calls::values.clear();draw_campaign_bottom(f,art,cursor,nullptr,empty_animation,1);

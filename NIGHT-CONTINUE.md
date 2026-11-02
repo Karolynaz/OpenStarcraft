@@ -2203,3 +2203,13 @@ CCI1155031040 SHA256
 IdenticalNCCHhashPASS; CIAinstallationuntested. Stage/out3dsxidentical. Evidence
 local-data/briefing-fixes-nov02 and briefing-fixes-nov02-final. NewASan engineobj
 /tmp/sc3ds-brief-engine.o; noSnapshotABIchange. Nextcampaign work remains asabove.
+
+## 2026-11-02 — centered square briefing portraits
+
+User requested64x64faces centered in black73x67Figma apertures. Both static and
+animated faces now64x64 at aperture+4.5,+1.5; red active-speaker outlines remain
+73x67. Panel motion offsets stillfollowface. Source src-0abdbbe2bec29423, native
+ARM11buildPASS, updated ASan25story/art/facecentering lifecycle testPASS. No added
+texturememory or newmissiontest. Stage/out3dsx synced. CIA/CCI rebuilt in same
+out paths (supersede previous packagehashes; current private package-manifest.json
+has exact checksums). NoZIP, physicalSD/emulatorSDunchanged in this smalltask.

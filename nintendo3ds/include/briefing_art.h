@@ -73,10 +73,10 @@ public:
  void portraits(const Frontend& f,MenuAnimation& animation,unsigned tick){
   for(unsigned i=0;i<4;++i){if(portraits_[i]>=110 || !faces_[i].data)continue;
    const auto r=BriefingLayout::face(i);const float slide=f.briefing_slide();
-   const float x=r.x+(i==0?-320:i==3?320:0)*slide,y=r.y+((i==1 || i==2)?-240:0)*slide;
+   const float x=r.x+(r.w-64)/2.f+(i==0?-320:i==3?320:0)*slide,y=r.y+(r.h-64)/2.f+((i==1 || i==2)?-240:0)*slide;
    char key[32];const bool talk=f.briefing_speaking && f.briefing_slot()==i;std::snprintf(key,sizeof key,"p%u_%s",portraits_[i],talk?"talk":"idle");unsigned w,h;
-   if(animation.size(key,w,h) && animation.draw(key,i,tick,x,y,1,float(r.w)/w,float(r.h)/h))continue;
-   Tex3DS_SubTexture sub={48,48,0,1,.75f,.25f};C2D_DrawImageAt({&faces_[i],&sub},x,y,0,nullptr,float(r.w)/48,float(r.h)/48);
+   if(animation.size(key,w,h) && animation.draw(key,i,tick,x,y,1,64.f/w,64.f/h))continue;
+   Tex3DS_SubTexture sub={48,48,0,1,.75f,.25f};C2D_DrawImageAt({&faces_[i],&sub},x,y,0,nullptr,64.f/48,64.f/48);
   }
   // Active speaker outline is drawn by frontend_draw with Figma geometry,
   // not by the old64x59 frame sprites.
