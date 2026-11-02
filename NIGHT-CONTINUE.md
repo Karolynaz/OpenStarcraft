@@ -2213,3 +2213,15 @@ ARM11buildPASS, updated ASan25story/art/facecentering lifecycle testPASS. No add
 texturememory or newmissiontest. Stage/out3dsx synced. CIA/CCI rebuilt in same
 out paths (supersede previous packagehashes; current private package-manifest.json
 has exact checksums). NoZIP, physicalSD/emulatorSDunchanged in this smalltask.
+
+## 2026-11-02 — retain lower briefing background during Loading
+
+Source src-6bed7a0933722c53. Loading/warming now draw the race lower briefing
+room under centered animated Loading, after panels exit. Both upper/background
+and lower/background thumbnails share the existing256x128loading texture as
+two128x128entries; no additional linear allocation (still64KiB). Native upper
+textframe unchanged. Prepared from approved filled-v3 canvases, whose original
+lower640x480rectangle is preserved. ASan25story/briefing/64pxfaces/dual loading
+photo lifecycle PASS, nativeARM11buildPASS; rebuilt privateCIA/CCI in sameout
+paths, noZIP. Current package-manifest.json has updatedchecksums. No newengine
+logic or missioncompletiontest. PhysicalSD/emulatorSDuntouched this smalltask.

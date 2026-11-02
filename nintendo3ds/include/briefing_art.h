@@ -49,7 +49,8 @@ public:
    }}
   }if(changed)C2D_Prepare();return true;
  }
- void shot(){shot_.draw("shot",0,0,400.f/256,240.f/128);}
+ void shot(){unsigned w=256,h=128;shot_.size("shot",w,h);shot_.draw("shot",0,0,400.f/w,240.f/h);}
+ void loading_bottom(){unsigned w=128,h=128;if(shot_.size("bottom",w,h))shot_.draw("bottom",0,0,320.f/w,240.f/h);}
  bool briefing_top(){return upper_.draw("top",0,0);}
  bool story_top(){return story_.draw("top",0,0);}
  bool story_bottom(){return story_.draw("bottom",0,0);}

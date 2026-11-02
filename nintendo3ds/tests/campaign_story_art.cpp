@@ -61,8 +61,9 @@ int main(int argc,char**argv){
   assert(std::find(text_calls::values.begin(),text_calls::values.end(),"Cancel")==text_calls::values.end());
   assert(!art.story_top() && !art.story_bottom());
   art.release_room();assert(!art.briefing_top());fake::draws.clear();art.shot();
-  assert(fake::draws.size()==1 && fake::draws[0].sub.width==256 && fake::draws[0].sub.height==128);
-  // Only the existing small briefing photo and race frame survive loading.
+  assert(fake::draws.size()==1 && fake::draws[0].sub.width==128 && fake::draws[0].sub.height==128);
+  art.loading_bottom();assert(fake::draws.size()==2 && fake::draws[1].sub.width==128 && fake::draws[1].sx==2.5f && fake::draws[1].sy==240.f/128);
+  // Both loading photos share one texture; no additional linear allocation.
   assert(fake::allocations==2);
   art.clear();assert(fake::allocations==0);
  }

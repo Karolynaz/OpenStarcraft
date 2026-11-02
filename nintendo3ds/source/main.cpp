@@ -89,7 +89,7 @@ int main() {
         C3D_FrameBegin(C3D_FRAME_SYNCDRAW);C2D_TextBufClear(text_buf);
         C2D_TargetClear(top,C2D_Color32(0,0,0,255));C2D_TargetClear(bottom,C2D_Color32(0,0,0,255));
         if(front.briefing_loading){C2D_SceneBegin(top);port3ds::draw_campaign_top(front,presentation_art,text_buf,true);}
-        C2D_SceneBegin(bottom);
+        C2D_SceneBegin(bottom);if(front.briefing_loading)presentation_art.loading_bottom();
         const char* dots[]={"Loading.","Loading..","Loading..."};port3ds::ui_centered(text_buf,dots[(now_us()/375000)%3],{0,0,320,240},.65f,C2D_Color32(80,255,80,255));C3D_FrameEnd(0);
     };
     aptHookCookie cookie;
@@ -723,6 +723,7 @@ int main() {
                 C2D_SceneBegin(top);C2D_DrawRectSolid(0,0,0,400,240,C2D_Color32(0,0,0,255));
                 if(front.briefing_loading)port3ds::draw_campaign_top(front,presentation_art,text_buf,true);
                 C2D_SceneBegin(bottom);C2D_DrawRectSolid(0,0,0,320,240,C2D_Color32(0,0,0,255));
+                if(front.briefing_loading)presentation_art.loading_bottom();
                 const char* dots[]={"Loading.","Loading..","Loading..."};port3ds::ui_centered(text_buf,dots[(now_us()/375000)%3],{0,0,320,240},.65f,C2D_Color32(80,255,80,255));
             }
             const u64 end_begin=now_us();

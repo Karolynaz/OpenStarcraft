@@ -28,7 +28,10 @@ def prepare(generated, output, stage):
         # This64KiB thumbnail replaces the previous64KiB planet texture, so
         # the gameplay warming frame does not need any additional linear RAM.
         loading = campaign / f'briefing-loading-{race}.bin'
-        bank(loading, [('shot', top.resize((256, 128), Image.Resampling.LANCZOS))], 256, 128)
+        bottom = image.crop((80, 480, 720, 960))
+        bank(loading, [('shot', top.resize((128, 128), Image.Resampling.LANCZOS)),
+                       ('bottom', bottom.resize((128, 128), Image.Resampling.LANCZOS))],
+             256, 128, positions=[(0, 0), (128, 0)])
         for path in (native, loading):
             manifest[path.name] = {'bytes': path.stat().st_size, 'sha256': hashlib.sha256(path.read_bytes()).hexdigest()}
         rows.append({'race': race, 'native': native.name, 'loading': loading.name})
