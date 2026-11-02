@@ -10,6 +10,18 @@ inline void ui_centered(C2D_TextBuf buf,const char* value,UiRect r,float size,un
  C2D_DrawText(&t,C2D_WithColor,r.x+(r.w-w)/2,r.y+(r.h-h)/2,0,size,size,color);
 }
 inline void ui_border(UiRect r,unsigned color){C2D_DrawLine(r.x,r.y,color,r.x+r.w,r.y,color,1,0);C2D_DrawLine(r.x,r.y+r.h,color,r.x+r.w,r.y+r.h,color,1,0);C2D_DrawLine(r.x,r.y,color,r.x,r.y+r.h,color,1,0);C2D_DrawLine(r.x+r.w,r.y,color,r.x+r.w,r.y+r.h,color,1,0);}
+inline void briefing_speaker_border(UiRect r){
+ const auto red=C2D_Color32(255,0,0,255);const float radius=5;
+ C2D_DrawLine(r.x+radius,r.y,red,r.x+r.w-radius,r.y,red,1,0);
+ C2D_DrawLine(r.x+radius,r.y+r.h,red,r.x+r.w-radius,r.y+r.h,red,1,0);
+ C2D_DrawLine(r.x,r.y+radius,red,r.x,r.y+r.h-radius,red,1,0);
+ C2D_DrawLine(r.x+r.w,r.y+radius,red,r.x+r.w,r.y+r.h-radius,red,1,0);
+ for(unsigned corner=0;corner<4;++corner){const float cx=r.x+(corner==0 || corner==3?radius:r.w-radius),cy=r.y+(corner<2?radius:r.h-radius);
+  const float begin=(corner+2)*1.57079632679f;
+  for(unsigned i=0;i<6;++i){const float a=begin+i*1.57079632679f/6,b=begin+(i+1)*1.57079632679f/6;
+   C2D_DrawLine(cx+radius*std::cos(a),cy+radius*std::sin(a),red,cx+radius*std::cos(b),cy+radius*std::sin(b),red,1,0);}
+ }
+}
 // Fit readable text by ellipsis/line limits, keeping the font size fixed.
 inline float ui_width(C2D_TextBuf buf,const char* value,float size){C2D_TextBufClear(buf);C2D_Text t;C2D_TextParse(&t,buf,value);float w,h;C2D_TextGetDimensions(&t,size,size,&w,&h);return w;}
 inline bool ui_fits(const char* value,float size,float width){auto measure=C2D_TextBufNew(256);if(!measure)return false;const bool fit=ui_width(measure,value,size)<=width;C2D_TextBufDelete(measure);return fit;}
@@ -36,29 +48,28 @@ inline void draw_campaign_top(const Frontend& f,BriefingArt& art,C2D_TextBuf tex
  }
  if(loading)art.shot();else art.briefing_top();
  C2D_DrawRectSolid(0,0,0,400,240,C2D_Color32(0,0,0,51));
- C2D_DrawRectSolid(12,18,0,376,206,C2D_Color32(4,8,14,215));
- art.frame();
- if(loading){ui_text(text,"Mission objectives",188,42,.64f,white,true);ui_limited(text,f.objectives.c_str(),48,73,.65f,Frontend::briefing_width,7,white);}
- else if(f.briefing_done)ui_centered(text,"Press (Y) to replay briefing",{48,42,280,158},.62f,green);
- else if(f.briefing_page<f.briefing.size())ui_limited(text,f.briefing[f.briefing_page].c_str(),48,42,Frontend::briefing_font,Frontend::briefing_width,Frontend::briefing_rows,white);
+ if(loading)art.frame();else art.text_panel(f);
+ const auto area=BriefingLayout::text();
+ if(loading){ui_text(text,"Mission objectives",area.x+area.w/2,area.y,.60f,white,true);ui_limited(text,f.objectives.c_str(),area.x,area.y+28,.60f,area.w,7,white);}
+ else if(!f.briefing_ready())return;
+ else if(f.briefing_done)ui_centered(text,"Press (Y) to replay briefing",area,.60f,green);
+ else if(f.briefing_page<f.briefing.size())ui_limited(text,f.briefing[f.briefing_page].c_str(),area.x,area.y,Frontend::briefing_font,Frontend::briefing_width,Frontend::briefing_rows,white);
 }
 inline void draw_campaign_bottom(const Frontend& f,BriefingArt& art,UiArt& menu,C2D_TextBuf text,MenuAnimation& animation,unsigned tick){
  const auto green=C2D_Color32(104,205,68,255),bright=C2D_Color32(195,255,146,255);
  if(f.dialog==Frontend::Dialog::story){
   art.story_bottom();
-  C2D_DrawRectSolid(0,100,0,320,140,C2D_Color32(0,0,0,145));
   ui_limited(text,f.location.c_str(),16,108,.62f,288,5,green);
   return;
  }
  art.room(f,animation,tick);art.portraits(f,animation,tick);
- // Native 640x480 BIN coordinates, uniformly halved. Retain the original
- // central text panel, but its speech text is rendered exclusively above.
- const auto white=C2D_Color32(183,185,241,255);
  const bool zerg=campaign::missions[f.mission].race==0;
- const UiRect start={zerg?237:238,zerg?188:190,66,11},cancel={238,209,66,11},replay={153,203,69,12};
+ const UiRect start={zerg?237:238,zerg?188:190,66,11};
  ui_centered(text,"Start",start,.40f,f.hover==116?bright:green);
- ui_centered(text,"Cancel",cancel,.40f,f.hover==111?bright:green);
- ui_centered(text,"Replay",replay,.40f,f.hover==117?bright:green);
+ if(f.briefing_ready()){
+  ui_centered(text,"Cancel",BriefingLayout::cancel(),.45f,f.hover==111?bright:green);
+  const auto active=f.briefing_slot();if(f.briefing_speaking && active<4)briefing_speaker_border(BriefingLayout::face(active));
+ }
 
  menu.draw("cursor",f.x,f.y);
 }

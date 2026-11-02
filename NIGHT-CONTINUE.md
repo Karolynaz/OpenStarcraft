@@ -2081,3 +2081,64 @@ checkpoint24 package preserved. Evidence local-data/campaign-nov01-validation;
 report reports/CAMPAIGN_UI_2026_11_01_VALIDATION.md. Fresh ASan engine object
 /tmp/sc3ds-nov01-engine.o matches current Snapshot ABI. No new missions added:24
 existing victory-tested routes, allBWcampaign completion remains unfinished.
+
+## 2026-11-01 — corrected briefing input canvases, no further build
+
+User supplied corrected800x960 transparent canvases from sibling z /update image
+screens/02 briefing (original artwork at80,480..720,960). Built-in image_gen filled
+upper/sides for all3races. Selected full canvases saved privately in project's
+update image screens/02 briefing/filled-v2, prompts/provenance generation-prompts.json.
+Generated canvases normalized800x960 and original opaque640x480 composited back;
+original lower rectangle byte-identical, all output opaque. Native400x240 upper
+crops replaced project's update image screens/02 briefing/screens/top. Existing
+prepare_briefing_screens.py rebuilt3native+3loading banks in local-data/3ds/openbw;
+manifest hashes updated. Bottom original briefing art unchanged. Previous topPNG
+backup and provenance in local-data/briefing-corrected-2026-11-01.
+
+All6banks every-pixel RGBA5551/hash/size verification PASS. Existing ASan host
+campaign_story_art binary passed all24story->nativebriefing->boundedloading->clear
+lifetimes with newly staged assets; not a new emulator/GPU validation. No new
+native executable or ZIP generated; Nov1release ZIP still contains previousart.
+Also removed lower story location black overlay per immediately preceding user
+request (frontend_draw.h); source change awaits next requested build. PhysicalSD
+untouched. Current art memory layouts unchanged.
+
+## 2026-11-01 — Protoss briefing redraw
+
+User rejected Protoss outpaint. Repainted with built-in image_gen: subdued original
+bronze ribs/black-green ceiling, no duplicate spiral fixture or hanging crystal.
+Private filled-v3/protoss-fonas.png in update image screens/02 briefing is new
+full800x960 canvas; original opaque640x480 pixels preserved. Prompt/provenance in
+filled-v3/generation-prompts.json. Terran/Zerg copied unchanged fromfilled-v2.
+Active screens/top/protoss-fonas.png and staged native/loadingbanks replaced.
+Manifest size+hash checks PASS; existing ASan24story/briefing/lifecycle host check
+PASS. No new executable/ZIP/emulator run; previousrelease stilloldart.
+
+## 2026-11-02 — new layered briefing UI implemented and tested
+
+User native-screen PNG layers from new-brriefing, Figma110:789 face/cancel and
+107:758 text geometry implemented. Top panel native400x240, bottom panels native
+320x240 (lossless atlas crop restores original coordinates). White matte removed
+from bottom exports, pale edge antialias corrected. Top source art unchanged.
+Four73x67faces at25,144 /39,20 /134,20 /222,41; active red1px/radius5outline.
+Cancel centered123,194,87,14; no Replay label/hitbox, Y still works. Original Start
+animation/position untouched.0.65s eased entry: sides from respective edges, upper
+panels/text fromabove, Cancel frombelow. Audio/timers/text wait forsettledpanels.
+Replay does not rerun entry. Font.60,width340,9rows in43,52,340,163Figmaarea.
+
+Source src-92e9137f5b68570c ARM11 build PASS; staged/out exe byte-identical. New
+prepare_briefing_panels.py plus optional --panels in full presentation preparer.
+217private presentationmanifestresources including3panelbanks+3layoutfiles. Each
+panelatlas512KiB freed before core; same32KiBloadingframe retained. No releaseZIP
+created; Nov1 ZIP remains priorart/UI. Next requested release must include staged
+new assets/exe, not just old ZIP. Previous story bottom darkoverlay removal included.
+
+ASan all24presentation and all24story/art lifecycle/slide/orientation checks PASS;
+15asset geometry/alpha/originaltop invariants and3banks every-pixel/hash PASS.
+Original-model emulator all3racebriefings observed, animatedfaces/redoutline/Start
+retained; Y and Start BWZ1world exercised. Briefinglinearfree648192..656384; after
+release5579776; BWZ1world audio-readyheap31777576,linearfree25600. Emulator stopped,
+all touched virtualSDfiles/config byte-restored; physicalSD untouched. Evidence
+local-data/briefing-panels-validation, report BRIEFING_PANELS_2026_11_02_VALIDATION.md.
+No mission expansion/victory testing in this UI task. Existing24victory-tested
+routes remain the campaign status; allBWcampaign completion still unfinished.

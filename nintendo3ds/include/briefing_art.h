@@ -9,14 +9,14 @@ namespace port3ds {
 class BriefingArt {
  struct Motion {char key[16]{},hover[16]{};float x=0,y=0,w=0,h=0;unsigned flags=0,widget=0;};
  std::vector<Motion> motions_;unsigned origin_=~0u,hover_origin_=0;bool hovered_=false;
- UiArt shot_,frame_,room_,story_,upper_;bool story_ready_=false,room_ready_=false;std::array<C3D_Tex,4> faces_{};
+ UiArt shot_,frame_,room_,story_,upper_,panels_;bool story_ready_=false,room_ready_=false;std::array<C3D_Tex,4> faces_{};
  std::array<unsigned,4> portraits_{{110,110,110,110}};unsigned mission_=~0u;
  void clear_faces(){bool any=false;for(const auto& face:faces_)any=any || face.data;if(any)C3D_FrameSync();for(auto& face:faces_)if(face.data){C3D_TexDelete(&face);face={};}portraits_.fill(110);}
 public:
  ~BriefingArt(){clear();}
- void clear(){shot_.clear();frame_.clear();room_.clear();story_.clear();upper_.clear();story_ready_=room_ready_=false;clear_faces();mission_=~0u;motions_.clear();origin_=~0u;}
+ void clear(){shot_.clear();frame_.clear();room_.clear();story_.clear();upper_.clear();panels_.clear();story_ready_=room_ready_=false;clear_faces();mission_=~0u;motions_.clear();origin_=~0u;}
  bool load_shot(const Frontend& f,const char* root){const auto folder=std::string(root)+"campaign/";const char* race=campaign::missions[f.mission].race==0?"zerg":campaign::missions[f.mission].race==2?"protoss":"terran";return shot_.load((folder+"briefing-loading-"+race+".bin").c_str()) && (frame_.load((folder+"briefing-frame-"+race+".bin").c_str()) || frame_.load((folder+"briefing-frame.bin").c_str()));}
- void release_room(){room_.clear();story_.clear();upper_.clear();story_ready_=room_ready_=false;clear_faces();}
+ void release_room(){room_.clear();story_.clear();upper_.clear();panels_.clear();story_ready_=room_ready_=false;clear_faces();}
  bool sync(const Frontend& f,const char* root){
   if(!f.rich_briefing || !f.presentation()){if(mission_!=~0u)clear();return true;}
   bool changed=false;
@@ -33,7 +33,7 @@ public:
    if(story_ready_){changed=true;story_.clear();story_ready_=false;}
    if(!room_ready_){changed=true;const char* race=campaign::missions[f.mission].race==0?"zerg":campaign::missions[f.mission].race==2?"protoss":"terran";
     const auto folder=std::string(root)+"campaign/";
-    if(!room_.load((folder+"briefing-"+race+".bin").c_str()) || !upper_.load((folder+"briefing-upper-"+race+".bin").c_str())){clear();return false;}room_ready_=true;}
+    if(!room_.load((folder+"briefing-"+race+".bin").c_str()) || !upper_.load((folder+"briefing-upper-"+race+".bin").c_str()) || !panels_.load((folder+"briefing-panels-"+race+".bin").c_str())){clear();return false;}room_ready_=true;}
   }
   std::array<unsigned,4> cast{{110,110,110,110}};
   if(f.dialog==Frontend::Dialog::briefing && !f.briefing_cast.empty())cast=f.briefing_cast[std::min(f.briefing_page,unsigned(f.briefing_cast.size()-1))];
@@ -53,7 +53,8 @@ public:
  bool briefing_top(){return upper_.draw("top",0,0);}
  bool story_top(){return story_.draw("top",0,0);}
  bool story_bottom(){return story_.draw("bottom",0,0);}
- void frame(){frame_.draw("frame",12,18,376.f/128,206.f/128);}
+ void frame(){frame_.draw("frame",0,0,400.f/128,240.f/128);}
+ void text_panel(const Frontend& f){panels_.draw("text",0,-240*f.briefing_slide());}
  void room(const Frontend& f,MenuAnimation& animation,unsigned tick){
   room_.draw("room",0,0);if(origin_==~0u)origin_=tick;
   const bool hover=f.hover==116;if(hover!=hovered_){hovered_=hover;hover_origin_=tick;}
@@ -61,16 +62,24 @@ public:
    const bool hover_clip=(m.flags&8) || key==m.hover;
    animation.draw(key,4+i,tick-(hover_clip?hover_origin_:origin_),m.x,m.y,((m.flags&2) && !hover)?.65f:1.f,m.w/w,m.h/h,m.flags&4);
   }
-  room_.draw("overlay",0,0);
+  const float slide=f.briefing_slide();
+  // Each exported layer is cropped losslessly in its atlas. These are its
+  // original canvas offsets, identical for all three race exports.
+  panels_.draw("left",-320*slide,111);
+  panels_.draw("right",212+320*slide,8);
+  panels_.draw("top",0,-240*slide);
+  panels_.draw("cancel",108,182+240*slide);
  }
  void portraits(const Frontend& f,MenuAnimation& animation,unsigned tick){
-  static const float x[]={16.5f,91.5f,169,239.5f},y[]={49,13,13,49};
   for(unsigned i=0;i<4;++i){if(portraits_[i]>=110 || !faces_[i].data)continue;
+   const auto r=BriefingLayout::face(i);const float slide=f.briefing_slide();
+   const float x=r.x+(i==0?-320:i==3?320:0)*slide,y=r.y+((i==1 || i==2)?-240:0)*slide;
    char key[32];const bool talk=f.briefing_speaking && f.briefing_slot()==i;std::snprintf(key,sizeof key,"p%u_%s",portraits_[i],talk?"talk":"idle");unsigned w,h;
-   if(animation.size(key,w,h) && animation.draw(key,i,tick,x[i],y[i],1,64.f/w,59.f/h))continue;
-   Tex3DS_SubTexture sub={48,48,0,1,.75f,.25f};C2D_DrawImageAt({&faces_[i],&sub},x[i],y[i],0,nullptr,64.f/48,59.f/48);
+   if(animation.size(key,w,h) && animation.draw(key,i,tick,x,y,1,float(r.w)/w,float(r.h)/h))continue;
+   Tex3DS_SubTexture sub={48,48,0,1,.75f,.25f};C2D_DrawImageAt({&faces_[i],&sub},x,y,0,nullptr,float(r.w)/48,float(r.h)/48);
   }
-  const auto active=f.briefing_slot();if(active<4){char key[16];std::snprintf(key,sizeof key,"active%u",active);room_.draw(key,x[active],y[active]);}
+  // Active speaker outline is drawn by frontend_draw with Figma geometry,
+  // not by the old64x59 frame sprites.
  }
 };
 }

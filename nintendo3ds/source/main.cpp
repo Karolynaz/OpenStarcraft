@@ -119,7 +119,7 @@ int main() {
             if(!presentation_art.sync(front,root)){std::snprintf(front.error,sizeof front.error,"Install the updated private campaign presentation assets.");front.dialog=port3ds::Frontend::Dialog::error;front.play=false;front.briefing_loading=false;}
             // Briefing audio is owned by this menu scope, and fully released
             // before the world/terrain/audio allocations of a mission begin.
-            if(front.dialog==port3ds::Frontend::Dialog::briefing){
+            if(front.dialog==port3ds::Frontend::Dialog::briefing && front.briefing_ready()){
                 if(spoken_mission!=front.mission || spoken_serial!=front.briefing_serial){if(spoken_mission!=front.mission)briefing_audio.unload();spoken_mission=front.mission;spoken_serial=front.briefing_serial;spoken_page=spoken_voice=spoken_group=~0u;briefing_audio.reset();}
                 const auto voice=front.briefing_sound();
                 const auto group=front.briefing_page<front.briefing_groups.size()?front.briefing_groups[front.briefing_page]:front.briefing_page;

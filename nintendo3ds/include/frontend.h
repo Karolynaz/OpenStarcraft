@@ -14,6 +14,13 @@
 #include "campaign_catalogue.h"
 namespace port3ds {
 struct UiRect {int x,y,w,h;bool hit(int px,int py)const{return px>=x && py>=y && px<x+w && py<y+h;}};
+// Native-screen geometry supplied by Figma110:789 and107:758.
+struct BriefingLayout {
+ static UiRect face(unsigned slot){const UiRect slots[]={{25,144,73,67},{39,20,73,67},{134,20,73,67},{222,41,73,67}};return slots[std::min(slot,3u)];}
+ static UiRect cancel(){return {123,194,87,14};}
+ static UiRect cancel_hit(){return {113,186,100,31};}
+ static UiRect text(){return {43,52,340,163};}
+};
 struct Frontend {
  enum class Screen {campaign,custom};enum class Dialog {none,version,unsupported,exit,error,map_list,ai_tests,briefing,story,load_slots};
  Screen screen=Screen::campaign;Dialog dialog=Dialog::none;
@@ -24,13 +31,17 @@ struct Frontend {
  std::vector<std::string> briefing;std::vector<unsigned> briefing_voices;unsigned briefing_page=0;bool briefing_paginated=false;
  // Shared by pagination and drawing: top-screen text must never be clipped
  // using the old, smaller bottom-screen paragraph dimensions.
- static constexpr float briefing_font=.65f,briefing_width=280.f;
- static constexpr unsigned briefing_rows=8;
+ static constexpr float briefing_font=.60f,briefing_width=340.f;
+ static constexpr unsigned briefing_rows=9;
  std::string story,location,objectives;std::vector<std::string> story_lines;
  std::vector<unsigned> briefing_portraits,briefing_times,briefing_groups,briefing_slots;
  std::vector<std::array<unsigned,4>> briefing_cast;
  bool rich_briefing=false,briefing_done=false,briefing_loading=false,briefing_speaking=false;
  unsigned briefing_serial=0;float briefing_elapsed=0,story_scroll=0,story_pause=3;
+ float briefing_entry=0;
+ static constexpr float briefing_entry_seconds=.65f;
+ bool briefing_ready()const{return briefing_entry>=briefing_entry_seconds;}
+ float briefing_slide()const{const float t=std::min(1.f,briefing_entry/briefing_entry_seconds),u=1-t;return u*u*u;}
  static constexpr float story_font=.62f,story_line_height=18.6f;
  static constexpr float story_width=364.f,story_view_height=204.f;
  unsigned briefing_slot()const{return !briefing_done && briefing_page<briefing_slots.size()?briefing_slots[briefing_page]:4;}
@@ -49,11 +60,13 @@ struct Frontend {
   }
  }
  void scroll_story(float delta){story_scroll=std::max(0.f,std::min(std::max(0.f,float(story_lines.size())*story_line_height-story_view_height),story_scroll+delta));story_pause=3;}
- void begin_briefing(){dialog=Dialog::briefing;x=270;y=194;hover=116;briefing_page=0;briefing_done=briefing.empty();briefing_elapsed=0;++briefing_serial;}
- void replay_briefing(){if(rich_briefing && dialog==Dialog::briefing)begin_briefing();}
+ void begin_briefing(bool entrance=true){dialog=Dialog::briefing;x=270;y=194;hover=116;briefing_page=0;briefing_done=briefing.empty();briefing_elapsed=0;briefing_entry=entrance?0:briefing_entry_seconds;++briefing_serial;}
+ void replay_briefing(){if(rich_briefing && dialog==Dialog::briefing && briefing_ready())begin_briefing(false);}
  void update_presentation(float dt,bool speaking){
   if(dialog==Dialog::story){story_pause=std::max(0.f,story_pause-dt);if(!story_pause)story_scroll=std::min(std::max(0.f,float(story_lines.size())*story_line_height-story_view_height),story_scroll+dt*9);}
-  if(!rich_briefing || dialog!=Dialog::briefing || briefing_done)return;
+  if(!rich_briefing || dialog!=Dialog::briefing)return;
+  if(!briefing_ready()){briefing_entry=std::min(briefing_entry_seconds,briefing_entry+dt);return;}
+  if(briefing_done)return;
   briefing_elapsed+=dt;
   const unsigned ms=briefing_page<briefing_times.size()?briefing_times[briefing_page]:5000;
   const bool continuation=briefing_page+1<briefing_groups.size() && briefing_groups[briefing_page]==briefing_groups[briefing_page+1];
@@ -136,7 +149,7 @@ struct Frontend {
   if(leaving || transition<1)return -1;
   if(dialog==Dialog::load_slots){for(unsigned i=0;i<5;++i)if(UiRect{24,60+int(i)*28,272,24}.hit(px,py))return 120+i;return -1;}
   if(dialog==Dialog::story)return -1;
-  if(dialog==Dialog::briefing && rich_briefing){if(UiRect{237,209,68,12}.hit(px,py))return 111;if(UiRect{153,203,69,13}.hit(px,py))return 117;const bool zerg=campaign::missions[mission].race==0;return UiRect{208,zerg?97:118,112,zerg?143:122}.hit(px,py)?116:-1;}
+  if(dialog==Dialog::briefing && rich_briefing){if(!briefing_ready())return -1;if(BriefingLayout::cancel_hit().hit(px,py))return 111;const bool zerg=campaign::missions[mission].race==0;return UiRect{208,zerg?97:118,112,zerg?143:122}.hit(px,py)?116:-1;}
   if(dialog==Dialog::briefing){if(campaign::adjacent(mission,1)!=mission){if(UiRect{15,30,24,24}.hit(px,py))return 112;if(UiRect{281,30,24,24}.hit(px,py))return 113;}if(UiRect{178,198,124,28}.hit(px,py))return 110;return UiRect{18,198,124,28}.hit(px,py)?111:-1;}
   if(dialog==Dialog::ai_tests){for(unsigned i=0;i<4;++i)if(UiRect{34,70+int(i)*28,252,24}.hit(px,py))return 100+i;return UiRect{112,192,96,22}.hit(px,py)?32:-1;}
   if(dialog==Dialog::map_list){
@@ -185,7 +198,7 @@ struct Frontend {
   if(id<0 || leaving || transition<1)return;
   if(dialog==Dialog::load_slots){if(id>=120 && id<125 && load_enabled[id-120])load_requested_slot=unsigned(id-120);return;}
   if(dialog==Dialog::story){if(id==112 || id==113)open_briefing(campaign::adjacent(mission,id==112?-1:1));else if(id==115 || id==110)begin_briefing();else if(id==111)dialog=Dialog::none;return;}
-  if(dialog==Dialog::briefing && rich_briefing){if(id==116){briefing_loading=true;campaign_start=true;play=true;}else if(id==117)replay_briefing();else if(id==111)dialog=Dialog::none;return;}
+  if(dialog==Dialog::briefing && rich_briefing){if(id==111)dialog=Dialog::none;else if(briefing_ready() && id==116){briefing_loading=true;campaign_start=true;play=true;}return;}
   if(dialog==Dialog::briefing){if(id==112 || id==113){open_briefing(campaign::adjacent(mission,id==112?-1:1));return;}if(id==110){if(briefing_page+1<briefing.size())++briefing_page;else {dialog=Dialog::none;campaign_start=true;play=true;}}else if(id==111)back();return;}
   if(dialog==Dialog::ai_tests){if(id>=100 && id<104){campaign_start=false;observer_test=unsigned(id-100);dialog=Dialog::none;play=true;}else if(id==32)dialog=Dialog::none;return;}
   if(dialog==Dialog::map_list){if(id>=70 && id<75 && scroll+unsigned(id-70)<maps.size()){selected_map=scroll+unsigned(id-70);preview_dirty=true;dialog=Dialog::none;}else if(id==90 || id==91){if(id==90)scroll=scroll>=5?scroll-5:0;else if(scroll+5<maps.size())scroll+=5;}else if(id==32)dialog=Dialog::none;return;}

@@ -11,6 +11,7 @@ from ui_bank import bank
 parser=argparse.ArgumentParser(description=__doc__)
 parser.add_argument('raw',type=Path);parser.add_argument('root',type=Path)
 parser.add_argument('--screens',type=Path,help='Completed 800x960 outpainted PNGs for dual-screen story scenes')
+parser.add_argument('--panels',type=Path,help='Native-screen layered briefing PNG exports (new-brriefing)')
 args=parser.parse_args();raw,root=args.raw,args.root;campaign=root/'campaign'
 def owned(name):return raw/name.lower().replace('\\','_').replace('/','_')
 def pages(name):
@@ -182,4 +183,8 @@ if args.screens:
  prepare(args.screens,root/'campaign-screen-previews',raw,root)
 manifest={p.name:{'bytes':p.stat().st_size,'sha256':hashlib.sha256(p.read_bytes()).hexdigest()} for p in campaign.iterdir() if p.suffix in ('.intro','.location','.brief-info','.brief-cast','.motion') or p.name.endswith(('-shot.bin','-story.bin','-animations.bin')) or p.name.startswith(('briefing-','result-'))}
 (campaign/'presentation-manifest.json').write_text(json.dumps(manifest,indent=2)+'\n')
+if args.panels:
+ from prepare_briefing_panels import prepare
+ prepare(args.panels,root,root/'briefing-panel-previews')
+ manifest=json.loads((campaign/'presentation-manifest.json').read_text())
 print(f'{len(manifest)} private presentation resources prepared')
