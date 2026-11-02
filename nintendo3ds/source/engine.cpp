@@ -230,7 +230,7 @@ bool Engine::preview_map(const char* data_root,const char* map_path,MapPreview& 
 
 Engine::Engine() : impl_(new Impl) {}
 Engine::~Engine() = default;
-bool Engine::load(const char* data_root, const char* map_path, Scenario scenario,const MatchSetup* setup) {
+bool Engine::load(const char* data_root, const char* map_path, Scenario scenario,const MatchSetup* setup,const std::function<void()>& progress) {
     impl_->journal.close();impl_->initial_root=data_root;impl_->alert_hp.fill(-1);impl_->alert_ids.fill(0);impl_->alert_frame=0;impl_->initial_map=map_path;impl_->initial_scenario=scenario;impl_->initial_setup=setup?*setup:MatchSetup{};
     const bool campaign=campaign::scenario(unsigned(scenario));
     const bool custom=!campaign && setup && setup->enabled;
@@ -293,11 +293,11 @@ bool Engine::load(const char* data_root, const char* map_path, Scenario scenario
             player.init([&](a_vector<uint8_t>& dst, const a_string& name) {
                 a_string path = name;
                 for (auto& c : path) if (c == '\\') c = '/';
-                read_file(dst, root + path);
+                read_file(dst, root + path);if(progress)progress();
             });
         } else {
             auto assets = data_loading::data_files_directory(root);
-            player.init(assets);
+            player.init([&](a_vector<uint8_t>& dst,const a_string& name){assets(dst,name);if(progress)progress();});
         }
         game_load_functions loader(player.st());
         loader.load_map_data(chk.data(), chk.size(), [&]() {

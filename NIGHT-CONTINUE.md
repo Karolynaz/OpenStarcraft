@@ -2174,3 +2174,32 @@ BWT2 pilot remains unproved (ship/beacon/second-sector sequence), BWP3 unproved.
 Allcampaign completion unfinished; 25 enabled proven routes only. Do not conflate
 old32BW compatibility simulations with victories. User requested use current5h
 window then CIA/.3ds, explicitly noZIP; no further automations created.
+
+## 2026-11-02 — collected briefing feedback and command icon export
+
+Source src-f676e8da74d37355. Bottom story location/title bottom-aligned y232, no
+overlay. Matching NDSP PLAYING gates subtitles and timer; missing/unavailableaudio
+timedfallback. Rich long utterance stays whole/original duration and scrolls,
+no premature continuationpage. Start objectives replace topdialogue immediately;
+bottom Start/Cancel/cursor disappear, face/panels exit0.65s then coreloads. Center
+Loading cycles1..3dots; optional throttled coreasset read callbacks redraw during
+initialization. Native400x240loadingtextframe retains262KiB insteadold32KiB, freed
+beforeterrain/audio. No newthread/budgetincrease; worldlinearfree25600unchanged.
+
+ASan25presentations/25artlifetimes/frontend PASS; dedicated longspeech/startwait/
+exit/replay timing PASS;956loadcallbacks, default/callback state digest identical
+atload+96ticks PASS. Original-model finalCCI freshBWZ3story/briefing/objectives/
+loading/world PASS, heap32069096/linearfree25600. Emu stopped, virtualSD/config
+restored, physicalSDuntouched. No newmissionvictoryclaim; existing25milestone.
+
+2340ownedcommandicons (390frames*3races*2states) plus13keybadges/3contact sheets
+in update image screens/04 command icons (privateignored). 36x34nativecanvases
+validated, exporter tools/export_command_pngs.py, numeric originalGRPframeIDs.
+Report reports/BRIEFING_FIXES_2026_11_02_VALIDATION.md. NewprivateCIA/CCI overwrote
+prioroutfiles, noZIP. CIA1155044288 SHA256
+86f25c99622c5f41068fcea44ec9777dff507427d197797e7f54a17edf09f03f
+CCI1155031040 SHA256
+842010e8cc459c68bdc99cb7aa14a24b2508fd7b8752f74a60c20d3441b6d641
+IdenticalNCCHhashPASS; CIAinstallationuntested. Stage/out3dsxidentical. Evidence
+local-data/briefing-fixes-nov02 and briefing-fixes-nov02-final. NewASan engineobj
+/tmp/sc3ds-brief-engine.o; noSnapshotABIchange. Nextcampaign work remains asabove.

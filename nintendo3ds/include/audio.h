@@ -14,6 +14,7 @@ public:
     bool load(const char* root, bool dsp_ready,const char* music_prefix="terran",const char* effects_path=nullptr,unsigned cache_limit=4*1024*1024);
     void update(const SoundEvent* events, unsigned count, int camera_x, int camera_y, bool paused);
     AudioStats stats() const;
+    bool playing(unsigned id) const;
     const char* error() const;
     void reset();
     void unload();

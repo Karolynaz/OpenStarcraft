@@ -83,7 +83,7 @@ public:
     static bool preview_map(const char* data_root,const char* map_path,MapPreview& output);
     Engine();
     ~Engine();
-    bool load(const char* data_root, const char* map_path, Scenario scenario,const MatchSetup* setup=nullptr);
+    bool load(const char* data_root, const char* map_path, Scenario scenario,const MatchSetup* setup=nullptr,const std::function<void()>& progress={});
     bool write_terrain(const char* data_root,const char* output);
     bool start_recording(const char* session_path);
     bool save_game(const char* path,const SaveView& view,std::uint64_t saved_at=0);

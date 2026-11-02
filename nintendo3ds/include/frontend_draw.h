@@ -50,19 +50,29 @@ inline void draw_campaign_top(const Frontend& f,BriefingArt& art,C2D_TextBuf tex
  C2D_DrawRectSolid(0,0,0,400,240,C2D_Color32(0,0,0,51));
  if(loading)art.frame();else art.text_panel(f);
  const auto area=BriefingLayout::text();
- if(loading){ui_text(text,"Mission objectives",area.x+area.w/2,area.y,.60f,white,true);ui_limited(text,f.objectives.c_str(),area.x,area.y+28,.60f,area.w,7,white);}
+ if(loading || f.briefing_loading){ui_text(text,"Mission objectives",area.x+area.w/2,area.y,.60f,white,true);ui_limited(text,f.objectives.c_str(),area.x,area.y+28,.60f,area.w,7,white);}
  else if(!f.briefing_ready())return;
  else if(f.briefing_done)ui_centered(text,"Press (Y) to replay briefing",area,.60f,green);
- else if(f.briefing_page<f.briefing.size())ui_limited(text,f.briefing[f.briefing_page].c_str(),area.x,area.y,Frontend::briefing_font,Frontend::briefing_width,Frontend::briefing_rows,white);
+ else if(f.briefing_started && f.briefing_page<f.briefing.size()){
+  const auto& value=f.briefing[f.briefing_page];unsigned lines=1;for(char c:value)if(c=='\n')++lines;
+  const float height=Frontend::briefing_font*30,overflow=std::max(0.f,lines*height-area.h);
+  const float duration=f.briefing_page<f.briefing_times.size()?f.briefing_times[f.briefing_page]/1000.f:5.f;
+  const float offset=overflow*std::max(0.f,std::min(1.f,(f.briefing_elapsed-1.5f)/std::max(1.f,duration-3.f)));
+  size_t at=0;unsigned row=0;while(at<value.size()){auto end=value.find('\n',at);if(end==std::string::npos)end=value.size();const float y=area.y+row++*height-offset;
+   if(y>=area.y && y+height<=area.y+area.h)ui_text(text,value.substr(at,end-at).c_str(),area.x,y,Frontend::briefing_font,white);at=end+1;}
+ }
 }
 inline void draw_campaign_bottom(const Frontend& f,BriefingArt& art,UiArt& menu,C2D_TextBuf text,MenuAnimation& animation,unsigned tick){
  const auto green=C2D_Color32(104,205,68,255),bright=C2D_Color32(195,255,146,255);
  if(f.dialog==Frontend::Dialog::story){
   art.story_bottom();
-  ui_limited(text,f.location.c_str(),16,108,.62f,288,5,green);
+  Frontend layout;layout.story=f.location;layout.layout_story([&](const char* line){auto b=C2D_TextBufNew(160);const auto w=ui_width(b,line,.62f);C2D_TextBufDelete(b);return w;},288);
+  const float y=232-std::min(12u,unsigned(layout.story_lines.size()))*18.6f;
+  for(unsigned i=0;i<layout.story_lines.size() && i<12;++i)ui_text(text,layout.story_lines[i].c_str(),16,y+i*18.6f,.62f,green);
   return;
  }
  art.room(f,animation,tick);art.portraits(f,animation,tick);
+ if(f.briefing_loading){const char* dots[]={"Loading.","Loading..","Loading..."};ui_centered(text,dots[(tick/3)%3],{0,0,320,240},.65f,green);return;}
  const bool zerg=campaign::missions[f.mission].race==0;
  const UiRect start={zerg?237:238,zerg?188:190,66,11};
  ui_centered(text,"Start",start,.40f,f.hover==116?bright:green);

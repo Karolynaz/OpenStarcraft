@@ -53,8 +53,8 @@ public:
  bool briefing_top(){return upper_.draw("top",0,0);}
  bool story_top(){return story_.draw("top",0,0);}
  bool story_bottom(){return story_.draw("bottom",0,0);}
- void frame(){frame_.draw("frame",0,0,400.f/128,240.f/128);}
- void text_panel(const Frontend& f){panels_.draw("text",0,-240*f.briefing_slide());}
+ void frame(){unsigned w=128,h=128;frame_.size("frame",w,h);frame_.draw("frame",0,0,400.f/w,240.f/h);}
+ void text_panel(const Frontend& f){panels_.draw("text",0,f.briefing_loading?0:-240*f.briefing_slide());}
  void room(const Frontend& f,MenuAnimation& animation,unsigned tick){
   room_.draw("room",0,0);if(origin_==~0u)origin_=tick;
   const bool hover=f.hover==116;if(hover!=hovered_){hovered_=hover;hover_origin_=tick;}

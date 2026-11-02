@@ -67,9 +67,9 @@ def prepare(source, stage, output):
             items.append((layer, im.crop(bounds)))
             layout.append(f'{layer} {bounds[0]} {bounds[1]}')
             if layer == 'text':
-                # Replace the old32KiB loading frame, keeping the same budget.
+                # Native upper frame survives only core loading; released before terrain/audio.
                 frame = campaign / f'briefing-frame-{race}.bin'
-                bank(frame, [('frame', im.resize((128, 128), Image.Resampling.LANCZOS))], 128, 128)
+                bank(frame, [('frame', im)], 512, 256)
         packed = campaign / f'briefing-panels-{race}.bin'
         bank(packed, items, 512, 512)
         geometry = campaign / f'briefing-panels-{race}.layout'

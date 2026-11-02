@@ -250,5 +250,9 @@ AudioStats Audio::stats() const {
     if(r.ready) {r.dsp_drops=ndspGetDroppedFrames();for(const auto& v:s.voices) if(v.wave.status==NDSP_WBUF_PLAYING || v.wave.status==NDSP_WBUF_QUEUED || v.tail.status==NDSP_WBUF_PLAYING || v.tail.status==NDSP_WBUF_QUEUED) ++r.voices;}
     return r;
 }
+bool Audio::playing(unsigned id) const {
+ const auto& s=*impl_;if(!s.counters.ready)return false;
+ for(const auto& v:s.voices)if(v.id==id && (v.wave.status==NDSP_WBUF_PLAYING || v.tail.status==NDSP_WBUF_PLAYING))return true;return false;
+}
 const char* Audio::error() const {return impl_->message;}
 }

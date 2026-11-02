@@ -90,7 +90,7 @@ int main() {
         C2D_TargetClear(top,C2D_Color32(0,0,0,255));C2D_TargetClear(bottom,C2D_Color32(0,0,0,255));
         if(front.briefing_loading){C2D_SceneBegin(top);port3ds::draw_campaign_top(front,presentation_art,text_buf,true);}
         C2D_SceneBegin(bottom);
-        port3ds::ui_centered(text_buf,"Loading",{0,0,320,240},.65f,C2D_Color32(80,255,80,255));C3D_FrameEnd(0);
+        const char* dots[]={"Loading.","Loading..","Loading..."};port3ds::ui_centered(text_buf,dots[(now_us()/375000)%3],{0,0,320,240},.65f,C2D_Color32(80,255,80,255));C3D_FrameEnd(0);
     };
     aptHookCookie cookie;
     aptHook(&cookie, lifecycle, nullptr);
@@ -128,7 +128,7 @@ int main() {
             if(!presentation_art.sync(front,root)){std::snprintf(front.error,sizeof front.error,"Install the updated private campaign presentation assets.");front.dialog=port3ds::Frontend::Dialog::error;front.play=false;front.briefing_loading=false;}
             // Briefing audio is owned by this menu scope, and fully released
             // before the world/terrain/audio allocations of a mission begin.
-            if(front.dialog==port3ds::Frontend::Dialog::briefing && front.briefing_ready()){
+            if(front.dialog==port3ds::Frontend::Dialog::briefing && front.briefing_ready() && !front.briefing_loading){
                 if(spoken_mission!=front.mission || spoken_serial!=front.briefing_serial){if(spoken_mission!=front.mission)briefing_audio.unload();spoken_mission=front.mission;spoken_serial=front.briefing_serial;spoken_page=spoken_voice=spoken_group=~0u;briefing_audio.reset();}
                 const auto voice=front.briefing_sound();
                 const auto group=front.briefing_page<front.briefing_groups.size()?front.briefing_groups[front.briefing_page]:front.briefing_page;
@@ -144,7 +144,9 @@ int main() {
                 else briefing_audio.update(nullptr,0,0,0,false);
                 spoken_page=front.briefing_page;spoken_group=group;
             }else if(spoken_mission!=~0u){const auto stats=briefing_audio.stats();char detail[96];std::snprintf(detail,sizeof detail,"played=%u missing=%u IO=%u",stats.played,stats.missing,stats.io_errors);load_stage(port3ds::campaign::missions[spoken_mission].scenario,"briefing-audio-done",detail);briefing_audio.unload();spoken_mission=spoken_page=spoken_voice=~0u;}
-            front.briefing_speaking=briefing_audio.stats().voices>0;front.update_presentation(menu_dt,front.briefing_speaking);
+            front.briefing_speaking=briefing_audio.playing(front.briefing_sound());
+            const auto speech=briefing_audio.stats();const bool fallback=!front.briefing_sound() || !speech.ready || speech.missing || speech.io_errors;
+            if(fallback)front.briefing_started=true;front.update_presentation(menu_dt,front.briefing_speaking);
             if(front.quit)break;
             if(front.screen==port3ds::Frontend::Screen::custom && front.preview_dirty){front.preview_dirty=false;port3ds::Engine::preview_map(root,front.map_path().c_str(),front.preview);if(front.preview.valid)art.preview(front.preview.pixels.data());last=now_us();}
             if(down&KEY_DUP)front.direction(0);if(down&KEY_DRIGHT)front.direction(1);if(down&KEY_DDOWN)front.direction(2);if(down&KEY_DLEFT)front.direction(3);
@@ -247,7 +249,8 @@ int main() {
                     loading_screen();return true;
                 };
                 mkdir("sdmc:/3ds/openbw/saves",0777);
-                const bool loaded_ok=restoring?engine.load_save(root,restore_path.c_str(),session_path,restore_map,restored_view,progress):engine.load(root, (custom_match || campaign_mode)?launch_map.c_str():arena_mode?arena.c_str():map.c_str(), static_cast<port3ds::Scenario>(scenario),scenario==unsigned(launch_scenario)?&match_setup:nullptr);
+                u64 last_load_draw=now_us();auto animate_loading=[&](){const auto t=now_us();if(t-last_load_draw>=375000){loading_screen();last_load_draw=t;}};
+                const bool loaded_ok=restoring?engine.load_save(root,restore_path.c_str(),session_path,restore_map,restored_view,progress):engine.load(root, (custom_match || campaign_mode)?launch_map.c_str():arena_mode?arena.c_str():map.c_str(), static_cast<port3ds::Scenario>(scenario),scenario==unsigned(launch_scenario)?&match_setup:nullptr,animate_loading);
                 paused=!loaded_ok;
                 pending_restore=false;
                 if(!restoring && engine.ready())engine.start_recording(session_path);
@@ -720,7 +723,7 @@ int main() {
                 C2D_SceneBegin(top);C2D_DrawRectSolid(0,0,0,400,240,C2D_Color32(0,0,0,255));
                 if(front.briefing_loading)port3ds::draw_campaign_top(front,presentation_art,text_buf,true);
                 C2D_SceneBegin(bottom);C2D_DrawRectSolid(0,0,0,320,240,C2D_Color32(0,0,0,255));
-                port3ds::ui_centered(text_buf,"Loading",{0,0,320,240},.65f,C2D_Color32(80,255,80,255));
+                const char* dots[]={"Loading.","Loading..","Loading..."};port3ds::ui_centered(text_buf,dots[(now_us()/375000)%3],{0,0,320,240},.65f,C2D_Color32(80,255,80,255));
             }
             const u64 end_begin=now_us();
             C3D_FrameEnd(0);

@@ -52,7 +52,13 @@ int main(int argc,char**argv){
   assert(fake::draws.size()==1 && fake::draws[0].sub.width==400 && fake::draws[0].sub.height==240 && fake::draws[0].sx==1 && fake::draws[0].sy==1);
   fake::draws.clear();text_calls::values.clear();draw_campaign_top(f,art,nullptr);
   assert(fake::draws.size()==2 && fake::draws[0].sub.width==400 && fake::draws[1].sub.width>=392);
-  assert(!text_calls::values.empty()); // Native ceiling, retained race frame, spoken text.
+  assert(text_calls::values.empty()); // Speech has not started: no early subtitles.
+  f.briefing_started=true;draw_campaign_top(f,art,nullptr);assert(!text_calls::values.empty());
+  f.activate(116);f.update_presentation(.3f,false);fake::draws.clear();text_calls::values.clear();
+  draw_campaign_top(f,art,nullptr);assert(text_calls::values[0]=="Mission objectives");
+  draw_campaign_bottom(f,art,cursor,nullptr,empty_animation,3);
+  assert(std::find(text_calls::values.begin(),text_calls::values.end(),"Start")==text_calls::values.end());
+  assert(std::find(text_calls::values.begin(),text_calls::values.end(),"Cancel")==text_calls::values.end());
   assert(!art.story_top() && !art.story_bottom());
   art.release_room();assert(!art.briefing_top());fake::draws.clear();art.shot();
   assert(fake::draws.size()==1 && fake::draws[0].sub.width==256 && fake::draws[0].sub.height==128);

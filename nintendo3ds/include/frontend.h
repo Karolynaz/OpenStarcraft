@@ -38,10 +38,11 @@ struct Frontend {
  std::vector<std::array<unsigned,4>> briefing_cast;
  bool rich_briefing=false,briefing_done=false,briefing_loading=false,briefing_speaking=false;
  unsigned briefing_serial=0;float briefing_elapsed=0,story_scroll=0,story_pause=3;
- float briefing_entry=0;
+ float briefing_entry=0,briefing_exit=0;bool briefing_started=false;
+ float briefing_exit_slide()const{const float t=std::min(1.f,briefing_exit/briefing_entry_seconds),u=1-t;return 1-u*u*u;}
  static constexpr float briefing_entry_seconds=.65f;
  bool briefing_ready()const{return briefing_entry>=briefing_entry_seconds;}
- float briefing_slide()const{const float t=std::min(1.f,briefing_entry/briefing_entry_seconds),u=1-t;return u*u*u;}
+ float briefing_slide()const{if(briefing_loading)return briefing_exit_slide();const float t=std::min(1.f,briefing_entry/briefing_entry_seconds),u=1-t;return u*u*u;}
  static constexpr float story_font=.62f,story_line_height=18.6f;
  static constexpr float story_width=364.f,story_view_height=204.f;
  unsigned briefing_slot()const{return !briefing_done && briefing_page<briefing_slots.size()?briefing_slots[briefing_page]:4;}
@@ -60,17 +61,20 @@ struct Frontend {
   }
  }
  void scroll_story(float delta){story_scroll=std::max(0.f,std::min(std::max(0.f,float(story_lines.size())*story_line_height-story_view_height),story_scroll+delta));story_pause=3;}
- void begin_briefing(bool entrance=true){dialog=Dialog::briefing;x=270;y=194;hover=116;briefing_page=0;briefing_done=briefing.empty();briefing_elapsed=0;briefing_entry=entrance?0:briefing_entry_seconds;++briefing_serial;}
- void replay_briefing(){if(rich_briefing && dialog==Dialog::briefing && briefing_ready())begin_briefing(false);}
+ void begin_briefing(bool entrance=true){dialog=Dialog::briefing;x=270;y=194;hover=116;briefing_page=0;briefing_done=briefing.empty();briefing_elapsed=0;briefing_exit=0;briefing_started=false;briefing_entry=entrance?0:briefing_entry_seconds;++briefing_serial;}
+ void replay_briefing(){if(rich_briefing && !briefing_loading && dialog==Dialog::briefing && briefing_ready())begin_briefing(false);}
  void update_presentation(float dt,bool speaking){
   if(dialog==Dialog::story){story_pause=std::max(0.f,story_pause-dt);if(!story_pause)story_scroll=std::min(std::max(0.f,float(story_lines.size())*story_line_height-story_view_height),story_scroll+dt*9);}
   if(!rich_briefing || dialog!=Dialog::briefing)return;
   if(!briefing_ready()){briefing_entry=std::min(briefing_entry_seconds,briefing_entry+dt);return;}
+  if(briefing_loading){briefing_exit=std::min(briefing_entry_seconds,briefing_exit+dt);if(briefing_exit>=briefing_entry_seconds)play=true;return;}
   if(briefing_done)return;
+  if(speaking)briefing_started=true;
+  if(!briefing_started)return;
   briefing_elapsed+=dt;
   const unsigned ms=briefing_page<briefing_times.size()?briefing_times[briefing_page]:5000;
   const bool continuation=briefing_page+1<briefing_groups.size() && briefing_groups[briefing_page]==briefing_groups[briefing_page+1];
-  if(briefing_elapsed>=ms/1000.f && (continuation || !speaking)){briefing_elapsed=0;if(++briefing_page>=briefing.size())briefing_done=true;}
+  if(briefing_elapsed>=ms/1000.f && (continuation || !speaking)){briefing_elapsed=0;briefing_started=false;if(++briefing_page>=briefing.size())briefing_done=true;}
  }
  unsigned briefing_sound()const{return !briefing_done && briefing_page<briefing_voices.size()?briefing_voices[briefing_page]:0;}
  // The renderer supplies real font widths, so no spoken paragraph is cut by
@@ -83,7 +87,7 @@ struct Frontend {
     while(at[n] && at[n]!='\n' && n<150){line+=at[n];if(measure(line.c_str())>width){line.pop_back();break;}if(at[n]==' ')space=n;++n;}
     if(!n){line.assign(1,*at);n=1;}else if(at[n] && at[n]!='\n' && space){n=space;line.assign(at,n);}
     if(!page.empty())page+='\n';page+=line;at+=n;
-    if(++line_count==rows){pages.push_back(page);voices.push_back(voice);page.clear();line_count=0;}
+    if(++line_count==rows && !rich_briefing){pages.push_back(page);voices.push_back(voice);page.clear();line_count=0;}
    }
    if(!page.empty()){pages.push_back(page);voices.push_back(voice);}
    const auto count=pages.size()-begin;
@@ -203,7 +207,7 @@ struct Frontend {
   if(id<0 || leaving || transition<1)return;
   if(dialog==Dialog::load_slots){if(id>=120 && id<125 && load_enabled[id-120])load_requested_slot=unsigned(id-120);return;}
   if(dialog==Dialog::story){if(id==112 || id==113)open_briefing(campaign::adjacent(mission,id==112?-1:1));else if(id==115 || id==110)begin_briefing();else if(id==111)dialog=Dialog::none;return;}
-  if(dialog==Dialog::briefing && rich_briefing){if(id==111)dialog=Dialog::none;else if(briefing_ready() && id==116){briefing_loading=true;campaign_start=true;play=true;}return;}
+  if(dialog==Dialog::briefing && rich_briefing){if(briefing_loading)return;if(id==111)dialog=Dialog::none;else if(briefing_ready() && id==116){briefing_loading=true;briefing_exit=0;campaign_start=true;play=false;}return;}
   if(dialog==Dialog::briefing){if(id==112 || id==113){open_briefing(campaign::adjacent(mission,id==112?-1:1));return;}if(id==110){if(briefing_page+1<briefing.size())++briefing_page;else {dialog=Dialog::none;campaign_start=true;play=true;}}else if(id==111)back();return;}
   if(dialog==Dialog::ai_tests){if(id>=100 && id<104){campaign_start=false;observer_test=unsigned(id-100);dialog=Dialog::none;play=true;}else if(id==32)dialog=Dialog::none;return;}
   if(dialog==Dialog::map_list){if(id>=70 && id<75 && scroll+unsigned(id-70)<maps.size()){selected_map=scroll+unsigned(id-70);preview_dirty=true;dialog=Dialog::none;}else if(id==90 || id==91){if(id==90)scroll=scroll>=5?scroll-5:0;else if(scroll+5<maps.size())scroll+=5;}else if(id==32)dialog=Dialog::none;return;}
@@ -246,6 +250,6 @@ struct Frontend {
   else {row=(row+row_count+(direction==0?-1:1))%row_count;x=208;y=row_y(row);}hover=hit(int(x),int(y));
  }
  void confirm(){activate(dialog==Dialog::story?115:hit(int(x),int(y)));}
- void back(){if(rich_briefing && presentation()){dialog=Dialog::none;return;}if(dialog==Dialog::briefing && briefing_page){--briefing_page;return;}if(leaving || transition<1)return;if(dialog!=Dialog::none)dialog=Dialog::none;else if(screen==Screen::custom)navigate(Screen::campaign);else dialog=Dialog::exit;}
+ void back(){if(briefing_loading)return;if(rich_briefing && presentation()){dialog=Dialog::none;return;}if(dialog==Dialog::briefing && briefing_page){--briefing_page;return;}if(leaving || transition<1)return;if(dialog!=Dialog::none)dialog=Dialog::none;else if(screen==Screen::custom)navigate(Screen::campaign);else dialog=Dialog::exit;}
 };
 }
