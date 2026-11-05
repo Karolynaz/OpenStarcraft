@@ -2266,3 +2266,38 @@ stopped; entire original virtualSD/config byte-restored by restore script; no
 isolation/backup tree remains active. PhysicalSD untouched. CIAinstall/physical
 hardware remain untested. Allretailcampaigns still unfinished:28enabled entries
 only, BW3perrace; SC7Terran/8Zerg/4Protoss. No further automations created.
+
+## 2026-11-06 — three-race lower HUD checkpoint
+
+Implemented approved generated backgrounds and Figma128:869/128:991. Native
+36x34 command/group/upgrade icons; uniform12px key labels; two-column12-unit
+list; single64pxwire/name/stats/upgrades; cancellable5-slot production retained.
+Native60x56portraits (all110 re-exported privately), MENU/clock atlower-middle,
+aspect-fit96pxminimaplower-right. Actualhumanrace chooses one256KiBHUDtexture,
+never3residentpages. No36/8MiBbudgetchange. ASanHUDart/layout, selectioninfo,
+hudcontrols/replay and nativeARMv6K checks PASS. Original-modelemu source
+src-f52e285957f5af5a: ProtoProbe/group/Nexusqueue, TerranSCV, ZergDrone PASS.
+Local evidence local-data/hud-nov06; report HUD_2026_11_06_VALIDATION.md.
+Emu stopped, entireoriginalvirtualSD/configrestored; physicalSDuntouched.
+Makefile testtargetregistration after visualchecks changesfingerprintonly.
+Latest standaloneCIA/3DS still priorNov05 until finalmissionbuild is packaged.
+
+User added mission priorities during HUD work: fix Zerg2 SCV/PsiEmitter behavior,
+then more proven campaign missions. BWZ2 existing autonomousintro test logically
+picks up217 (diagnostic f2161 SCVowner0pos1456,3504carried217). Carried item is
+currently hidden with no following visible representation; inspect actualA
+activation + rescue and visible feedback before changing game rules. Asked
+async if user meant BWReignofFire or SC Egression; no answer received yet.
+A private unmodified BWP4 map pilot loaded as existingcampaignScenario19 solely
+for exploration, not enabled/claimed: 12000ticks without exception, intro
+produced4Probes/3Dragoons/2Reavers/Kerrigan near(1173,894), funds1000/100,
+objectives bringKerrigantoUraj andsurvive. No victorytest yet. Pilot
+/tmp/sc3ds-next-mission.cpp and /tmp/sc3ds-bwp4-observe.log. Do not ship this
+pilot identity as a mission. Private normalizedmap campaign-all-audit/expprotoss04.chk.
+
+User requested one further5hwindow. Realusage primary10%used at00:30,
+resets2026-11-06 04:06:53Vilnius. Created one-timeheartbeat
+starcraft-kampanij-t-sinys-04-12 for04:12, noothernewautomations. Preserve own
+and other projects'automations, noresetcredits/modelchanges/paidcredits. Current
+ASanengineobject /tmp/sc3ds-hud-engine.o matches f52e285957f5af5a before Makefile
+registration; rebuild once after gameplaychanges for finalsource/replayfixtures.

@@ -174,6 +174,12 @@ build/command-grid-test: tests/command_grid.cpp include/command_grid.h include/i
 test-command-grid: build/command-grid-test
 	./build/command-grid-test
 
+build/hud-layout-test: tests/hud_layout.cpp include/hud_layout.h include/ui_art.h include/controls.h include/command_grid.h include/selection_info.h | build
+	$(HOST_CXX) -std=c++14 -O1 -g -fsanitize=address -fno-omit-frame-pointer -Itests/fake3ds -Iinclude tests/hud_layout.cpp -o $@
+.PHONY: test-hud-layout
+test-hud-layout: build/hud-layout-test
+	ASAN_OPTIONS=detect_leaks=0 ./build/hud-layout-test local-data/3ds/openbw
+
 build/command-icons-test: tests/command_icons.cpp tests/fake3ds/citro2d.h source/engine.cpp source/graphics.cpp $(HEADERS) build/source_id.h | build
 	$(HOST_CXX) $(COMMON) -O1 -g -fsanitize=address -fno-omit-frame-pointer -pthread -Itests/fake3ds tests/command_icons.cpp source/engine.cpp source/graphics.cpp -o $@
 .PHONY: test-command-icons

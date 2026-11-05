@@ -3,6 +3,7 @@
 namespace port3ds {
 enum class WorkKind {none,training,construction,morph,addon,research,upgrade};
 struct SelectionInfo {
+ struct Upgrade {unsigned icon=~0u;int level=0;};
  bool valid=false,own=false,building=false,completed=false;
  unsigned type=0,count=0,queue_count=0,work_icon=~0u;
  const char* name="";const char* work_name="";
@@ -12,11 +13,13 @@ struct SelectionInfo {
  int supply_used=0,supply_provided=0,supply_total=0;
  int remaining=0,total=0;WorkKind work=WorkKind::none;
  std::array<unsigned,5> queue{{~0u,~0u,~0u,~0u,~0u}};
+ std::array<Upgrade,4> upgrades{};unsigned upgrade_count=0;
 };
-// Shared drawing/touch geometry in the 224x78 bottom selection region.
+// A busy building keeps all five cancellable queue entries in the tall left
+// panel. Idle units instead use Figma's four native-size upgrade icon slots.
 struct ProductionPanel {
  struct Cell{int x,y,w,h;};
- static Cell cell(unsigned slot){return slot==0?Cell{94,174,26,26}:Cell{134+int(slot-1)*26,205,24,24};}
+ static Cell cell(unsigned slot){return {22+int(slot%2)*41,150+int(slot/2)*25,30,24};}
  static int hit(int x,int y,const SelectionInfo& info){
   if(!info.valid || info.count!=1 || !info.own || info.work==WorkKind::none)return -1;
   const unsigned count=info.work==WorkKind::training?info.queue_count:1;

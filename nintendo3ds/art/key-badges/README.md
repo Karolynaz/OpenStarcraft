@@ -1,11 +1,10 @@
 # Native key badges
 
-X/Y references are the user's Figma-exported 23×23 HUD badges from their
-Diablo3Ds project (`art/3ds/hud/button_{x,y}.png`). Its renderer overlays these
-at exact output pixels, preserving their legibility. The other generic button
-labels follow the same 19px face plus shadow allowance. Combinations use a
-35px capsule with a 14px letter size, and are never scaled at runtime.
+All thirteen labels use the same 12px-high capsule, 8px Arial text and
+native-pixel rendering. Single buttons are 12x12; chords are 23x12. X/Y use
+the same generation path as A/B so their visible sizes agree.
 
-`tools/prepare_key_badges.py --font /path/to/Arial.ttf` regenerates the generic
-PNGs. The font file is not bundled. `prepare_key_badges.py <private-SD-root>`
-packs all badges into unused space in the existing HUD texture page.
+`tools/prepare_key_badges.py --font /path/to/Arial.ttf` regenerates the PNGs.
+The font file is not bundled. The original Diablo X/Y reference PNGs remain
+as historical source references, but no longer feed the packed HUD.
+`prepare_hud.py` installs these badges into each race's single HUD page.

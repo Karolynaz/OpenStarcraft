@@ -74,15 +74,16 @@ for manifest in ('maps-manifest.json','audio-manifest.json'):
         if hashlib.sha256((a.source/'campaign'/name).read_bytes()).hexdigest()!=expected['sha256']:
             p.error(f'Changed private campaign asset: {name}')
 ui_manifest=json.loads((a.source/'ui/manifest.json').read_text())
-for name in ('menu','hud','animations'):
+for name in ('menu','hud','hud-terran','hud-protoss','hud-zerg','animations'):
     if hashlib.sha256((a.source/f'ui/{name}.bin').read_bytes()).hexdigest()!=ui_manifest[name]['sha256']:
         p.error(f'Changed UI asset: {name}')
+    if name.startswith('hud-'):required.append(f'ui/{name}.bin')
 portrait_manifest=json.loads((a.source/'portraits/manifest.json').read_text())
 if len(portrait_manifest)!=110:
     p.error('Expected 110 static original portraits')
 for name, expected in portrait_manifest.items():
     path=a.source/'portraits'/name
-    if path.stat().st_size!=48*48*2 or hashlib.sha256(path.read_bytes()).hexdigest()!=expected['sha256']:
+    if path.stat().st_size!=60*56*2 or hashlib.sha256(path.read_bytes()).hexdigest()!=expected['sha256']:
         p.error(f'Changed portrait: {name}')
     required.append(f'portraits/{name}')
 required.append('portraits/manifest.json')

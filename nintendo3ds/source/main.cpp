@@ -171,7 +171,7 @@ int main() {
         port3ds::Controls controls;
         unsigned scenario = unsigned(launch_scenario), loaded_scenario = scenario;
         port3ds::ResultArt result_art;
-        port3ds::UiArt hud_art;hud_art.load((std::string(root)+"ui/hud.bin").c_str());
+        port3ds::UiArt hud_art;
         auto hud_buf=C2D_TextBufNew(4096);
         port3ds::InputRouter input;port3ds::UnitDoubleClick double_click;
         using Menu=port3ds::PauseMenu::Page;
@@ -234,7 +234,7 @@ int main() {
                 // Release resident PCM and sprite scratch before the core's
                 // temporary MPQ/GRP initialization peak on original hardware.
                 load_stage(scenario,"release-start");
-                sound.unload();graphics.clear();
+                sound.unload();graphics.clear();hud_art.clear();
                 load_stage(scenario,"core-start");
                 const auto mode=static_cast<port3ds::Scenario>(scenario);
                 const bool arena_mode=port3ds::arena_scenario(mode);
@@ -266,6 +266,9 @@ int main() {
                 // The already presented objectives remain on screen during IO.
                 const bool loading_photo=front.briefing_loading;
                 if(loading_photo)presentation_art.clear();
+                if(engine.ready() && !hud_art.load((std::string(root)+"ui/"+port3ds::HudLayout::skin(engine.snapshot().human_race)).c_str())){
+                    std::snprintf(front.error,sizeof front.error,"Missing updated race HUD assets");front.dialog=port3ds::Frontend::Dialog::error;return_custom=true;break;
+                }
                 bool terrain_ok=true;
                 if(custom_match || campaign_mode || restoring){load_stage(scenario,"terrain-cache-start",launch_map.c_str());terrain_ok=engine.write_terrain(root,"sdmc:/3ds/openbw/map-terrain.bin");if(terrain_ok)graphics.load("sdmc:/3ds/openbw/map-terrain.bin",engine.terrain_signature());}
                 else if (engine.ready()) graphics.load((std::string(root)+(arena_mode?"graphics-arena.bin":"graphics.bin")).c_str(), engine.terrain_signature());
@@ -433,7 +436,7 @@ int main() {
             if(down&KEY_TOUCH) {
                 touchPosition t{};hidTouchRead(&t);
                 if(overlay(menu)){const int hit=(menu==Menu::result?port3ds::ResultScreen::hit(t.px,t.py):port3ds::PauseMenu::hit(t.px,t.py,menu_count()));if(hit>=0){choice=unsigned(hit);activate_menu();}}
-                else if(port3ds::UiRect{255,156,55,22}.hit(t.px,t.py)){menu=Menu::system;choice=0;menu_x=160;menu_y=60;}
+                else if(port3ds::HudLayout::menu().hit(t.px,t.py)){menu=Menu::system;choice=0;menu_x=160;menu_y=60;}
                 else if(menu==Menu::none || menu==Menu::catalogue){
                     if(menu==Menu::none)refresh_world();
                     const int hit=port3ds::CommandGrid::hit(t.px,t.py,9);
@@ -444,7 +447,7 @@ int main() {
                         else if(info.count>1){
                         unsigned slot=0;const auto selectable=engine.visible_units(units,unit_view_capacity);
                         for(std::size_t i=0;i<selectable && slot<12;++i)if(units[i].selected){
-                            const auto rect=port3ds::UiRect{13+int(slot%6)*37,157+int(slot/6)*37,35,35};
+                            const auto rect=port3ds::HudLayout::selection(slot);
                             if(rect.hit(t.px,t.py)){engine.select(units[i].x,units[i].y);break;}++slot;
                         }
                         }
@@ -653,33 +656,33 @@ int main() {
             C2D_TargetClear(bottom, bg); C2D_SceneBegin(bottom);
             hud_art.draw("hud",0,0);
             char clock[20];const unsigned seconds=state.countdown_active?state.countdown_seconds:state.frame/24;std::snprintf(clock,sizeof clock,"%s%02lu:%02lu",state.countdown_active?"T-":"",static_cast<unsigned long>(seconds/60),static_cast<unsigned long>(seconds%60));
-            port3ds::ui_text(hud_buf,clock,31,16,.48f,white,true);
-            port3ds::ui_text(hud_buf,"MENU",283,161,.48f,white,true);
+            port3ds::ui_text(hud_buf,clock,152,213,.33f,white,true);
+            port3ds::ui_text(hud_buf,"MENU",152,130,.48f,white,true);
             if(menu==Menu::none)refresh_world();
             if(menu==Menu::none || menu==Menu::catalogue){
                 for(unsigned i=0;i<option_count;++i){if(!option_rows[i].label[0])continue;auto cell=port3ds::CommandGrid::cell(i);
-                    graphics.ui_image(engine.command_icon(option_rows[i].icon,option_rows[i].enabled),cell.x,cell.y,35.f/36,engine);
-                    if(menu==Menu::catalogue && i==choice)port3ds::ui_border({cell.x,cell.y,35,35},green);
+                    graphics.ui_image(engine.command_icon(option_rows[i].icon,option_rows[i].enabled),cell.x,cell.y,1,engine);
+                    if(menu==Menu::catalogue && i==choice)port3ds::ui_border({cell.x,cell.y,36,34},green);
                     const char* keys=menu==Menu::catalogue?port3ds::CommandGrid::key(i):i<4?(i==0?"A":i==1?"R+A":i==2?"R+B":"L+A"):(i==4?"X":i==5?"Y":i==6?"L+X":i==7?"L+Y":"L+R");
                     char badge[24];std::snprintf(badge,sizeof badge,"key_%s",keys);unsigned bw=0,bh=0;
-                    if(hud_art.size(badge,bw,bh))hud_art.draw(badge,cell.x+(35-int(bw))/2,cell.y+27);
+                    if(hud_art.size(badge,bw,bh))hud_art.draw(badge,cell.x+(36-int(bw))/2,cell.y+28);
 
                 }
             }
             const auto selected_info=engine.selection_info();
             if(selected_info.count==1)port3ds::draw_selection_info(selected_info,graphics,engine,hud_art);
             if(state.observer && !selected_info.count){
-                for(unsigned p=0;p<3;++p)if(state.players[p].ai){const auto& side=state.players[p];char row[80];std::snprintf(row,sizeof row,"%u %s  Scout %u Cast %u Drop %u",p+1,side.difficulty==port3ds::AiDifficulty::medium?"M":"E",side.scouts,side.casts,side.drop_units);port3ds::ui_text(hud_buf,row,15,169+p*19,.40f,white);}
+                int y=20;for(unsigned p=0;p<3;++p)if(state.players[p].ai){const auto& side=state.players[p];char row[80];std::snprintf(row,sizeof row,"AI %u %s\nScout %u\nCast %u Drop %u",p+1,side.difficulty==port3ds::AiDifficulty::medium?"M":"E",side.scouts,side.casts,side.drop_units);port3ds::panel_text(hud_art,row,18,y,'W',81);y+=54;}
             }
             unsigned selected_slot=0;
             for(std::size_t i=0;i<count && selected_slot<12;++i)if(units[i].selected){const auto& u=units[i];
-                const int x=13+int(selected_slot%6)*37,y=157+int(selected_slot/6)*37;
-                if(selected_info.count>1)graphics.ui_image(engine.command_icon(u.type),x+1,y+1,.82f,engine);
-                if(selected_info.count>1 && u.max_hp>0)C2D_DrawRectSolid(x,y+29,0,32.f*u.hp/u.max_hp,2,green);
+                const auto cell=port3ds::HudLayout::selection(selected_slot);const int x=cell.x,y=cell.y;
+                if(selected_info.count>1)graphics.ui_image(engine.command_icon(u.type),x,y,1,engine);
+                if(selected_info.count>1 && u.max_hp>0)C2D_DrawRectSolid(x,y+32,0,36.f*u.hp/u.max_hp,2,green);
 
                 ++selected_slot;
             }
-            graphics.ui_image(engine.portrait(),259,181,1,engine);
+            graphics.ui_image(engine.portrait(),122,152,1,engine);
             const auto mini=controls.minimap_bounds();
             C2D_DrawRectSolid(mini.x, mini.y, 0, mini.w, mini.h, grid);
             graphics.minimap(mini.x,mini.y,mini.w,mini.h);

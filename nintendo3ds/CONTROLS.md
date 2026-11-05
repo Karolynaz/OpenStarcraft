@@ -58,7 +58,7 @@ place with Circle Pad and A, cancel with B. Refinery placement snaps to geysers.
 The lower screen uses the supplied 320×240 background and Figma node28:30:
 4+5 commands with native 23px single-key badges and 35×23px combination
 capsules (following the Diablo3Ds HUD), centered aspect-fit minimap, clock,
-MENU, 48×48 static original
+MENU, 60×56 static original
 portrait, and the selected-unit/production panel. This panel uses native10px Roboto
 Bold glyphs, a64×64 wireframe at(17,153), HP then shields side by side at
 y219, and the name/stats column starting atx94. Armor/shield/ground/air upgrade
@@ -132,3 +132,17 @@ Install the matching executable AND audio/effects-all.bin/effects-all.json.
 Existing race music and the fixed 4 MiB SFX cache/eight-voice mixer remain.
 Briefing narration and movies are separate pending work. Saves require the
 matching source build as before; completion progress is a separate file.
+
+
+### Lower screen layout (2026-11-06)
+
+The player race selects its own approved Terran/Protoss/Zerg background.
+The left panel holds twelve selected units in two columns, or a single
+unit name/kills, 64×64 wireframe, HP/shields and up to four native 36×34
+upgrade icons. Busy buildings show a cancellable five-slot production grid
+in that panel instead of upgrades. Command icons use native 36×34 pixels
+in the upper-right four-plus-five grid, with uniform 12px key labels.
+MENU is at (122,130), the original 60×56 portrait at (122,152), the clock
+below it, and the aspect-fit minimap in the 96×96 area at (206,130).
+Rendering and touch routing share these coordinates. Existing key chords
+and catalogue/world input precedence are unchanged.

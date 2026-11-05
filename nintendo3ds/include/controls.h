@@ -1,6 +1,7 @@
 #pragma once
 #include <algorithm>
 #include <cmath>
+#include "hud_layout.h"
 
 namespace port3ds {
 class Controls {
@@ -13,7 +14,7 @@ public:
     float cursor_x = 200, cursor_y = 120;
     float camera_x = 0, camera_y = 0;
     // Camera touch bounds match the supplied bottom-screen HUD.
-    static constexpr int minimap_x = 14, minimap_y = 35, minimap_w = 80, minimap_h = 100;
+    static constexpr int minimap_x = 206, minimap_y = 130, minimap_w = 96, minimap_h = 96;
     void map_size(unsigned tile_width, unsigned tile_height) {
         width_ = std::max(400.0f, tile_width * 32.0f);
         height_ = std::max(240.0f, tile_height * 32.0f);

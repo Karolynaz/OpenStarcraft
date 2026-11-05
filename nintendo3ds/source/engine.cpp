@@ -531,8 +531,10 @@ SelectionInfo Engine::selection_info()const {
     out.building=f.ut_building(u);out.completed=f.u_completed(u);out.hp=snap.selected_hp;out.max_hp=snap.selected_max_hp;
     out.shields=snap.selected_shields;out.max_shields=snap.selected_max_shields;out.energy=snap.selected_energy;out.max_energy=snap.selected_max_energy;
     out.armor=f.unit_armor(u).integer_part();out.kills=u->kill_count;out.armor_level=f.player_upgrade_level(u->owner,t->armor_upgrade);if(t->has_shield)out.shield_level=f.player_upgrade_level(u->owner,UpgradeTypes::Protoss_Plasma_Shields);
-    if(const auto* w=f.unit_or_subunit_ground_weapon(u)){out.ground_weapon=true;out.ground_damage=f.weapon_damage_amount(w,u->owner).integer_part();out.ground_level=f.player_upgrade_level(u->owner,w->damage_upgrade);}
-    if(const auto* w=f.unit_or_subunit_air_weapon(u)){out.air_weapon=true;out.air_damage=f.weapon_damage_amount(w,u->owner).integer_part();out.air_level=f.player_upgrade_level(u->owner,w->damage_upgrade);}
+    auto add_upgrade=[&](UpgradeTypes id){if(id==UpgradeTypes::None)return;const auto* up=f.get_upgrade_type(id);if(up->icon<0)return;for(unsigned i=0;i<out.upgrade_count;++i)if(out.upgrades[i].icon==unsigned(up->icon))return;if(out.upgrade_count<out.upgrades.size())out.upgrades[out.upgrade_count++]={unsigned(up->icon),f.player_upgrade_level(u->owner,id)};};
+    add_upgrade(t->armor_upgrade);if(t->has_shield)add_upgrade(UpgradeTypes::Protoss_Plasma_Shields);
+    if(const auto* w=f.unit_or_subunit_ground_weapon(u)){out.ground_weapon=true;out.ground_damage=f.weapon_damage_amount(w,u->owner).integer_part();out.ground_level=f.player_upgrade_level(u->owner,w->damage_upgrade);add_upgrade(w->damage_upgrade);}
+    if(const auto* w=f.unit_or_subunit_air_weapon(u)){out.air_weapon=true;out.air_damage=f.weapon_damage_amount(w,u->owner).integer_part();out.air_level=f.player_upgrade_level(u->owner,w->damage_upgrade);add_upgrade(w->damage_upgrade);}
     out.supply_used=snap.players[u->owner<3?u->owner:0].supply;out.supply_total=snap.players[u->owner<3?u->owner:0].supply_max;out.supply_provided=t->supply_provided.integer_part();
     out.queue_count=std::min<unsigned>(5,u->build_queue.size());for(unsigned i=0;i<out.queue_count;++i)out.queue[i]=unsigned(u->build_queue[i]->id);
     auto unit_work=[&](WorkKind kind,const unit_type_t* type,int remaining){out.work=kind;out.work_icon=unsigned(type->id);out.work_name=zerg::name(type->id);if(!out.work_name)out.work_name=protoss::name(type->id);if(!out.work_name)out.work_name=terran::name(type->id);out.total=type->build_time;out.remaining=remaining;};
@@ -1106,7 +1108,7 @@ SpriteView Engine::cursor_image(CursorKind kind,std::uint64_t elapsed_us) const 
     return {int(f.offset.x)-64,int(f.offset.y)-64,cursor_image_base+index,frame,11,false,false,0,255};
 }
 SpriteInfo Engine::sprite_info(unsigned image,unsigned frame) const {
-    if(image==65384)return {48,48,frame<110};
+    if(image==65384)return {60,56,frame<110};
     if(!ready())return {};
     if(image==detail::wireframe_image)return impl_->icons && impl_->icons->has_wireframes && frame<228*6?SpriteInfo{64,64,true}:SpriteInfo{};
     if(image==detail::resource_icon_image)return impl_->icons && impl_->icons->has_resources && frame<7?SpriteInfo{14,14,true}:SpriteInfo{};
@@ -1120,7 +1122,7 @@ SpriteInfo Engine::sprite_info(unsigned image,unsigned frame) const {
     const auto& f=grp->frames[frame];return {unsigned(f.size.x),unsigned(f.size.y),true};
 }
 bool Engine::sprite_pixels(unsigned image,unsigned frame,unsigned owner,uint16_t* out,std::size_t capacity) const {
-    if(image==65384){if(capacity<48*48 || frame>=110)return false;char path[512];std::snprintf(path,sizeof path,"%s/portraits/%u.bin",impl_->initial_root.c_str(),frame);FILE* f=std::fopen(path,"rb");if(!f)return false;bool ok=std::fread(out,2,48*48,f)==48*48;std::fclose(f);return ok;}
+    if(image==65384){if(capacity<60*56 || frame>=110)return false;char path[512];std::snprintf(path,sizeof path,"%s/portraits/%u.bin",impl_->initial_root.c_str(),frame);FILE* f=std::fopen(path,"rb");if(!f)return false;bool ok=std::fread(out,2,60*56,f)==60*56 && std::fgetc(f)==EOF;std::fclose(f);return ok;}
 
     const auto info=sprite_info(image,frame);if(!info.valid || info.width>512 || info.height>512 || size_t(info.width)*info.height>capacity)return false;
     if(image==detail::wireframe_image)return impl_->icons && impl_->icons->wire_pixels(frame,out,capacity);

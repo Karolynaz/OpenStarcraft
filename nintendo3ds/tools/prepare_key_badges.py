@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Native-pixel key art, following Diablo3Ds' exported 23px HUD badges.
+"""Uniform native-pixel 12px key labels for the compact Figma 4+5 grid.
 
 Stores badges in unused columns of the existing HUD page: no extra texture.
 Run after prepare_hud.py, or pass --art-only to regenerate generic source PNGs.
@@ -15,25 +15,20 @@ def generate(font):
     scale = 4
     for key in KEYS:
         target = ART / (key + '.png')
-        if key in ('X', 'Y'):
-            target.write_bytes((ART / ('reference_' + key.lower() + '.png')).read_bytes())
-            continue
-        width = 23 if len(key) == 1 else 35
-        im = Image.new('RGBA', (width * scale, 23 * scale))
+        width = 12 if len(key) == 1 else 23
+        im = Image.new('RGBA', (width * scale, 12 * scale))
         d = ImageDraw.Draw(im)
-        # 19px face, with the same four-pixel shadow allowance as Diablo.
-        box = (scale, 0, (width - 2) * scale, 19 * scale)
-        d.rounded_rectangle((box[0], box[1]+3*scale, box[2]+scale, box[3]+3*scale), 9*scale, fill=(0,0,0,160))
-        d.rounded_rectangle(box, 9*scale, fill=(238,238,238,255), outline=(55,55,55,255), width=scale)
-        f = ImageFont.truetype(str(font), 14 * scale)
+        box = (0, 0, (width - 1) * scale, 11 * scale)
+        d.rounded_rectangle(box, 5*scale, fill=(238,238,238,255), outline=(55,55,55,255), width=scale//2)
+        f = ImageFont.truetype(str(font), 8 * scale)
         bounds = d.textbbox((0,0), key, font=f)
         x = ((width-1)*scale - (bounds[2]-bounds[0]))/2 - bounds[0]
-        y = (19*scale - (bounds[3]-bounds[1]))/2 - bounds[1]
+        y = (11*scale - (bounds[3]-bounds[1]))/2 - bounds[1]
         d.text((x,y), key, font=f, fill=(8,8,8,255))
-        im.resize((width,23),Image.Resampling.LANCZOS).save(target)
+        im.resize((width,12),Image.Resampling.LANCZOS).save(target)
 
-def install(root):
-    path = root/'ui/hud.bin'
+def install(root, name='hud.bin'):
+    path = root/'ui'/name
     data = bytearray(path.read_bytes())
     assert data[:8] == b'OB3UI001'
     width,height,pages,count = struct.unpack_from('<4I',data,8)
@@ -61,7 +56,7 @@ def install(root):
                 struct.pack_into('<H',pixels,(((yy//8)*64+xx//8)*64+m)*2,v)
     output=b'OB3UI001'+struct.pack('<4I',width,height,pages,len(entries))+b''.join(entries)+pixels
     path.write_bytes(output)
-    mp=root/'ui/manifest.json';manifest=json.loads(mp.read_text());manifest['hud'].update(sprites=len(entries),bytes=len(output),sha256=hashlib.sha256(output).hexdigest(),key_badges=len(KEYS));mp.write_text(json.dumps(manifest,indent=2)+'\n')
+    mp=root/'ui/manifest.json';manifest=json.loads(mp.read_text());manifest.setdefault(name.removesuffix('.bin'),{}).update(sprites=len(entries),bytes=len(output),sha256=hashlib.sha256(output).hexdigest(),key_badges=len(KEYS));mp.write_text(json.dumps(manifest,indent=2)+'\n')
     print(f'{len(KEYS)} native key badges; same 256 KiB HUD texture')
 
 if __name__=='__main__':
