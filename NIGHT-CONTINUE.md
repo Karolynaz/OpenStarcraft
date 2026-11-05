@@ -2225,3 +2225,44 @@ lower640x480rectangle is preserved. ASan25story/briefing/64pxfaces/dual loading
 photo lifecycle PASS, nativeARM11buildPASS; rebuilt privateCIA/CCI in sameout
 paths, noZIP. Current package-manifest.json has updatedchecksums. No newengine
 logic or missioncompletiontest. PhysicalSD/emulatorSDuntouched this smalltask.
+
+## 2026-11-05 — BW Terran and Protoss now three missions each
+
+Source src-57d2ac684dbb34be. Added original expterran02/scenario41, expprotoss03/42,
+expterran03/43. All28 fresh ASan public-command mission victories PASS. New T2:
+f15283, ten ships captured, enemy fleet destroyed; P3:f27971, both Cerebrates
+killed by paid Corsair/DT/Shuttle landing; T3:f135392, four Hives destroyed,
+Duran survives extraction. Exact completed replays PASS. All old25 map bytes
+match previous bundle. 28openings/active-save/extended, episode progression,
+five slots, presentation, neutral scripts and readonly assetroot checks PASS.
+Four focused contact/spell/rescue/counter ASan fixtures and28art lifetimes PASS.
+Public T2 full fleet-loss defeat f15128; public T3 Duran-loss f1977. Other older
+absence fixtures remain isolated and never ship as mission maps.
+
+Fixes: fitted solid-beacon Bring locations count a one-pixel touching edge;
+ordinary locations/collision/placement unchanged. Do NOT reintroduce global
+beacon no-collision or expand all Bring locations: those broke old routes.
+Explicit rescue-owner scripts run but inherit no Force/AllPlayers queues.
+Inactive explicit player slots remain valid score/death storage (T2 backups).
+Targeted spell validation uses caster order, not stale/null iscript context.
+Budgets still36MiBheap/8MiBlinear. Existing controls/latest briefing UI retained.
+
+Native ARMv6K/VFPv2 build PASS; standalone CIA/CCI bundle595private static files,
+noZIP. Current nintendo3ds/out/StarCraft-3DS.{cia,3ds}; checksums in report
+reports/CAMPAIGN_2026_11_05_VALIDATION.md and private ctr-release-2026-11-05 manifest.
+CIA/CCI identicalNCCH + ExeFS/ROMFS hash checks PASS. Stage3dsx matchesnativeout.
+Saves remain build-specific; chapter progress persists separately. No physicalSD.
+
+Original-model emulator: freshP3 story/animatedbriefing/world and freshT3
+briefing/world PASS; T2 Victory replay10:36 automatically progresses to newT3;
+P3 Victory replay19:25 PASS. NativeT3 completed replay Victory94:01 PASS.
+Heap audio-ready P3fresh31395464/P3replay31584640/T2replay29961008/T3fresh31704344;
+lowest world linearfree25600. CIAinstallation/physicalhardware not tested.
+Native files/evidence local-data/campaign-nov03; all3completed journals retained
+privately in completed-saves. NativeT3 replay audio-readyheap31879760 and exact
+Victory94:01 observed; long135392-frame journal took about8minutes to reconstruct
+on original-model emulator. All3native completed replay victories PASS. Emulator
+stopped; entire original virtualSD/config byte-restored by restore script; no
+isolation/backup tree remains active. PhysicalSD untouched. CIAinstall/physical
+hardware remain untested. Allretailcampaigns still unfinished:28enabled entries
+only, BW3perrace; SC7Terran/8Zerg/4Protoss. No further automations created.

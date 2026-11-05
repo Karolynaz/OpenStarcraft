@@ -14789,8 +14789,8 @@ struct state_functions {
 
 	bool spell_order_valid(const unit_t* u) const {
 		if (u->order_type->targets_enemies) {
-			if (iscript_unit->order_type->weapon == WeaponTypes::None) return false;
-			return weapon_can_target_unit(get_weapon_type(iscript_unit->order_type->weapon), u->order_target.unit, u);
+			if (u->order_type->weapon == WeaponTypes::None) return false;
+			return weapon_can_target_unit(get_weapon_type(u->order_type->weapon), u->order_target.unit, u);
 		}
 		switch (u->order_type->tech_type) {
 		case TechTypes::None:
@@ -19048,7 +19048,16 @@ struct state_functions {
 			if (u->unit_type->group_flags & GroupFlags::Men) ++r.completed_non_building_counts[u->owner];
 			else if (u->unit_type->group_flags & GroupFlags::Building) ++r.completed_building_counts[u->owner];
 		};
-		for (const unit_t* u : find_units(loc.area)) {
+		// A location fitted exactly to a solid control pad must also count a
+		// unit touching its edge. Other location bounds retain native searches.
+		auto area = loc.area;
+		for (const unit_t* marker : find_units(loc.area)) if (unit_is_non_flag_beacon(marker)) {
+			const auto box = unit_sprite_inner_bounding_box(marker);
+			if (box.from == loc.area.from && box.to + xy(1, 1) == loc.area.to) {
+				area.from -= xy(1, 1); area.to += xy(1, 1); break;
+			}
+		}
+		for (const unit_t* u : find_units(area)) {
 			if (ut_turret(u)) continue;
 			if (!unit_is_at_elevation_flags(u, loc.elevation_flags)) continue;
 
@@ -21993,10 +22002,11 @@ struct game_load_functions : state_functions {
 			}
 			for (auto& t : game_st.triggers) {
 				for (int i = 0; i != 8; ++i) {
-					// Neutral campaign participants may run the script that later
-					// makes them rescuable. Passive rescue slots do not run triggers.
+					// Authored rescue actors can have explicit handover scripts (BW T3).
+					// Do not add them to generic force/all-player trigger groups.
 					const auto controller = st.players[i].controller;
-					if (controller != player_t::controller_occupied && controller != player_t::controller_computer_game && controller != player_t::controller_neutral) continue;
+					if (controller == player_t::controller_rescue_passive) {if (!t.enabled[i]) continue;}
+					else if (controller != player_t::controller_occupied && controller != player_t::controller_computer_game && controller != player_t::controller_neutral) continue;
 					if (!t.enabled[i] && !t.enabled.at(17 + st.players[i].force) && !t.enabled[17]) continue;
 					st.running_triggers[i].emplace_back();
 					auto& rt = st.running_triggers[i].back();

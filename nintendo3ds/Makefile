@@ -294,3 +294,18 @@ build/campaign-initial-links-test: tests/campaign_initial_links.cpp $(HEADERS) |
 	$(HOST_CXX) $(COMMON) -O1 -g -fsanitize=address -fno-omit-frame-pointer tests/campaign_initial_links.cpp -o $@
 build/campaign-bw-terran-test: tests/campaign_bw_terran.cpp source/engine.cpp $(HEADERS) build/source_id.h | build
 	$(HOST_CXX) $(COMMON) -O1 -g -fsanitize=address -fno-omit-frame-pointer tests/campaign_bw_terran.cpp source/engine.cpp -o $@
+
+# Original mission completions and focused campaign semantics regressions.
+build/campaign-beacon-bring-test: tests/campaign_beacon_bring.cpp $(HEADERS) | build
+	$(HOST_CXX) $(COMMON) -O1 -g -fsanitize=address tests/campaign_beacon_bring.cpp -o $@
+build/campaign-targeted-spells-test: tests/campaign_targeted_spells.cpp $(HEADERS) | build
+	$(HOST_CXX) $(COMMON) -O1 -g -fsanitize=address tests/campaign_targeted_spells.cpp -o $@
+build/campaign-bw-terran-second-test: tests/campaign_bw_terran_second.cpp source/engine.cpp $(HEADERS) build/source_id.h | build
+	$(HOST_CXX) $(COMMON) -O1 -g -fsanitize=address tests/campaign_bw_terran_second.cpp source/engine.cpp -o $@
+build/campaign-bw-terran-third-test: tests/campaign_bw_terran_third.cpp source/engine.cpp $(HEADERS) build/source_id.h | build
+	$(HOST_CXX) $(COMMON) -O1 -g -fsanitize=address tests/campaign_bw_terran_third.cpp source/engine.cpp -o $@
+build/campaign-bw-protoss-third-test: tests/campaign_bw_protoss_third.cpp source/engine.cpp $(HEADERS) build/source_id.h | build
+	$(HOST_CXX) $(COMMON) -O1 -g -fsanitize=address tests/campaign_bw_protoss_third.cpp source/engine.cpp -o $@
+
+build/campaign-rescue-triggers-test: tests/campaign_rescue_triggers.cpp $(HEADERS) | build
+	$(HOST_CXX) $(COMMON) -O1 -g -fsanitize=address tests/campaign_rescue_triggers.cpp -o $@

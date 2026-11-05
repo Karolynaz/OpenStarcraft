@@ -27,7 +27,10 @@ static constexpr Mission missions[]={
  {"zerg07","The Culling",37,0,false},
  {"zerg08","Eye for an Eye",38,0,false},
  {"expzerg02","Reign of Fire",39,0,true},
- {"expzerg03","The Kel-Morian Combine",40,0,true}
+ {"expzerg03","The Kel-Morian Combine",40,0,true},
+ {"expterran02","The Dylarian Shipyards",41,1,true},
+ {"expprotoss03","Legacy of the Xel\'Naga",42,2,true},
+ {"expterran03","Ruins of Tarsonis",43,1,true}
 };
 constexpr unsigned count=sizeof(missions)/sizeof(missions[0]);
 inline unsigned index(unsigned scenario){for(unsigned i=0;i<count;++i)if(missions[i].scenario==scenario)return i;return ~0u;}

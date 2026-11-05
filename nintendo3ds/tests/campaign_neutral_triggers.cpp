@@ -26,11 +26,11 @@ int main(int argc,char**argv){
   {std::ofstream out(base+".chk",std::ios::binary);out.write((char*)map.data(),map.size());}
   Engine e;assert(e.load(argv[1],(base+".chk").c_str(),Scenario::terran_campaign));assert(e.start_recording((base+".journal").c_str()));
   if(mode==2){e.set_fog_enabled(false);assert(e.select(1096,1024));assert(e.perform(option_code(OptionKind::order,unsigned(bwgame::Orders::AttackDefault)),1024,1024));}
-  for(unsigned i=0;i<24;++i)assert(e.tick());if(mode!=2)assert(!e.count_units(0,106) && e.count_units(1,106)==1);assert(e.snapshot().minerals==0);
+  for(unsigned i=0;i<24;++i)assert(e.tick());if(mode!=2)assert(!e.count_units(0,106) && e.count_units(1,106)==1);assert(e.snapshot().minerals==(mode==2?0:999));
   SaveView view;assert(e.save_game((base+".sav").c_str(),view));Engine replay;SaveView returned;assert(replay.load_save(argv[1],(base+".sav").c_str(),(base+".replay").c_str(),(base+".map").c_str(),returned));
   for(unsigned i=0;i<120;++i){assert(e.tick() && replay.tick());assert(e.state_digest()==replay.state_digest());}
   if(mode==2){e.set_fog_enabled(false);UnitView view[16];auto n=e.visible_units(view,16);int hp0=0,hp1=0;for(unsigned i=0;i<n;++i)if(view[i].type==0){if(view[i].owner==0)hp0=view[i].hp;else if(view[i].owner==1)hp1=view[i].hp;}fprintf(stderr,"neutral retaliation hp%d/%d\n",hp0,hp1);assert(hp0<40 && hp1<40 && e.snapshot().minerals==0);}
-  else assert(e.count_units(0,106)==1 && e.count_units(0,7)==1 && !e.count_units(1,106) && e.snapshot().minerals==0);
+  else assert(e.count_units(0,106)==1 && e.count_units(0,7)==1 && !e.count_units(1,106) && e.snapshot().minerals==999);
  }
- puts("Neutral direct/Force triggers, passive/inactive/closed exclusion, delayed whole-colony rescue, native provoked retaliation and exact save replay PASS");
+ puts("Neutral direct/Force triggers, explicit rescue triggers, inactive/closed exclusion, delayed whole-colony rescue, native provoked retaliation and exact save replay PASS");
 }

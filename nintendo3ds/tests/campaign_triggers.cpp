@@ -15,6 +15,10 @@ int main(int argc,char**argv){assert(argc==3);auto assets=data_loading::data_fil
  trigger::action a{};trigger::condition c{};
  a.type=13;a.group2_n=70;a.num_n=4;f.run(a);c.type=11;c.extra_n=70;c.num_n=2;assert(f.test_trigger_condition(c,0));a.num_n=6;f.run(a);assert(!f.test_trigger_condition(c,0));c.num_n=3;assert(f.test_trigger_condition(c,0));
  a={};a.type=27;a.group_n=13;a.extra_n=7;a.num_n=7;a.group2_n=100;f.run(a);a.num_n=9;a.group2_n=40;f.run(a);c={};c.type=21;c.group=0;c.extra_n=7;c.num_n=10;c.count_n=60;assert(f.test_trigger_condition(c,0));
+ // Campaign authors also use unused player slots as integer storage (BW T2).
+ st.players[7].controller=player_t::controller_inactive;
+ a={};a.type=27;a.group_n=7;a.extra_n=7;a.num_n=8;a.group2_n=1;f.run(a);c={};c.type=21;c.group=7;c.extra_n=7;c.num_n=10;c.count_n=1;assert(f.test_trigger_condition(c,0));
+ a={};a.type=45;a.group_n=7;a.extra_n=15;a.num_n=7;a.group2_n=4;f.run(a);c={};c.type=15;c.group=7;c.unit_id=15;c.num_n=10;c.count_n=4;assert(f.test_trigger_condition(c,0));assert(!f.player_slot_active(7));
  a={};a.type=26;a.group_n=0;a.extra_n=2;a.num_n=7;a.group2_n=100;f.run(a);a.num_n=9;a.group2_n=40;f.run(a);assert(st.current_minerals[0]==60 && st.current_gas[0]==60);assert(st.total_minerals_gathered[0]==100);
  auto& prop=f.campaign.properties[0];prop[0]=16;prop[2]=2|4|8;prop[5]=25;prop[6]=50;prop[7]=25;prop[14]=16;
  a={};a.type=11;a.location=1;a.group_n=0;a.group2_n=1;a.extra_n=64;a.num_n=1;a.flags=8;f.run(a);unit_t* probe=nullptr;for(auto* u:ptr(st.player_units[0]))if(f.unit_is(u,UnitTypes::Protoss_Probe))probe=u;assert(probe && f.u_invincible(probe) && probe->hp.integer_part()==5 && probe->shield_points.integer_part()==10);

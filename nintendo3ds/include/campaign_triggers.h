@@ -1,3 +1,11 @@
+// Numeric score/death storage slots remain valid without an active participant.
+auto campaign_counter_players(int owner,int group)const {
+ bwgame::static_vector<int,12> players;
+ if(group>=0 && group<12)players.push_back(group);
+ else if(group==13)players.push_back(owner);
+ else for(int p:trigger_players(owner,group))players.push_back(p);
+ return players;
+}
 // Included inside SoundFunctions. Extra original CHK semantics used by the six
 // audited opening missions; display-only operations stay in the presentation.
 bool test_trigger_condition(const trigger::condition& c,int owner)const override{
@@ -6,7 +14,7 @@ bool test_trigger_condition(const trigger::condition& c,int owner)const override
  if(c.type==23)return false;
  if(c.type==6 || c.type==7 || c.type==16 || c.type==17){if(c.unit_id<0 || c.unit_id>232)throw std::runtime_error("Campaign extrema unit bounds");if(c.unit_id==228)return true;auto extrema=[&](const auto& counts){const int own=trigger_command_count(counts,owner,owner,c.unit_id,true);for(unsigned p=0;p<8;++p)if(p!=unsigned(owner) && player_slot_active(p)){const int other=trigger_command_count(counts,owner,p,c.unit_id,true);if((c.type<16 && other>own) || (c.type>=16 && other<own))return false;}return true;};if(c.type==7 || c.type==17){if(c.location<=0 || unsigned(c.location)>st.locations.size())throw std::runtime_error("Campaign extrema location bounds");return extrema(trigger_bring_count(st.locations[c.location-1]));}return extrema(st);}
  if(c.type==11){if(c.extra_n<0 || unsigned(c.extra_n)>=campaign.switches.size())return false;return c.num_n==2?campaign.switches[c.extra_n]:c.num_n==3?!campaign.switches[c.extra_n]:false;}
- if(c.type==5 || c.type==15 || c.type==21){unsigned total=0;for(int p:trigger_players(owner,c.group)){
+ if(c.type==5 || c.type==15 || c.type==21){unsigned total=0;for(int p:campaign_counter_players(owner,c.group)){
   if(c.type==5 || c.type==15){const auto& counts=c.type==5?campaign.kills:campaign.deaths;if(c.unit_id>=0 && c.unit_id<228)total+=counts[p][c.unit_id];else for(unsigned id=0;id<228;++id){auto* t=get_unit_type(UnitTypes(id));if(c.unit_id==229 || (c.unit_id==230 && (t->group_flags&GroupFlags::Men)) || (c.unit_id==231 && (t->group_flags&GroupFlags::Building)) || (c.unit_id==232 && (t->group_flags&GroupFlags::Factory)))total+=counts[p][id];}}
   else switch(c.extra_n){case 1:total+=st.unit_score[p];break;case 2:total+=st.building_score[p];break;case 3:total+=st.unit_score[p]+st.building_score[p];break;case 7:total+=campaign.scores[p];break;default:break;}
  }return trigger_count_comparison(c,total);}
@@ -65,10 +73,10 @@ bool campaign_action(execute_trigger_struct& ets,int owner,running_trigger& rt,r
  case 14:campaign.timer(unsigned(a.time_n),a.num_n);return true;
  case 54:campaign.countdown_paused=true;return true;
  case 55:campaign.countdown_paused=false;return true;
- case 45:if(a.extra_n<0 || a.extra_n>=228)throw std::runtime_error("Campaign deaths type bounds");for(int p:trigger_players(owner,a.group_n)){auto& value=campaign.deaths[p][a.extra_n];const unsigned amount=unsigned(a.group2_n);if(a.num_n==7)value=amount;else if(a.num_n==8)value+=amount;else if(a.num_n==9)value=value>amount?value-amount:0;}return true;
+ case 45:if(a.extra_n<0 || a.extra_n>=228)throw std::runtime_error("Campaign deaths type bounds");for(int p:campaign_counter_players(owner,a.group_n)){auto& value=campaign.deaths[p][a.extra_n];const unsigned amount=unsigned(a.group2_n);if(a.num_n==7)value=amount;else if(a.num_n==8)value+=amount;else if(a.num_n==9)value=value>amount?value-amount:0;}return true;
  case 13:if(a.group2_n>=campaign.switches.size())throw std::runtime_error("Campaign switch bounds");if(a.num_n==4)campaign.switches[a.group2_n]=true;else if(a.num_n==5)campaign.switches[a.group2_n]=false;else if(a.num_n==6)campaign.switches[a.group2_n]=!campaign.switches[a.group2_n];else if(a.num_n==11)campaign.switches[a.group2_n]=(lcg_rand(16)&1)!=0;return true;
  case 19:case 21:case 36:case 37:case 47:return true; // leaderboard presentation / author comment
- case 27:if(a.extra_n!=7)throw std::runtime_error("Unsupported campaign score modifier");for(int p:trigger_players(owner,a.group_n))arithmetic(campaign.scores[p],a.group2_n,a.num_n);return true;
+ case 27:if(a.extra_n!=7)throw std::runtime_error("Unsupported campaign score modifier");for(int p:campaign_counter_players(owner,a.group_n))arithmetic(campaign.scores[p],a.group2_n,a.num_n);return true;
  case 28:if(owner==0){auto& l=location(a.location);campaign.ping=(l.area.from+l.area.to)/2;campaign.ping_frame=st.current_frame;}return true;
  
  case 11:{const auto& loc=location(a.location);if(a.extra_n<0 || a.extra_n>=228)throw std::runtime_error("Campaign create type bounds");
