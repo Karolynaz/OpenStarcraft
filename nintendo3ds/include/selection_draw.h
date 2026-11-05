@@ -45,6 +45,7 @@ inline void draw_selection_info(const SelectionInfo& info,Graphics& graphics,con
    C2D_DrawRectSolid(c.x+24,c.y+22,0,12,12,C2D_Color32(12,20,32,235));
    std::snprintf(text,sizeof text,"%d",info.upgrades[i].level);panel_text(art,text,c.x+27,c.y+22,'W',9);
   }
+  if(info.carried_powerup && info.upgrade_count<4){const auto c=HudLayout::upgrade(info.upgrade_count);graphics.ui_image(engine.command_icon(info.carried_powerup),c.x,c.y,1,engine);panel_text(art,"Carry",c.x+2,c.y+22,'W',34);}
  }
 }
 }

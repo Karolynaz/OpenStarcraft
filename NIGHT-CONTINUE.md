@@ -2301,3 +2301,48 @@ starcraft-kampanij-t-sinys-04-12 for04:12, noothernewautomations. Preserve own
 and other projects'automations, noresetcredits/modelchanges/paidcredits. Current
 ASanengineobject /tmp/sc3ds-hud-engine.o matches f52e285957f5af5a before Makefile
 registration; rebuild once after gameplaychanges for finalsource/replayfixtures.
+
+
+## 2026-11-06 — artefact fix and standalone build checkpoint
+
+Source src-058bfbddcb3c23ea, ASanobject /tmp/sc3ds-powerup-engine.o. HUD localcommit
+ dc5b0ad complete. Worker A/context prioritizes visible campaign item under own
+scout; narrowed Move item-target replans after partial endpoint (no beacon,
+collision/pickup-range changes). Original hidden held artefact drawn above
+carrier without state mutation; Carry icon in selection panel. Both retail
+BWZ2PsiEmitterSCV and SCZ2ChrysalisDrone covered. New test
+nintendo3ds/tests/campaign_powerup_controls.cpp: fogON singleA pickup, authored
+BWrescue2Drones850/200, attachedimage/HUD, exactheldsave+96ticks PASS.
+Fresh28/28originalmissionvictorydrivers ASan PASS (regressions.json private).
+SCZ2retailVictory6460/replay, BWZ2retailVictory32311/replay, autonomousintro,
+selection/cancellation/HUD tests PASS. Flat arena18artefactownership/type/drop
+checks PASS. Earlier Egression synthetic fixture had invalidterrain placement;
+not an engine failure or retail victory result. Report
+CAMPAIGN_POWERUPS_2026_11_06_VALIDATION.md and private local-data/powerup-nov06.
+Native original-model source058 SCV217 andDrone216 carry visuallychecked,
+audio-readyheap32144456/31240456, linearfree123904. EmulatorSTOPPED and entire
+originalvirtualSD/configrestored by /tmp/sc3ds-powerup-emulator.py restore.
+PhysicalSDuntouched. Standaloneout/StarCraft-3DS.cia and.3ds now Nov06,598static
+assets/3HUDskins/110native60x56portraits, noZIP/saves/userstate. MatchingNCCH and
+ExeFS/RomFS hashes PASS; checksums in report/private package manifest.
+
+BWProtoss4 remains UNENABLED/unproven. Private original normalizedmap
+campaign-all-audit/expprotoss04.chk. Pilot loads as Scenario19 ONLY exploration;
+never ship that identity. Latestpilot11 cargo-confirms hiddenKerrigan plusProbe,
+paidNexus/Forge5Cannons/Gas/Gateway/Core/Robotics/SupportBay/Shuttle/GraviticDrive.
+Preserve authoredStargatePUNIlock (cannot buildCorsairs). Originalbase clearing
+and economy work. FerryAAroute still losesShuttle/Kerrigan, defeat33633; nowin.
+Private source/logs copied local-data/powerup-nov06/bwp4-exploration; executable
+/tmp/sc3ds-bwp4-pilot11; /tmp/sc3ds-bwp4-pilot.cpp current. Earlierpilot8stalled
+waitingdisabledStargate;9boardedonlyProbes;10confirmedhero butwide80pxturns;
+11tight24pxturns reaches southernborder butdies. FlightDijkstrathreatcosts currently
+sumdistances, thresholdskip changed24px, logs recordxy/hp/cargo. Need legitimate
+stronger escort/decoy route or clearAA, not altermap/goals/funds. Do not countP4
+as playable. Pilot recording/chks private, notbundled.
+
+Realprimary83%used at checkpoint; reset04:06:53Vilnius Nov06. Existing one-time
+04:12automation starcraft-kampanij-t-sinys-04-12 will continue next authorized
+window; do not duplicate. Read this before work; delete that automation after
+it runs. Noresetcredits/modelchanges/purchases. Nextwindow focusmoreprovenBW
+missions and actualP4victory/defeat/replay before enablingpropermetadata/audio/
+progression. Current28entries allretailASanwin routes pass; noallcampaignclaim.

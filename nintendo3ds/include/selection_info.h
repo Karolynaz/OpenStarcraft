@@ -5,7 +5,7 @@ enum class WorkKind {none,training,construction,morph,addon,research,upgrade};
 struct SelectionInfo {
  struct Upgrade {unsigned icon=~0u;int level=0;};
  bool valid=false,own=false,building=false,completed=false;
- unsigned type=0,count=0,queue_count=0,work_icon=~0u;
+ unsigned type=0,count=0,queue_count=0,work_icon=~0u,carried_powerup=0;
  const char* name="";const char* work_name="";
  int hp=0,max_hp=0,shields=0,max_shields=0,energy=0,max_energy=0;
  int armor=0,ground_damage=0,air_damage=0,kills=0;

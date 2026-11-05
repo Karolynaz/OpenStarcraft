@@ -4315,6 +4315,20 @@ struct state_functions {
 			u->order_state = 1;
 		} else {
 			if (unit_is_at_move_target(u)) {
+				// Campaign items can sit against a cliff/occupied destination.
+				// A short native path may end before the worker is close enough
+				// to pick it up. Keep the explicit item order alive and replan
+				// from that partial endpoint, rather than requiring repeated
+				// player clicks. Ordinary movement/beacons are unchanged.
+				auto* item = u->order_target.unit;
+				if (ut_worker(u) && !u->worker.powerup && item && is_campaign_powerup(item) &&
+					!unit_dying(item) && !us_hidden(item) && units_distance(u, item) > 32 && is_reachable(u, item)) {
+					if (!u->main_order_timer) {
+						set_unit_order(u, get_order_type(Orders::Move), item);
+						u->main_order_timer = 15;
+					}
+					return;
+				}
 				order_done(u);
 			}
 		}

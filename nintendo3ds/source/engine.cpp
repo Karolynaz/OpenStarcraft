@@ -136,10 +136,11 @@ const char* unit_name(const unit_t* u) {
 }
 // Use the engine collision box with a small thumbstick tolerance. Prefer
 // the nearest center when two boxes overlap; never select dead/hidden units.
-unit_t* hit_unit(state_functions& funcs, int x, int y, bool own_only,bool fog=false) {
+unit_t* hit_unit(state_functions& funcs, int x, int y, bool own_only,bool fog=false,bool artefacts_only=false) {
     unit_t* best = nullptr;
     int distance = 0x7fffffff;
     for (auto* u : ptr(funcs.st.visible_units)) {
+        if(artefacts_only && !funcs.is_campaign_powerup(u))continue;
         if ((fog && !player_sees(funcs,u)) || funcs.ut_turret(u) || (own_only && u->owner != 0) || funcs.unit_dead(u) ||
             (u->sprite->flags & sprite_t::flag_hidden)) continue;
         const auto box = funcs.unit_inner_bounding_box(u, u->sprite->position);
@@ -528,6 +529,7 @@ SelectionInfo Engine::selection_info()const {
     SelectionInfo out;if(!ready())return out;const auto* u=impl_->first_selected();if(!u)return out;
     const auto& f=impl_->player->funcs();const auto* t=u->unit_type;const auto snap=snapshot();
     out.valid=true;out.count=snap.selected;out.own=u->owner==0;out.type=unsigned(t->id);out.name=unit_name(u);
+    if(f.ut_worker(u) && u->worker.powerup)out.carried_powerup=unsigned(u->worker.powerup->unit_type->id);
     out.building=f.ut_building(u);out.completed=f.u_completed(u);out.hp=snap.selected_hp;out.max_hp=snap.selected_max_hp;
     out.shields=snap.selected_shields;out.max_shields=snap.selected_max_shields;out.energy=snap.selected_energy;out.max_energy=snap.selected_max_energy;
     out.armor=f.unit_armor(u).integer_part();out.kills=u->kill_count;out.armor_level=f.player_upgrade_level(u->owner,t->armor_upgrade);if(t->has_shield)out.shield_level=f.player_upgrade_level(u->owner,UpgradeTypes::Protoss_Plasma_Shields);
@@ -609,15 +611,20 @@ bool Engine::activate(int x,int y) {savegame::Writer::Guard record(impl_->journa
     if(!ready()) return false;
     if(impl_->ai.observer() || impl_->battle.enabled()) { const bool ok=select(x,y); impl_->command_message=ok?"Observer selection":"Selection cleared"; return ok; }
     auto& f=impl_->player->funcs();
-    auto* target=hit_unit(f,x,y,true,impl_->fog);
     const auto* current=impl_->first_selected();
+    auto* target=hit_unit(f,x,y,true,impl_->fog);
+    // A remains context-sensitive for artefacts even if an original trigger
+    // gave the item to the human slot. Do not replace the worker selection
+    // with the immobile artefact when the player is trying to collect it.
+    const auto* item=current && f.ut_worker(current)?hit_unit(f,x,y,false,impl_->fog,true):nullptr;
+    const bool pickup=item && f.is_campaign_powerup(item);
     const bool loading=current && target && ((f.unit_provides_space(target) && f.unit_can_load_target(target,current)) || (f.unit_provides_space(current) && f.unit_can_load_target(current,target)));
     const bool repairing=current && target && f.unit_is(current,UnitTypes::Terran_SCV) && (f.ut_mechanical(target) || f.ut_building(target)) && (!f.u_completed(target) || target->hp<target->unit_type->hitpoints);
     const bool healing=current && target && f.unit_is(current,UnitTypes::Terran_Medic) && f.ut_organic(target) && target->hp<target->unit_type->hitpoints;
     const bool gas=current && target && f.ut_worker(current) && f.unit_is_refinery(target);
     const bool recharge=current && target && f.unit_can_use_shield_battery(current,target);
     const bool nydus=current && target && !f.ut_building(current) && f.unit_can_move(current) && f.unit_can_enter_nydus(current,target);
-    if(target && !loading && !repairing && !healing && !gas && !recharge && !nydus) {
+    if(target && !pickup && !loading && !repairing && !healing && !gas && !recharge && !nydus) {
         const bool ok=select(x,y);impl_->command_message=ok?"Unit selected":"Selection cleared";return ok;
     }
     if(!current) { const bool ok=select(x,y); impl_->command_message=ok?"Unit selected":"Select a unit first"; return ok; }
@@ -752,6 +759,10 @@ bool Engine::command(Command command, int x, int y) {savegame::Writer::Guard rec
         if (x < 0 || y < 0 || x >= static_cast<int>(player.st().game->map_width) ||
             y >= static_cast<int>(player.st().game->map_height)) return fail("Target outside map");
         auto* target = hit_unit(funcs, x, y, false,impl_->fog);
+        // A friendly scout or escort may stand directly over the artefact.
+        // For workers, the explicit item hit wins over Follow/selecting the
+        // overlapping friendly unit; pickup still requires physical contact.
+        if(funcs.ut_worker(u))if(auto* item=hit_unit(funcs,x,y,false,impl_->fog,true))target=item;
         // Issue group actions in native batches of at most twelve. Buildings
         // are single-select; no upstream selection limits are changed.
         static_vector<unit_t*,12> batch;
@@ -1215,6 +1226,23 @@ std::size_t Engine::visible_images(SpriteView* output, std::size_t capacity, int
                            img.modifier == 10,
                            ((static_cast<std::uint64_t>(sprite.elevation_level) * 8192 + sprite.position.y) * 4096 + sprite.index) * 64 + layer++,
                            ((img.modifier>=2 && img.modifier<=7) || (sprite.flags&sprite_t::flag_burrowed))?112u:img.modifier==12?96u:trail?128u:img.modifier==9?(glow?255u:128u):255u,glow};
+        }
+    }
+    // The native pickup removes the artefact unit from the visible/finder
+    // lists. Its logical pointer still drives original Bring/rescue triggers,
+    // but no attached image was being drawn: the SCV appeared empty-handed.
+    // Draw the original artefact image above its carrier without exposing a
+    // second selectable unit, moving the hidden unit or mutating game state.
+    for(const auto* carrier:ptr(st.visible_units)){
+        if(!funcs.ut_worker(carrier) || funcs.unit_dead(carrier) || funcs.us_hidden(carrier) || (impl_->fog && !player_sees(funcs,carrier)))continue;
+        const auto* item=carrier->worker.powerup;if(!item || !item->sprite || !funcs.is_campaign_powerup(item) || !funcs.us_hidden(item))continue;
+        const auto& sprite=*carrier->sprite;const auto shift=sprite.position-item->sprite->position-xy(0,12);
+        unsigned layer=32;
+        for(const auto& img:reverse(item->sprite->images)){
+            if(img.modifier==10 || img.modifier<0 || img.modifier>7)continue;
+            const auto p=funcs.get_image_map_position(&img)+shift;const auto& frame=img.grp->frames.at(img.frame_index);
+            if(p.x>=cx+400 || p.y>=cy+240 || p.x+int(frame.size.x)<=cx || p.y+int(frame.size.y)<=cy || n==capacity)continue;
+            output[n++]={p.x,p.y,unsigned(img.image_type->id),unsigned(img.frame_index),unsigned(carrier->owner),(img.flags&image_t::flag_horizontally_flipped)!=0,false,((std::uint64_t(sprite.elevation_level)*8192+sprite.position.y)*4096+sprite.index)*64+layer++,255};
         }
     }
     if(impl_->fog && n<capacity)n+=impl_->memory.images(output+n,capacity-n,cx,cy,funcs);
