@@ -7,7 +7,7 @@ namespace port3ds {
 inline void ui_text(C2D_TextBuf buf,const char* text,float x,float y,float size,unsigned color,bool center=false){C2D_Text t;C2D_TextParse(&t,buf,text);C2D_TextOptimize(&t);if(center){float w,h;C2D_TextGetDimensions(&t,size,size,&w,&h);x-=w/2;}C2D_DrawText(&t,C2D_WithColor,x,y,0,size,size,color);}
 inline void ui_centered(C2D_TextBuf buf,const char* value,UiRect r,float size,unsigned color){
  C2D_Text t;C2D_TextParse(&t,buf,value);C2D_TextOptimize(&t);float w,h;C2D_TextGetDimensions(&t,size,size,&w,&h);
- C2D_DrawText(&t,C2D_WithColor,r.x+(r.w-w)/2,r.y+(r.h-h)/2,0,size,size,color);
+ C2D_DrawText(&t,C2D_WithColor,r.x+(r.w-w)/2,r.y+(r.h-h)/2+1.5f,0,size,size,color);
 }
 inline void ui_border(UiRect r,unsigned color){C2D_DrawLine(r.x,r.y,color,r.x+r.w,r.y,color,1,0);C2D_DrawLine(r.x,r.y+r.h,color,r.x+r.w,r.y+r.h,color,1,0);C2D_DrawLine(r.x,r.y,color,r.x,r.y+r.h,color,1,0);C2D_DrawLine(r.x+r.w,r.y,color,r.x+r.w,r.y+r.h,color,1,0);}
 inline void briefing_speaker_border(UiRect r){
@@ -72,7 +72,7 @@ inline void draw_campaign_bottom(const Frontend& f,BriefingArt& art,UiArt& menu,
   return;
  }
  art.room(f,animation,tick);art.portraits(f,animation,tick);
- if(f.briefing_loading){const char* dots[]={"Loading.","Loading..","Loading..."};ui_centered(text,dots[(tick/3)%3],{0,0,320,240},.65f,green);return;}
+ if(f.briefing_loading){ui_centered(text,"Loading",{0,0,320,240},.65f,green);return;}
  const bool zerg=campaign::missions[f.mission].race==0;
  const UiRect start={zerg?237:238,zerg?188:190,66,11};
  ui_centered(text,"Start",start,.40f,f.hover==116?bright:green);

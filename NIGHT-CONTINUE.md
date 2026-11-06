@@ -2492,3 +2492,32 @@ remainunchanged. One prototype logging-only OOB (Snapshot.players has3 entries,
 not8) corrected locally; no suchcodeenteredtrackedtests. Allhostjobsfinished,
 emulatorremainsSTOPPED/originalvirtualSDandconfigRESTORED. LatestCIA/3DSstill
 verifiedcbcsource31missioncheckpointabove; nofurtherproductionchanges.
+
+
+## 2026-11-06 — UI/briefing/outcome review and BW Zerg fixes COMPLETE
+
+Latest source `src-d68939a2284cf074`; see
+`UI_CAMPAIGN_REVIEW_2026_11_06_VALIDATION.md` for actual evidence and limits.
+31/31 existing enabled campaign victory drivers + exact save/replay PASS with
+ASan. Native original-model focused checks PASS; all missions are still not
+implemented. Mission count unchanged. Private evidence in
+`nintendo3ds/local-data/ui-review-nov06/`.
+
+Shipped race story music; audible-onset briefing subtitles; native static
+Loading background; portraits + persisted toggle; direct production HUD;
+larger clock; centered pause/save/load, Dev Menu, blue upper objectives;
+read-only enemy inspection. B clears own selection, then A inspects enemy.
+Unit-name vertical positions deliberately unchanged. Terran HUD exported.
+Revised six outcome banks installed; alternate wounded Protoss stays preview.
+
+BWZ1 preplaced ambusher cloak/detection preparation is SCENARIO-SCOPED.
+Do not reinstate the exploratory global loader/UPRP cloak changes: they caused
+other mission regressions and were rejected. All original public victory
+routes pass in the shipped scope. BWZ2 four Power Generators start150HP by
+explicit user request, Psi Disrupter remains2000; native attacks, camera,
+autonomous SCV/emitter intro frame1829 + active replay and paid victory
+frame26266 + completed replay PASS.
+
+CIA/3DS updated at `nintendo3ds/out/StarCraft-3DS.{cia,3ds}`, no ZIP. Same NCCH,
+ExeFS/RomFS hashes verified. Physical SD untouched. Emulator STOPPED and
+original virtual SD/Qt config RESTORED. No further automation created.

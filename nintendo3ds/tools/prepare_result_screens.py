@@ -20,6 +20,8 @@ def prepare(originals, generated, output, stage):
             name = f'{race}-{suffix}.png'
             original = Image.open(originals / name).convert('RGBA')
             extension = Image.open(generated / name).convert('RGBA')
+            if original.size == (800, 960):
+                original = original.crop((80, 480, 720, 960))
             if original.size != (640, 480) or extension.size != (800, 960):
                 raise ValueError(f'Unexpected source sizes for {name}')
             if any(im.getchannel('A').getextrema() != (255, 255) for im in (original, extension)):

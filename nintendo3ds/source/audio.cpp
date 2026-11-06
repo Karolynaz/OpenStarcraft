@@ -19,6 +19,7 @@ struct Audio::Impl {
     struct Voice {
         ndspWaveBuf wave{},tail{};unsigned segment=0,sent=0;bool segmented=false; unsigned id=~0u,priority=0,capacity=0;
         char* data=nullptr;unsigned offset=0,bytes=0,filled=0;
+        std::atomic<unsigned> audible_sample{~0u};mutable std::atomic<u64> audible_clock{0};
         std::atomic<unsigned> pending{0};std::atomic<bool> cancelled{false};
     };
     std::vector<Effect> effects;std::array<short,audio_sound_limit> effect_index;
@@ -62,6 +63,13 @@ struct Audio::Impl {
         b.nsamples=chunk_bytes/4;b.status=NDSP_WBUF_FREE;
         DSP_FlushDataCache(dst,chunk_bytes);ndspChnWaveBufAdd(0,&b);++buffers;return true;
     }
+    void detect_speech(Voice& v,const char* pcm,unsigned bytes,unsigned offset){
+        if(v.audible_sample.load()!=~0u)return;
+        for(unsigned at=0;at+256*sample_bytes<=bytes;at+=256*sample_bytes){unsigned energy=0;
+            for(unsigned i=0;i<256;++i){int value=sample_bytes==1?int(static_cast<signed char>(pcm[at+i])):int(static_cast<int16_t>(uint16_t(static_cast<unsigned char>(pcm[at+i*2]))|uint16_t(static_cast<unsigned char>(pcm[at+i*2+1]))<<8))/256;energy+=unsigned(std::abs(value));}
+            if(energy>=256*3){v.audible_sample=(offset+at)/sample_bytes+256;return;}
+        }
+    }
     // At most one 16 KiB effect read per pass; refill music before SFX work.
     // All SD effect IO is on this thread. Main-thread short effects use RAM.
     void stream_effect() {
@@ -75,7 +83,7 @@ struct Audio::Impl {
                 char* dst=v.data+(v.segment%2)*voice_bytes;
                 const bool ok=std::fseek(effects_file,effect_base+long(v.offset+v.sent+v.filled),SEEK_SET)==0 && std::fread(dst+v.filled,1,bytes,effects_file)==bytes;
                 if(!ok){++io_errors;v.pending.store(0,std::memory_order_release);return;}
-                v.filled+=bytes;
+                detect_speech(v,dst+v.filled,bytes,v.sent+v.filled);v.filled+=bytes;
                 if(v.filled==target){DSP_FlushDataCache(dst,target);lock();
                     if(!v.cancelled.load()){wave={};wave.data_vaddr=dst;wave.nsamples=target/sample_bytes;ndspChnWaveBufAdd(unsigned(&v-voices.data())+1,&wave);if(!v.sent)++streamed;}
                     unlock();v.sent+=target;v.filled=0;++v.segment;if(v.sent==v.bytes)v.pending.store(0,std::memory_order_release);
@@ -85,7 +93,7 @@ struct Audio::Impl {
             const unsigned bytes=std::min(bank_chunk_bytes,v.bytes-v.filled);
             bool ok=std::fseek(effects_file,effect_base+long(v.offset+v.filled),SEEK_SET)==0 && std::fread(v.data+v.filled,1,bytes,effects_file)==bytes;
             if(!ok){++io_errors;v.pending.store(0,std::memory_order_release);return;}
-            v.filled+=bytes;
+            detect_speech(v,v.data+v.filled,bytes,v.filled);v.filled+=bytes;
             if(v.filled==v.bytes){
                 DSP_FlushDataCache(v.data,v.bytes);lock();
                 if(!v.cancelled.load()){ndspChnWaveBufAdd(unsigned(&v-voices.data())+1,&v.wave);++streamed;}
@@ -126,8 +134,8 @@ struct Audio::Impl {
 };
 Audio::Audio():impl_(new Impl) {}
 Audio::~Audio()=default;
-bool Audio::load(const char* root,bool dsp_ready,const char* music_prefix,const char* effects_path,unsigned cache_limit) {
-    auto& s=*impl_;s.close();s.counters={};s.underruns=0;s.io_errors=0;s.buffers=0;s.track=0;s.next_track=1;s.streamed=0;s.stream_slot=0;s.effect_index.fill(-1);
+bool Audio::load(const char* root,bool dsp_ready,const char* music_prefix,const char* effects_path,unsigned cache_limit,bool music_only) {
+    auto& s=*impl_;s.close();s.counters={};s.underruns=0;s.io_errors=0;s.buffers=0;s.track=0;s.next_track=1;s.streamed=0;s.stream_slot=0;s.effect_index.fill(-1);s.long_voice=false;
     std::fill(std::begin(s.last_played),std::end(s.last_played),0);
     auto fail=[&](const char* m) {s.close();std::snprintf(s.message,sizeof s.message,"%s",m);return false;};
     if(!dsp_ready) return fail("DSP unavailable: check /3ds/dspfirm.cdc");
@@ -139,6 +147,7 @@ bool Audio::load(const char* root,bool dsp_ready,const char* music_prefix,const 
             const int n=std::snprintf(s.track_paths[i],sizeof s.track_paths[i],"%s/%s%u.pcm",root,music_prefix,i+1);
             if(n<0 || unsigned(n)>=sizeof s.track_paths[i])return fail("Music path too long");
         }
+        if(!music_only){
         std::unique_ptr<FILE,decltype(&std::fclose)> input(std::fopen(path,"rb"),&std::fclose);
         FILE* f=input.get();
         if(!f) return fail("Missing audio/effects.bin");
@@ -176,23 +185,25 @@ bool Audio::load(const char* root,bool dsp_ready,const char* music_prefix,const 
             }
         }
         s.effects_file=input.release();
-        s.linear=(char*)linearAlloc((voice_count+(s.long_voice?1:0))*voice_bytes+3*chunk_bytes);
+        }
+        const unsigned voice_storage=music_only?0:(voice_count+(s.long_voice?1:0))*voice_bytes;
+        s.linear=(char*)linearAlloc(voice_storage+3*chunk_bytes);
         if(!s.linear) return fail("Not enough linear memory for audio");
         for(unsigned i=0;i<=voice_count;++i) {
             ndspChnReset(i);ndspChnSetRate(i,22050);ndspChnSetInterp(i,NDSP_INTERP_LINEAR);
             ndspChnSetFormat(i,i?(s.sample_bytes==1?NDSP_FORMAT_MONO_PCM8:NDSP_FORMAT_MONO_PCM16):NDSP_FORMAT_STEREO_PCM16);
             float mix[12]={};mix[0]=mix[1]=i?0.5f:0.25f;ndspChnSetMix(i,mix);
         }
-        for(unsigned i=0;i<voice_count;++i) {s.voices[i].wave={};s.voices[i].tail={};s.voices[i].pending=0;s.voices[i].cancelled=false;s.voices[i].id=~0u;s.voices[i].data=s.linear+(i?i+(s.long_voice?1:0):0)*voice_bytes;s.voices[i].capacity=voice_bytes*((!i && s.long_voice)?2:1);}
+        for(unsigned i=0;i<voice_count;++i) {s.voices[i].wave={};s.voices[i].tail={};s.voices[i].pending=0;s.voices[i].cancelled=false;s.voices[i].id=~0u;s.voices[i].audible_sample=~0u;s.voices[i].audible_clock=0;s.voices[i].data=music_only?nullptr:s.linear+(i?i+(s.long_voice?1:0):0)*voice_bytes;s.voices[i].capacity=(music_only?0:voice_bytes)*((!i && s.long_voice)?2:1);}
         for(unsigned i=0;i<3;++i) {
-            s.music[i]={};s.music[i].data_vaddr=s.linear+(voice_count+(s.long_voice?1:0))*voice_bytes+i*chunk_bytes;
+            s.music[i]={};s.music[i].data_vaddr=s.linear+voice_storage+i*chunk_bytes;
             if(!s.fill(s.music[i])) return fail("Cannot stream music");
         }
         s.paused=false;s.running=true;
         // Use the application core, including on original 3DS. No extra CPU mode.
         s.thread=threadCreate(Impl::stream,&s,16*1024,0x31,0,false);
         if(!s.thread) return fail("Cannot create music streaming thread");
-        s.counters.ready=true;std::snprintf(s.message,sizeof s.message,"Music + 8 voices / %u KiB SFX cache",s.resident/1024);return true;
+        s.counters.ready=true;std::snprintf(s.message,sizeof s.message,music_only?"Music-only streaming / %u KiB SFX cache":"Music + 8 voices / %u KiB SFX cache",s.resident/1024);return true;
     } catch(const std::bad_alloc&) {return fail("Not enough heap memory for audio");}
       catch(const std::exception&) {return fail("Cannot load audio");}
 }
@@ -225,13 +236,14 @@ void Audio::update(const SoundEvent* events,unsigned count,int cx,int cy,bool pa
         }
         if(duplicate) continue;
         if(slot==voice_count) {++s.counters.voice_drops;continue;}
-        auto& v=s.voices[slot];ndspChnWaveBufClear(slot+1);v.wave={};v.tail={};v.segmented=it->samples*s.sample_bytes>voice_bytes*2;v.segment=v.sent=0;
+        auto& v=s.voices[slot];ndspChnWaveBufClear(slot+1);v.wave={};v.tail={};v.segmented=it->samples*s.sample_bytes>voice_bytes*2;v.segment=v.sent=0;v.audible_sample=~0u;v.audible_clock=0;
         unsigned offset=it->cached,remaining=it->samples*s.sample_bytes,copied=0;
         while(offset!=~0u && remaining) {
             const unsigned position=offset%bank_chunk_bytes,bytes=std::min(remaining,bank_chunk_bytes-position);
             std::memcpy(v.data+copied,s.pcm[offset/bank_chunk_bytes].get()+position,bytes);
             offset+=bytes;copied+=bytes;remaining-=bytes;
         }
+        if(it->cached!=~0u) s.detect_speech(v,v.data,it->samples*s.sample_bytes,0);
         if(it->cached!=~0u)DSP_FlushDataCache(v.data,it->samples*s.sample_bytes);
         v.wave.data_vaddr=v.data;v.wave.nsamples=it->samples;v.id=e.id;v.priority=it->priority;
         const float pan=e.x||e.y?std::max(-1.f,std::min(1.f,(e.x-cx-200)/400.f)):0;
@@ -252,7 +264,8 @@ AudioStats Audio::stats() const {
 }
 bool Audio::playing(unsigned id) const {
  const auto& s=*impl_;if(!s.counters.ready)return false;
- for(const auto& v:s.voices)if(v.id==id && (v.wave.status==NDSP_WBUF_PLAYING || v.tail.status==NDSP_WBUF_PLAYING))return true;return false;
+ for(const auto& v:s.voices)if(v.id==id && (v.wave.status==NDSP_WBUF_PLAYING || v.tail.status==NDSP_WBUF_PLAYING)){const auto now=osGetTime();if(!v.audible_clock.load())v.audible_clock=now;const auto onset=v.audible_sample.load();return onset!=~0u && now-v.audible_clock.load()>=u64(onset)*1000/22050;}return false;
 }
+bool Audio::contains(unsigned id)const{return id<audio_sound_limit && impl_->effect_index[id]>=0;}
 const char* Audio::error() const {return impl_->message;}
 }

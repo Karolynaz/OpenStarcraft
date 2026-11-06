@@ -3,6 +3,15 @@
 // in the user's map string table; no purchased dialogue is compiled into code.
 namespace port3ds { namespace detail {
 struct CampaignRuntime {
+ // Audited BW Zerg1: the map preplaces its ambushers underground. Native
+ // loading supplies the Burrowed order, but this port must also initialize
+ // their detection state before the first visible frame. Keep this scoped
+ // to the mission whose trigger/unburrow route is covered by a playthrough.
+ static void prepare_burrowed_ambushers(bwgame::state_functions& f){
+  for(unsigned owner:{4u,5u})for(auto* u:bwgame::ptr(f.st.player_units[owner]))
+   if(f.u_burrowed(u) && f.ut_can_burrow(u) && !f.u_requires_detector(u))f.cloak_unit(u);
+ }
+
  bool active=false,cinematic=false,suppress_deaths=false;unsigned mission=0,next_scenario=0,objective=0,message=0,message_until=0,camera_serial=0;
  // Countdown advances only with simulation ticks, never with menu/loading time.
  uint64_t countdown_frames=0;bool countdown_paused=false,countdown_active=false;

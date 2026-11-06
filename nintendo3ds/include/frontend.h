@@ -98,7 +98,7 @@ struct Frontend {
 
  unsigned race=1,speed=4,game_type=0,subtype=0,scroll=0,selected_map=0;
  std::array<unsigned,2> ai{{3,3}};
- unsigned difficulty=0,observer_test=~0u;
+ unsigned difficulty=0,observer_test=~0u;bool show_portraits=true;
  static constexpr unsigned row_count=6;
  static int row_y(unsigned row){return 51+int(row)*23;}
  char error[192]{};
@@ -142,13 +142,13 @@ struct Frontend {
   // Installed bundles keep authored assets read-only; user-added custom maps
   // and all profile/progress files remain on the SD card.
   if(userdata){const auto custom=user_root+"maps";if(auto* dir=opendir(custom.c_str())){closedir(dir);directory=custom;}}
-  if(FILE* f=std::fopen(settings.c_str(),"r")){unsigned v,r;if(std::fscanf(f,"OPENBW_PROFILE1\nversion=%u\nrace=%u",&v,&r)==2){brood=v==1;race=r<3?r:1;}char line[128];while(std::fgets(line,sizeof line,f)){unsigned value;if(std::sscanf(line,"difficulty=%u",&value)==1)difficulty=value==1?1:0;}std::fclose(f);}else save();scan();
+  if(FILE* f=std::fopen(settings.c_str(),"r")){unsigned v,r;if(std::fscanf(f,"OPENBW_PROFILE1\nversion=%u\nrace=%u",&v,&r)==2){brood=v==1;race=r<3?r:1;}char line[128];while(std::fgets(line,sizeof line,f)){unsigned value;if(std::sscanf(line,"difficulty=%u",&value)==1)difficulty=value==1?1:0;if(std::sscanf(line,"portraits=%u",&value)==1)show_portraits=value!=0;}std::fclose(f);}else save();scan();
   if(FILE* progress=std::fopen(progress_path().c_str(),"r")){char line[80];while(std::fgets(line,sizeof line,progress)){std::string route=line;if(route.compare(0,5,"next=")==0){route=route.substr(5);while(!route.empty() && (route.back()=='\n' || route.back()=='\r'))route.pop_back();auto ep=campaign::key_episode(route);if(ep<next_missions.size())next_missions[ep]=route;}for(unsigned i=0;i<campaign::count;++i)if(std::string(line)==std::string(campaign::missions[i].key)+"=1\n" || (i==0 && std::string(line)=="terran=1\n"))completed[i]=true;}std::fclose(progress);}
  }
  bool complete_mission(unsigned scenario,const std::string& filename){auto i=campaign::index(scenario);if(i>=campaign::count)return false;auto done=completed;auto routes=next_missions;done[i]=true;const auto& m=campaign::missions[i];routes[(m.brood?3:0)+m.race]=campaign::next_key(scenario,filename);const auto path=progress_path(),temp=path+".tmp";FILE* out=std::fopen(temp.c_str(),"w");if(!out)return false;bool ok=std::fprintf(out,"OPENBW_CAMPAIGN1\n")>0;for(unsigned j=0;j<done.size();++j)ok=(std::fprintf(out,"%s=%u\n",campaign::missions[j].key,done[j]?1:0)>0)&&ok;for(const auto& route:routes)if(!route.empty())ok=(std::fprintf(out,"next=%s\n",route.c_str())>0)&&ok;const bool closed=std::fclose(out)==0;if(!ok || !closed || std::rename(temp.c_str(),path.c_str()))return false;completed=done;next_missions=routes;return true;}
  void save(){
   const auto temp=settings+".tmp";FILE* f=std::fopen(temp.c_str(),"w");if(!f){save_failed=true;return;}
-  const bool ok=std::fprintf(f,"OPENBW_PROFILE1\nversion=%u\nrace=%u\nname=Player1\ndifficulty=%u\n",brood?1:0,race,difficulty)>0;
+  const bool ok=std::fprintf(f,"OPENBW_PROFILE1\nversion=%u\nrace=%u\nname=Player1\ndifficulty=%u\nportraits=%u\n",brood?1:0,race,difficulty,show_portraits?1:0)>0;
   const bool closed=std::fclose(f)==0;save_failed=!ok || !closed || std::rename(temp.c_str(),settings.c_str())!=0;
  }
  void stick(int dx,int dy,float dt){

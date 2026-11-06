@@ -11,10 +11,11 @@ struct AudioStats {
 class Audio {
 public:
     Audio(); ~Audio();
-    bool load(const char* root, bool dsp_ready,const char* music_prefix="terran",const char* effects_path=nullptr,unsigned cache_limit=4*1024*1024);
+    bool load(const char* root, bool dsp_ready,const char* music_prefix="terran",const char* effects_path=nullptr,unsigned cache_limit=4*1024*1024,bool music_only=false);
     void update(const SoundEvent* events, unsigned count, int camera_x, int camera_y, bool paused);
     AudioStats stats() const;
     bool playing(unsigned id) const;
+    bool contains(unsigned id) const;
     const char* error() const;
     void reset();
     void unload();

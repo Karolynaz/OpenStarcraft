@@ -337,3 +337,10 @@ test-campaign-ai-value-area: build/campaign-ai-value-area-test
 	ASAN_OPTIONS=detect_leaks=0 ./build/campaign-ai-value-area-test local-data/3ds/openbw local-data/3ds/openbw/campaign/zerg09.chk
 test-campaign-zerg-ninth: build/campaign-zerg-ninth-test
 	ASAN_OPTIONS=detect_leaks=0 ./build/campaign-zerg-ninth-test local-data/3ds/openbw local-data/3ds/openbw/campaign/zerg09.chk
+
+# Menu speech starts at audible PCM rather than initial WAV silence.
+build/audio-onset-test: tests/audio_onset.cpp tests/fake3ds/3ds.h source/audio.cpp include/audio.h | build
+	$(HOST_CXX) -std=c++14 -O1 -g -fsanitize=address -pthread -Itests/fake3ds -Iinclude tests/audio_onset.cpp source/audio.cpp -o $@
+.PHONY: test-audio-onset
+test-audio-onset: build/audio-onset-test
+	ASAN_OPTIONS=detect_leaks=0 ./build/audio-onset-test

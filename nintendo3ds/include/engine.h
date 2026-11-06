@@ -108,6 +108,7 @@ public:
     SpriteView selection_wireframe() const;
     const char* error() const;
     bool ready() const;
+    bool cinematic_focus(int& x,int& y)const;
     unsigned count_units(unsigned owner,unsigned type,bool completed=true) const;
     bool researched(unsigned tech) const;
     unsigned upgrade_level(unsigned upgrade) const;

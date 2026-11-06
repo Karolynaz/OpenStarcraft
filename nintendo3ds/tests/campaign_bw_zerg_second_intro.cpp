@@ -8,12 +8,14 @@ using namespace port3ds;
 int main(int argc,char**argv){
  assert(argc==3);Engine e;
  assert(e.load(argv[1],argv[2],Scenario::bw_zerg_campaign_2));
+ e.set_fog_enabled(false);UnitView initial[1700];unsigned generators=0;for(unsigned i=0,n=e.visible_units(initial,1700);i<n;i++)if(initial[i].owner==7 && initial[i].type==200){assert(initial[i].hp==150);++generators;}assert(generators==4);e.set_fog_enabled(true);
  assert(e.start_recording("/tmp/sc3ds-bwz2-intro.journal"));
- bool delivered=false;
+ bool delivered=false,focus_seen=false;int first_x=0,first_y=0;bool focus_moved=false;
  for(unsigned tick=0;tick<6000 && !delivered;++tick){
-  assert(e.tick());UnitView units[1700];auto n=e.visible_units(units,1700);
+  assert(e.tick());int fx=0,fy=0;if(e.cinematic_focus(fx,fy)){if(!focus_seen){first_x=fx;first_y=fy;}focus_seen=true;focus_moved|=abs(fx-first_x)+abs(fy-first_y)>128;}UnitView units[1700];auto n=e.visible_units(units,1700);
   for(unsigned i=0;i<n;++i)if(units[i].owner==0 && units[i].type==7 && units[i].carried_powerup==217)delivered=true;
  }
+ assert(focus_seen && focus_moved);
  assert(delivered && e.count_units(0,7)==1 && e.count_units(7,200)==0 && e.snapshot().winner<0);
  for(unsigned tick=0;tick<2400 && (e.count_units(0,41)<2 || e.snapshot().minerals<850 || e.snapshot().gas<200);++tick){if(tick%48==0){UnitView units[1700];auto n=e.visible_units(units,1700);for(unsigned i=0;i<n;++i)if(units[i].owner==0 && units[i].type==7 && e.select(units[i].x,units[i].y))assert(e.move_selected(1184,3488));}assert(e.tick());}
  assert(e.count_units(0,41)==2 && e.snapshot().minerals==850 && e.snapshot().gas==200);

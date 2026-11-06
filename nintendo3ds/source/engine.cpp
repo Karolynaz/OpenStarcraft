@@ -146,7 +146,7 @@ unit_t* hit_unit(state_functions& funcs, int x, int y, bool own_only,bool fog=fa
         const auto box = funcs.unit_inner_bounding_box(u, u->sprite->position);
         if (x < box.from.x - 6 || y < box.from.y - 6 || x > box.to.x + 6 || y > box.to.y + 6) continue;
         const int dx = u->sprite->position.x - x, dy = u->sprite->position.y - y;
-        if (dx * dx + dy * dy < distance) { best = u; distance = dx * dx + dy * dy; }
+        if (dx * dx + dy * dy < distance || (dx * dx + dy * dy==distance && best && best->owner && !u->owner)) { best = u; distance = dx * dx + dy * dy; }
     }
     return best;
 }
@@ -408,6 +408,11 @@ bool Engine::load(const char* data_root, const char* map_path, Scenario scenario
         impl_->sound->campaign.active=campaign;impl_->sound->campaign.mission=campaign::index(unsigned(scenario));
         if(campaign)for(size_t at=0;at+8<=chk.size();){unsigned n=data_loading::value_at<uint32_t,true>(chk.data()+at+4);if(!std::memcmp(chk.data()+at,"UPRP",4)){if(n>64*20 || n%20)throw std::runtime_error("Campaign unit property bounds");for(unsigned i=0;i<n/20;++i)std::copy_n(chk.data()+at+8+i*20,20,impl_->sound->campaign.properties[i].begin());}at+=8+n;}
         if(campaign){impl_->sound->campaign_ai.load(load_asset);impl_->sound->campaign.camera=player.st().game->start_locations[0];impl_->sound->campaign.camera_serial=1;}
+        // User-requested shorter Reign of Fire intro: only the four authored
+        // generators start damaged; the Psi Disrupter and other missions keep
+        // their original HP and native destruction / victory triggers.
+        if(scenario==Scenario::bw_zerg_campaign_2)for(auto* u:ptr(player.st().player_units[7]))if(loader.unit_is(u,UnitTypes::Special_Power_Generator) && u->hp>fp8::integer(150))loader.set_unit_hp(u,fp8::integer(150));
+        if(scenario==Scenario::bw_zerg_campaign)detail::CampaignRuntime::prepare_burrowed_ambushers(loader);
         impl_->loaded = true;
         std::snprintf(impl_->message, sizeof impl_->message, "Loaded %ux%u tiles", width, height);
         return true;
@@ -451,6 +456,14 @@ bool Engine::tick() {
         if(impl_->sound->campaign.active){impl_->sound->campaign.advance();impl_->sound->campaign.rescue(*impl_->sound);}
         impl_->sound->next_frame();
         if(impl_->sound->campaign.active)impl_->sound->campaign_ai.step(*impl_->sound);
+        if(impl_->initial_scenario==Scenario::bw_zerg_campaign_2 && !count_units(0,7,false)){
+            auto& f=*impl_->sound;action_state state;action_functions commands(f.st,state);
+            for(auto* u:ptr(f.st.visible_units))if((u->owner==1 || u->owner==2) && (f.unit_is(u,UnitTypes::Terran_Marine) || f.unit_is(u,UnitTypes::Hero_Jim_Raynor_Marine)) && u->order_type->id==Orders::AttackMove){
+                unit_t* target=nullptr;int nearest=512*512;
+                for(auto* v:ptr(f.st.visible_units))if(f.unit_is(v,UnitTypes::Special_Power_Generator) && !f.unit_dead(v) && !f.u_invincible(v) && f.unit_can_attack_target(u,v)){const auto d=v->sprite->position-u->sprite->position;const int distance=d.x*d.x+d.y*d.y;if(distance<nearest){target=v;nearest=distance;}}
+                if(target){commands.action_select(u->owner,u);commands.action_order(u->owner,f.get_order_type(Orders::AttackUnit),target->sprite->position,target,nullptr,false);}
+            }
+        }
         impl_->ai.step(*impl_->player);
         impl_->battle.step(*impl_->player);
         for(auto* u:ptr(impl_->player->st().player_units[0]))if(u->index<1700){unsigned id=impl_->sound->get_unit_id_32(u).raw_value;int hp=u->hp.raw_value;if(impl_->alert_ids[u->index]==id && impl_->alert_hp[u->index]>hp && u->last_attacking_player!=0){impl_->alert_frame=frame();impl_->alert=u->sprite->position;}impl_->alert_hp[u->index]=hp;impl_->alert_ids[u->index]=id;}
@@ -573,6 +586,24 @@ SpriteView Engine::selection_wireframe()const {
 }
 const char* Engine::error() const { return impl_->message; }
 bool Engine::ready() const { return impl_->loaded; }
+// Reign of Fire's authored movie was framed for 640x480. Follow its actual
+// SCV transport / attacked generators until the rescued Drones begin normal gameplay.
+bool Engine::cinematic_focus(int& x,int& y)const{
+ if(!ready() || impl_->initial_scenario!=Scenario::bw_zerg_campaign_2 || count_units(0,41,false))return false;
+ const auto& f=impl_->player->funcs();
+ for(auto* u:ptr(f.st.visible_units))if(!f.unit_dead(u) && f.unit_is(u,UnitTypes::Terran_Dropship))for(auto* passenger:f.loaded_units(u))if(f.unit_is(passenger,UnitTypes::Terran_SCV)){x=u->sprite->position.x;y=u->sprite->position.y;return true;}
+ // The retail trigger movie moves the rescued SCV separately from its
+ // transport. After the generators fall, follow the delivery Dropship even
+ // when it has no native cargo slot; ownership transfers only at touchdown.
+ if(!count_units(0,7,false) && !count_units(7,200,false)){
+  unit_t* delivery=nullptr;int best=0x7fffffff;
+  for(auto* u:ptr(f.st.visible_units))if(!f.unit_dead(u) && f.unit_is(u,UnitTypes::Terran_Dropship)){const auto p=u->sprite->position;const int d=(p.x-1456)*(p.x-1456)+(p.y-3504)*(p.y-3504);if(d<best){best=d;delivery=u;}}
+  if(delivery){x=delivery->sprite->position.x;y=delivery->sprite->position.y;return true;}
+ }
+ for(auto* u:ptr(f.st.visible_units))if(!f.unit_dead(u) && (f.unit_is(u,UnitTypes::Terran_Marine) || f.unit_is(u,UnitTypes::Hero_Jim_Raynor_Marine))){auto* target=u->order_target.unit;if(target && f.unit_is(target,UnitTypes::Special_Power_Generator) && !f.unit_dead(target)){x=target->sprite->position.x;y=target->sprite->position.y;return true;}}
+ return false;
+}
+
 unsigned Engine::count_units(unsigned owner,unsigned type,bool completed) const {
     if(!ready() || owner>=12 || type>=228)return 0;unsigned n=0;const auto& f=impl_->player->funcs();
     for(auto* u:ptr(f.st.player_units[owner]))if(!f.unit_dead(u) && unsigned(u->unit_type->id)==type && (!completed || f.u_completed(u)))++n;
@@ -583,12 +614,12 @@ unsigned Engine::upgrade_level(unsigned type) const {return ready() && type<61?i
 bool Engine::select(int x, int y) {savegame::Writer::Guard record(impl_->journal,{frame(),savegame::select,x,y});
     if (!ready()) return false;
     auto& funcs = impl_->player->funcs();
-    auto* nearest = hit_unit(funcs, x, y, !(impl_->ai.observer() || impl_->battle.enabled()),impl_->fog);
+    auto* nearest = hit_unit(funcs,x,y,false,impl_->fog);
     impl_->selected.clear();
-    if(nearest && nearest->owner<2) impl_->selected.push_back(funcs.get_unit_id_32(nearest));
+    if(nearest) impl_->selected.push_back(funcs.get_unit_id_32(nearest));
     if(!impl_->selected.empty()) {
         auto* u=impl_->first_selected();
-        if(u && u->unit_type->first_what_sound) impl_->sound->play_sound(u->unit_type->first_what_sound,{},u,false);
+        if(u && !u->owner && u->unit_type->first_what_sound) impl_->sound->play_sound(u->unit_type->first_what_sound,{},u,false);
     }
     return !impl_->selected.empty();
 }
@@ -627,7 +658,7 @@ bool Engine::activate(int x,int y) {savegame::Writer::Guard record(impl_->journa
     if(target && !pickup && !loading && !repairing && !healing && !gas && !recharge && !nydus) {
         const bool ok=select(x,y);impl_->command_message=ok?"Unit selected":"Selection cleared";return ok;
     }
-    if(!current) { const bool ok=select(x,y); impl_->command_message=ok?"Unit selected":"Select a unit first"; return ok; }
+    if(!current || current->owner!=0) { const bool ok=select(x,y); impl_->command_message=ok?"Unit selected":"Select a unit first"; return ok; }
     return command(Command::context,x,y);
 }
 unsigned Engine::select_army(int cx,int cy) {savegame::Writer::Guard record(impl_->journal,{frame(),savegame::army,cx,cy});
@@ -1133,7 +1164,7 @@ SpriteInfo Engine::sprite_info(unsigned image,unsigned frame) const {
     const auto& f=grp->frames[frame];return {unsigned(f.size.x),unsigned(f.size.y),true};
 }
 bool Engine::sprite_pixels(unsigned image,unsigned frame,unsigned owner,uint16_t* out,std::size_t capacity) const {
-    if(image==65384){if(capacity<60*56 || frame>=110)return false;char path[512];std::snprintf(path,sizeof path,"%s/portraits/%u.bin",impl_->initial_root.c_str(),frame);FILE* f=std::fopen(path,"rb");if(!f)return false;bool ok=std::fread(out,2,60*56,f)==60*56 && std::fgetc(f)==EOF;std::fclose(f);return ok;}
+    if(image==65384){if(capacity<60*56 || frame>=110)return false;char path[512];std::snprintf(path,sizeof path,"%s%sportraits/%u.bin",impl_->initial_root.c_str(),(!impl_->initial_root.empty() && impl_->initial_root.back()=='/')?"":"/",frame);FILE* f=std::fopen(path,"rb");if(!f)return false;bool ok=std::fread(out,2,60*56,f)==60*56 && std::fgetc(f)==EOF;std::fclose(f);return ok;}
 
     const auto info=sprite_info(image,frame);if(!info.valid || info.width>512 || info.height>512 || size_t(info.width)*info.height>capacity)return false;
     if(image==detail::wireframe_image)return impl_->icons && impl_->icons->wire_pixels(frame,out,capacity);

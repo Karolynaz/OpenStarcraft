@@ -31,6 +31,9 @@ unsigned Engine::abilities(MenuOption* out,unsigned cap)const{
  std::stable_sort(out,out+n,[&](const MenuOption&a,const MenuOption&b){return priority(a)<priority(b);});return n;
 }
 SpriteView Engine::portrait()const{
- if(!ready())return {};const auto* u=impl_->first_selected();if(!u || u->unit_type->portrait<0 || u->unit_type->portrait>=110)return {};
- return {0,0,65384,unsigned(u->unit_type->portrait),11,false,false,0,255};
+ if(!ready())return {};const auto* u=impl_->first_selected();if(!u)return {};
+ int portrait=u->unit_type->portrait;const auto& f=impl_->player->funcs();
+ if(f.ut_building(u))portrait=f.unit_race(u)==race_t::zerg?38:f.unit_race(u)==race_t::protoss?59:17;
+ if(portrait<0 || portrait>=110)return {};
+ return {0,0,65384,unsigned(portrait),11,false,false,0,255};
 }

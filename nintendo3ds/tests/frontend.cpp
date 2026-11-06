@@ -6,10 +6,10 @@
 int main(){using namespace port3ds;
  using P=PauseMenu::Page;
  assert(!PauseMenu::overlay(P::none) && !PauseMenu::overlay(P::catalogue));
- for(P page:{P::system,P::options,P::scenarios,P::legacy,P::notice,P::end_confirm,P::result,P::save_slots,P::load_slots}){
+ for(P page:{P::system,P::options,P::dev,P::scenarios,P::legacy,P::notice,P::end_confirm,P::result,P::save_slots,P::load_slots}){
   assert(PauseMenu::overlay(page));for(unsigned i=0;i<PauseMenu::count(page);++i){auto r=PauseMenu::row(i,PauseMenu::count(page));assert(r.y>=48 && r.y+r.h<230);assert(PauseMenu::hit(r.x+1,r.y+1,PauseMenu::count(page))==int(i));}
  }
- P page=P::legacy;page=PauseMenu::back(page);assert(page==P::scenarios);page=PauseMenu::back(page);assert(page==P::options);page=PauseMenu::back(page);assert(page==P::system && PauseMenu::overlay(page));page=PauseMenu::back(page);assert(!PauseMenu::overlay(page));
+ P page=P::legacy;page=PauseMenu::back(page);assert(page==P::scenarios);page=PauseMenu::back(page);assert(page==P::dev);page=PauseMenu::back(page);assert(page==P::options);page=PauseMenu::back(page);assert(page==P::system && PauseMenu::overlay(page));page=PauseMenu::back(page);assert(!PauseMenu::overlay(page));
  assert(PauseMenu::back(P::notice)==P::system && PauseMenu::back(P::end_confirm)==P::system && PauseMenu::back(P::result)==P::result);
  Frontend picker;picker.dialog=Frontend::Dialog::load_slots;picker.load_enabled[2]=true;picker.activate(120);assert(picker.load_requested_slot==~0u);picker.activate(122);assert(picker.load_requested_slot==2);picker.back();assert(picker.dialog==Frontend::Dialog::none);
  Frontend pagination;pagination.briefing={"one two three four five six seven eight nine ten eleven twelve"};pagination.briefing_voices={1400};pagination.paginate_briefing([](const char* text){return float(std::strlen(text));},12,2);assert(pagination.briefing.size()==4 && pagination.briefing_voices==std::vector<unsigned>({1400,1400,1400,1400}));std::string joined;for(const auto& page:pagination.briefing){assert(std::count(page.begin(),page.end(),'\n')<2);if(!joined.empty())joined+=' ';joined+=page;}std::replace(joined.begin(),joined.end(),'\n',' ');assert(joined=="one two three four five six seven eight nine ten eleven twelve");
@@ -29,7 +29,7 @@ int main(){using namespace port3ds;
  f.ai={{3,3}};f.activate(48);assert(f.ai[1]==2);f.activate(49);assert(f.ai[1]==3);f.activate(49);assert(f.ai[1]==4 && std::string(f.ai_name(1))=="Off");auto m=f.match(123);assert(m.enabled && m.races[2]==-1 && m.races[1]>=0 && m.races[1]<3);
  f.preview.players=2;f.ai[1]=3;f.activate(49);assert(f.ai[1]==3 && std::string(f.ai_name(1))=="Off" && f.match(123).races[2]==-1 && f.hit(290,143)==-1);
  f.preview.players=3;f.ai={{4,3}};assert(f.match(123).races[1]==-1 && f.match(123).races[2]>=0);f.ai={{4,4}};m=f.match(123);assert(m.races[1]==-1 && m.races[2]==-1);
- for(unsigned race=0;race<3;++race){f.race=race;assert(f.match(1).races[0]==int(race));f.save();Frontend again;again.init(root.c_str());assert(again.race==race);}
+ for(unsigned race=0;race<3;++race){f.race=race;assert(f.match(1).races[0]==int(race));f.show_portraits=race!=1;f.save();Frontend again;again.init(root.c_str());assert(again.race==race && again.show_portraits==(race!=1));}
  f.x=200;f.y=97;f.direction(1);assert(f.race==0);f.direction(3);assert(f.race==2);f.direction(2);assert(f.y==120);
  f.activate(51);assert(f.difficulty==1 && f.match(1).difficulty==AiDifficulty::medium);Frontend stored;stored.init(root.c_str());assert(stored.difficulty==1);f.x=200;f.y=166;f.direction(1);assert(f.difficulty==0);f.direction(0);assert(f.y==143);
  f.game_type=1;assert(f.match(1).game_type==1);f.dialog=Frontend::Dialog::error;assert(f.hit(160,190)==32);f.activate(32);assert(f.dialog==Frontend::Dialog::none);f.activate(10);assert(f.play);f.back();assert(f.leaving && f.screen==Frontend::Screen::custom);f.advance(.38f);assert(f.screen==Frontend::Screen::campaign && f.transition==0);f.advance(.38f);f.back();f.activate(33);assert(f.quit);
