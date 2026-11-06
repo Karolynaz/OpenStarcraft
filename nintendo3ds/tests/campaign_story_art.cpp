@@ -41,8 +41,9 @@ int main(int argc,char**argv){
   fake::draws.clear();art.room(f,empty_animation,1);
   assert(fake::draws[1].x==0 && fake::draws[1].y==111 && fake::draws[2].x==212 && fake::draws[3].y==0 && fake::draws[4].y==182);
   fake::draws.clear();art.portraits(f,empty_animation,1);
+  unsigned expected_faces=0;for(auto portrait:f.briefing_cast.at(f.briefing_page))if(portrait<110)++expected_faces;assert(fake::draws.size()==expected_faces);
   for(const auto& face:fake::draws){
-   assert(face.sub.width==48 && face.sub.height==48 && face.sx==64.f/48 && face.sy==64.f/48);
+   assert(face.sub.width==60 && face.sub.height==56 && face.sx==64.f/60 && face.sy==64.f/56);
    bool found=false;for(unsigned i=0;i<4;++i){const auto r=BriefingLayout::face(i);found=found || (face.x==r.x+(r.w-64)/2.f && face.y==r.y+(r.h-64)/2.f);}
    assert(found && face.sx>0 && face.sy>0); // Native Figma rectangle, never mirrored.
   }

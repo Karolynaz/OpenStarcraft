@@ -42,9 +42,9 @@ public:
    C3D_FrameSync();if(face.data){C3D_TexDelete(&face);face={};}portraits_[slot]=110;
    if(id>=110)continue;
    const auto path=std::string(root)+"portraits/"+std::to_string(id)+".bin";
-   if(FILE* file=std::fopen(path.c_str(),"rb")){unsigned short pixels[48*48];bool ok=std::fread(pixels,2,48*48,file)==48*48 && std::fgetc(file)==EOF;std::fclose(file);
+   if(FILE* file=std::fopen(path.c_str(),"rb")){unsigned short pixels[60*56];bool ok=std::fread(pixels,2,60*56,file)==60*56 && std::fgetc(file)==EOF;std::fclose(file);
     if(ok && C3D_TexInit(&face,64,64,GPU_RGBA5551)){auto* out=static_cast<unsigned short*>(face.data);std::memset(out,0,64*64*2);
-     for(unsigned y=0;y<48;++y)for(unsigned x=0;x<48;++x){unsigned m=(x&1)|((y&1)<<1)|((x&2)<<1)|((y&2)<<2)|((x&4)<<2)|((y&4)<<3);out[((y/8)*8+x/8)*64+m]=pixels[y*48+x];}
+     for(unsigned y=0;y<56;++y)for(unsigned x=0;x<60;++x){unsigned m=(x&1)|((y&1)<<1)|((x&2)<<1)|((y&2)<<2)|((x&4)<<2)|((y&4)<<3);out[((y/8)*8+x/8)*64+m]=pixels[y*60+x];}
      C3D_TexSetFilter(&face,GPU_LINEAR,GPU_LINEAR);C3D_TexFlush(&face);portraits_[slot]=id;
    }}
   }if(changed)C2D_Prepare();return true;
@@ -77,7 +77,7 @@ public:
    const float x=r.x+(r.w-64)/2.f+(i==0?-320:i==3?320:0)*slide,y=r.y+(r.h-64)/2.f+((i==1 || i==2)?-240:0)*slide;
    char key[32];const bool talk=f.briefing_speaking && f.briefing_slot()==i;std::snprintf(key,sizeof key,"p%u_%s",portraits_[i],talk?"talk":"idle");unsigned w,h;
    if(animation.size(key,w,h) && animation.draw(key,i,tick,x,y,1,64.f/w,64.f/h))continue;
-   Tex3DS_SubTexture sub={48,48,0,1,.75f,.25f};C2D_DrawImageAt({&faces_[i],&sub},x,y,0,nullptr,64.f/48,64.f/48);
+   Tex3DS_SubTexture sub={60,56,0,1,60.f/64,1-56.f/64};C2D_DrawImageAt({&faces_[i],&sub},x,y,0,nullptr,64.f/60,64.f/56);
   }
   // Active speaker outline is drawn by frontend_draw with Figma geometry,
   // not by the old64x59 frame sprites.

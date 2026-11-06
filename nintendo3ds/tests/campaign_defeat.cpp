@@ -7,7 +7,8 @@
 #include <cassert>
 #include <cstdio>
 using namespace port3ds;
-int main(int argc,char**argv){assert(argc==3);for(const auto& mission:campaign::missions){if(std::string(mission.key)=="expterran02")continue; // Full public platform/fleet loss is tested by campaign_bw_terran_second defeat.
+int main(int argc,char**argv){assert(argc==3);for(const auto& mission:campaign::missions){if(std::string(mission.key)=="expprotoss04")continue; // Public Kerrigan-loss mode is in campaign_bw_protoss_fourth.
+if(std::string(mission.key)=="expterran02")continue; // Full public platform/fleet loss is tested by campaign_bw_terran_second defeat.
 if(std::string(mission.key)=="expterran03"){
  Engine e;const auto path=std::string(argv[2])+"/"+mission.key+".chk";assert(e.load(argv[1],path.c_str(),Scenario(mission.scenario)));e.set_fog_enabled(false);bool sent=false;
  for(unsigned frame=0;frame<30000 && e.snapshot().winner<0;++frame){assert(e.tick());SoundEvent sounds[256];e.drain_sounds(sounds,256);if(frame%48)continue;UnitView units[1700];auto n=e.visible_units(units,1700);

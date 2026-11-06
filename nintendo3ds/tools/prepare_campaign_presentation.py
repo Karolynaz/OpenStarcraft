@@ -10,6 +10,7 @@ import argparse
 from ui_bank import bank
 parser=argparse.ArgumentParser(description=__doc__)
 parser.add_argument('raw',type=Path);parser.add_argument('root',type=Path)
+parser.add_argument('--missions',nargs='+',help='Regenerate only these mission-specific presentation banks')
 parser.add_argument('--screens',type=Path,help='Completed 800x960 outpainted PNGs for dual-screen story scenes')
 parser.add_argument('--panels',type=Path,help='Native-screen layered briefing PNG exports (new-brriefing)')
 args=parser.parse_args();raw,root=args.raw,args.root;campaign=root/'campaign'
@@ -22,6 +23,8 @@ def pages(name):
   text=re.sub(r'</[^>]*>','',page).strip();result.append((bg[1],text))
  return result
 summaries={
+ 'expterran04': "After taking the Psi Disrupter on Tarsonis, the UED attacks the Dominion capital on Korhal. Choose which threat to remove: destroy the enemy Physics Labs to weaken its battlecruisers, or destroy the Nuclear Silos to stop its nuclear strikes.",
+ 'expprotoss04': "To cleanse Shakuras, the Protoss must recover two crystals that can power the ancient Xel'Naga temple. Kerrigan offers to help retrieve the Uraj crystal from Braxis, where Dominion forces stand between the expedition and its prize.",
  'expterran02': "The UED has secured a foothold in the sector. At the Dylarian shipyards, escort the pilots to commandeer the Dominion's battlecruisers and turn its fleet against Admiral Duke.",
  'expprotoss03': "The survivors have reached Shakuras, but the Zerg have followed them. Dark Templar must sever the broods from their Cerebrates while the fleet protects their landing near the ancient Xel'Naga Temple.",
  'expterran03': "The captured fleet has strengthened the UED offensive. On ruined Tarsonis, Duran proposes securing the Psi Disrupter. Break the defending Zerg broods by destroying their Hives, then escort him to the device.",
@@ -135,6 +138,7 @@ def animations(path,entries):
   for name,w,h,n,pixels in entries:f.write(pixels)
 cat=Path(__file__).parents[1]/'include/campaign_catalogue.h'
 for key,title,scenario,race,bw in re.findall(r'\{"([^"]+)","([^"]+)",(\d+),(\d+),(true|false)\}',cat.read_text()):
+ if args.missions and key not in args.missions:continue
  race=int(race);bw=bw=='true';r=['z','t','p'][race];number=key[-2:]
  shots=pages(f'rez/est{r}{number}{"x" if bw else ""}.txt')
  bg,location=next((s for s in reversed(shots) if 'blank.pcx' not in s[0].lower()),shots[-1])

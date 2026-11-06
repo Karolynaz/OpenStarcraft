@@ -315,3 +315,15 @@ build/campaign-bw-protoss-third-test: tests/campaign_bw_protoss_third.cpp source
 
 build/campaign-rescue-triggers-test: tests/campaign_rescue_triggers.cpp $(HEADERS) | build
 	$(HOST_CXX) $(COMMON) -O1 -g -fsanitize=address tests/campaign_rescue_triggers.cpp -o $@
+
+# Original BW chapter-four public-control victory routes; private owned maps only.
+build/campaign-bw-protoss-fourth-test: tests/campaign_bw_protoss_fourth.cpp source/engine.cpp $(HEADERS) build/source_id.h | build
+	$(HOST_CXX) $(COMMON) -O1 -fsanitize=address -fno-omit-frame-pointer tests/campaign_bw_protoss_fourth.cpp source/engine.cpp -o $@
+build/campaign-bw-terran-fourth-test: tests/campaign_bw_terran_fourth.cpp source/engine.cpp $(HEADERS) build/source_id.h | build
+	$(HOST_CXX) $(COMMON) -O1 -fsanitize=address -fno-omit-frame-pointer tests/campaign_bw_terran_fourth.cpp source/engine.cpp -o $@
+.PHONY: test-campaign-bw-protoss-fourth test-campaign-bw-terran-fourth
+test-campaign-bw-protoss-fourth: build/campaign-bw-protoss-fourth-test
+	ASAN_OPTIONS=detect_leaks=0 ./build/campaign-bw-protoss-fourth-test local-data/3ds/openbw local-data/3ds/openbw/campaign/expprotoss04.chk
+	ASAN_OPTIONS=detect_leaks=0 ./build/campaign-bw-protoss-fourth-test local-data/3ds/openbw local-data/3ds/openbw/campaign/expprotoss04.chk defeat
+test-campaign-bw-terran-fourth: build/campaign-bw-terran-fourth-test
+	ASAN_OPTIONS=detect_leaks=0 ./build/campaign-bw-terran-fourth-test local-data/3ds/openbw local-data/3ds/openbw/campaign/expterran04.chk
