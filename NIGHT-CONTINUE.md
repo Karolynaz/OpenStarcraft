@@ -2476,3 +2476,19 @@ Also primary PyMS opcode table reveals older mappings requiring isolated fixes:
 expand and83 asresourcesjump; synthetic expansiontests encode17too. Notchanged
 in this checkpoint; correcttests+implementation with fullregressions beforeenable.
 No new automation created, no GitHubpush. All campaigns NOT complete.
+
+Z9 checkpoint local commit **94fb8dd**. Follow-up BW Zerg4 private pilot/logs now
+preserved under `local-data/campaign-value-area/bw-zerg4-pilot/`: branchA
+`guardian-pilot.cpp` uses a temporary BWZ1 identity only for core exploration.
+192x64 map, own colony far east (~5696,1552); initial10000/500; single local
+geyser. Gas orders offset+40,+16 reliablymine; waitingfor a nonexistentsecond
+localgeyser blocked an earlypilotbuildorder. OnlyoneLair/Hive morph shouldbe
+started; repeatedperHatchorders wastegas. Finalpilotbuilds1Hive/GreaterSpire,
+Guardian+Hydra push clearsmuchopposition butstalls120000frames; NOTvictory,
+NOTenabled. Oldprototype selectednearestScourgeunreachablebyground; building
+targetinghelpsbutnotyetcomplete. Needbetterfinite-resources strategy/expansion,
+anti-air/detector support and all6authoredbranchchecks. Originalalliance/AI/maps
+remainunchanged. One prototype logging-only OOB (Snapshot.players has3 entries,
+not8) corrected locally; no suchcodeenteredtrackedtests. Allhostjobsfinished,
+emulatorremainsSTOPPED/originalvirtualSDandconfigRESTORED. LatestCIA/3DSstill
+verifiedcbcsource31missioncheckpointabove; nofurtherproductionchanges.

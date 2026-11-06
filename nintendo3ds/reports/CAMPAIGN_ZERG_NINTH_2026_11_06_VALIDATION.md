@@ -35,7 +35,7 @@ semantics. No bytecode is silently skipped.
   transport/speed upgrades, real 600-second harvest, physical crystal pickup,
   Overlord loading/unloading and delivery to the original home beacon. No map,
   funds, statistics, tech availability, AI or trigger edits. Fog-off navigation
-  is the test's only visibility aid. Original victory trigers fire normally.
+  is the test's only visibility aid. Original victory triggers fire normally.
 - Active carried-crystal save at **21,841** and completed save: exact state
   digests after command-journal reconstruction PASS.
 - An undefended original colony loses to original attacks at **65,691**; exact
@@ -100,3 +100,12 @@ addressing with isolated tests: original opcode 5 is `expand`; opcode 17 is
 These are **not changed here**. Existing synthetic expansion tests currently use
 17, so migrating it requires correcting both implementation and tests and then
 rerunning campaign victories. Do not merely relabel or ignore the instructions.
+
+BW Zerg 4 follow-up: the six passive branch runs end at original defeats
+(18,199 / 21,690 / 21,380 / 21,504 / 20,202 / 16,792). A branch-a paid
+Hydralisk/Guardian prototype clears much of the opposition but stalls at
+120,000 frames; no victory assertion or catalogue promotion. Its experimental
+selection/economy issues are not established engine defects. The private pilot
+and logs are retained in `campaign-value-area/bw-zerg4-pilot/`. The prototype's
+one logging-only out-of-bounds access to the three-entry UI player summary was
+fixed locally before further testing; no such code was added to the project.
