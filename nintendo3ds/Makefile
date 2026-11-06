@@ -327,3 +327,13 @@ test-campaign-bw-protoss-fourth: build/campaign-bw-protoss-fourth-test
 	ASAN_OPTIONS=detect_leaks=0 ./build/campaign-bw-protoss-fourth-test local-data/3ds/openbw local-data/3ds/openbw/campaign/expprotoss04.chk defeat
 test-campaign-bw-terran-fourth: build/campaign-bw-terran-fourth-test
 	ASAN_OPTIONS=detect_leaks=0 ./build/campaign-bw-terran-fourth-test local-data/3ds/openbw local-data/3ds/openbw/campaign/expterran04.chk
+
+build/campaign-ai-value-area-test: tests/campaign_ai_value_area.cpp $(HEADERS) | build
+	$(HOST_CXX) $(COMMON) -O1 -fsanitize=address -fno-omit-frame-pointer $< -o $@
+build/campaign-zerg-ninth-test: tests/campaign_zerg_ninth.cpp source/engine.cpp $(HEADERS) build/source_id.h | build
+	$(HOST_CXX) $(COMMON) -O1 -fsanitize=address -fno-omit-frame-pointer tests/campaign_zerg_ninth.cpp source/engine.cpp -o $@
+.PHONY: test-campaign-ai-value-area test-campaign-zerg-ninth
+test-campaign-ai-value-area: build/campaign-ai-value-area-test
+	ASAN_OPTIONS=detect_leaks=0 ./build/campaign-ai-value-area-test local-data/3ds/openbw local-data/3ds/openbw/campaign/zerg09.chk
+test-campaign-zerg-ninth: build/campaign-zerg-ninth-test
+	ASAN_OPTIONS=detect_leaks=0 ./build/campaign-zerg-ninth-test local-data/3ds/openbw local-data/3ds/openbw/campaign/zerg09.chk

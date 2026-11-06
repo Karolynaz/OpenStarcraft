@@ -21,6 +21,9 @@ class CampaignAI {
  // Each bit records a player's defended region. Region indices are bounded by
  // the engine's original 5000-region limit; no per-tick allocation is needed.
  std::array<uint8_t,5000> defended_{};
+ // Explicit value_area regions are separate from guard_all territory: a
+ // buildingless location is consumed after one successful defensive wave.
+ std::array<uint8_t,5000> valued_{};
  unsigned defending_owners_=0;
  std::array<unsigned,1700> roaming_{};std::array<uint8_t,1700> roaming_owner_{};
  unsigned read(const a_vector<uint8_t>& b,unsigned at,unsigned n)const{if(at>b.size() || n>b.size()-at)throw std::runtime_error("Campaign AI bytecode bounds");unsigned v=0;for(unsigned i=0;i<n;++i)v|=unsigned(b[at+i])<<(i*8);return v;}
@@ -73,6 +76,12 @@ class CampaignAI {
    defended_[index]|=1u<<owner;
   }
  }
+ void value_area(state_functions& f,unsigned owner,xy center){
+  const auto region=f.get_region_at(center)->index;
+  if(region>=valued_.size())throw std::runtime_error("Campaign valued region bounds");
+  for(auto* u:ptr(f.st.visible_units))if(u->owner<8 && hostile(f,owner,u->owner) && !f.unit_dying(u) && !f.us_hidden(u) && !f.ut_turret(u) && f.get_region_at(u->sprite->position)->index==region)return;
+  valued_[region]|=1u<<owner;defending_owners_|=1u<<owner;
+ }
  void defend(state_functions& f){
   if(!defending_owners_ || f.st.current_frame%96)return;
   action_state state;action_functions a(f.st,state);
@@ -81,13 +90,19 @@ class CampaignAI {
    static_vector<unit_t*,128> threats;
    for(auto* u:ptr(f.st.visible_units))if(u->owner<8 && hostile(f,owner,u->owner) && !f.unit_dying(u) && !f.u_invincible(u) && f.player_position_is_visible(owner,u->sprite->position) && !f.unit_is_undetected(u,owner)){
     auto index=f.get_region_at(u->sprite->position)->index;
-    if(index<defended_.size() && (defended_[index]&(1u<<owner)) && threats.size()<128)threats.push_back(u);
+    if(index<defended_.size() && ((defended_[index]|valued_[index])&(1u<<owner)) && threats.size()<128)threats.push_back(u);
    }
    if(threats.empty())continue;
    for(auto* u:ptr(f.st.player_units[owner]))if(f.u_completed(u) && !f.unit_dying(u) && !f.us_hidden(u) && !f.ut_worker(u) && !f.ut_building(u) && !f.ut_turret(u) && idle(u) && !(u->index<committed_.size() && committed_[u->index]==f.get_unit_id_32(u).raw_value)){
     unit_t* target=nullptr;int nearest=768*768;
     for(auto* enemy:threats)if(f.unit_can_attack_target(u,enemy)){auto d=enemy->sprite->position-u->sprite->position;int n=d.x*d.x+d.y*d.y;if(n<nearest){nearest=n;target=enemy;}}
-    if(target){a.action_select(owner,u);a.action_order(owner,a.get_order_type(Orders::AttackMove),target->sprite->position,nullptr,nullptr,false);}
+    if(target){a.action_select(owner,u);if(a.action_order(owner,a.get_order_type(Orders::AttackMove),target->sprite->position,nullptr,nullptr,false)){
+     const auto region=f.get_region_at(target->sprite->position)->index;
+     if(region<valued_.size() && (valued_[region]&(1u<<owner))){
+      bool building=false;for(auto* b:ptr(f.st.player_units[owner]))if(f.ut_building(b) && !f.unit_dying(b) && !f.us_hidden(b) && f.get_region_at(b->sprite->position)->index==region){building=true;break;}
+      if(!building)valued_[region]&=~(1u<<owner);
+     }
+    }}
    }
   }
  }
@@ -170,6 +185,7 @@ class CampaignAI {
    case 105:f.st.lcg_rand_state=read(bytes,t.pc,4);t.pc+=4;break;
    case 45:side.nuclear=true;side.nuke_minutes=byte();side.nuke_due=f.st.current_frame+side.nuke_minutes*60u*24u;break;
    case 92:guard_regions(f,t.owner);break;
+   case 42:value_area(f,t.owner,t.center);break;
    case 102:side.nuke_due=f.st.current_frame+side.nuke_minutes*60u*24u;break;
    case 17:{unsigned n=byte(),address=word();request_nearest_expansion(f,t,n,address);break;}
    case 112:{unsigned n=byte(),address=word();if(town_count(f,t.owner)<n)t.pc=address;break;}
@@ -246,6 +262,6 @@ public:
   bool expansion=false;unsigned pc=entry(id,expansion);if(!pc)throw std::runtime_error("Missing original campaign AI script");auto& thread=launch(pc,owner,expansion,center,f.st.current_frame,location?*location:rect{{0,0},{int(f.st.game->map_width),int(f.st.game->map_height)}});interpret(f,thread);
  }
  void step(state_functions& f){for(auto& t:threads_)if(t.active && f.st.current_frame>=t.wake)interpret(f,t);update_expansions(f);update_guards(f);defend(f);wander(f);for(unsigned p=0;p<8;++p){nuclear(f,p);economy(f,p);}}
- template<class Add>void digest(Add add)const{for(const auto& t:towns_){add(t.active);add(t.owner);add(t.center.x);add(t.center.y);}add(sites_ready_);add(site_count_);for(unsigned i=1;i<=site_count_;++i){add(sites_[i].center.x);add(sites_[i].center.y);}for(const auto& e:expansions_){add(e.active);add(e.brood);add(e.owner);add(e.site);add(e.pc);add(e.search);add(e.position.x);add(e.position.y);add(e.located);add(e.worker.raw_value);add(e.depot.raw_value);}add(defending_owners_);for(auto region:defended_)add(region);for(const auto& g:guards_){add(g.active);add(g.owner);add(g.type);add(g.deaths);add(g.unit.raw_value);add(g.position.x);add(g.position.y);}for(auto id:committed_)add(id);for(unsigned i=0;i<roaming_.size();++i){add(roaming_[i]);add(roaming_owner_[i]);}for(const auto& t:threads_){add(t.pc);add(t.wake);add(t.owner);add(t.brood);add(t.active);add(t.center.x);add(t.center.y);add(t.depth);for(auto pc:t.calls)add(pc);add(t.killable);add(t.kill_pending);add(t.area.from.x);add(t.area.from.y);add(t.area.to.x);add(t.area.to.y);}for(const auto& s:sides_){add(s.enabled);add(s.suicide);add(s.target_expansion);add(s.nuclear);add(s.nuke_minutes);add(s.nuke_due);add(s.spotter.raw_value);add(s.missile.raw_value);add(s.center.x);add(s.center.y);add(s.search);add(s.build_frame);add(s.builder.raw_value);for(auto n:s.maximum)add(n);for(auto n:s.desired)add(n);for(auto n:s.defense)add(n);for(auto n:s.attack)add(n);for(auto n:s.upgrades)add(n);for(auto n:s.tech)add(n);}}
+ template<class Add>void digest(Add add)const{for(const auto& t:towns_){add(t.active);add(t.owner);add(t.center.x);add(t.center.y);}add(sites_ready_);add(site_count_);for(unsigned i=1;i<=site_count_;++i){add(sites_[i].center.x);add(sites_[i].center.y);}for(const auto& e:expansions_){add(e.active);add(e.brood);add(e.owner);add(e.site);add(e.pc);add(e.search);add(e.position.x);add(e.position.y);add(e.located);add(e.worker.raw_value);add(e.depot.raw_value);}add(defending_owners_);for(auto region:defended_)add(region);for(auto region:valued_)add(region);for(const auto& g:guards_){add(g.active);add(g.owner);add(g.type);add(g.deaths);add(g.unit.raw_value);add(g.position.x);add(g.position.y);}for(auto id:committed_)add(id);for(unsigned i=0;i<roaming_.size();++i){add(roaming_[i]);add(roaming_owner_[i]);}for(const auto& t:threads_){add(t.pc);add(t.wake);add(t.owner);add(t.brood);add(t.active);add(t.center.x);add(t.center.y);add(t.depth);for(auto pc:t.calls)add(pc);add(t.killable);add(t.kill_pending);add(t.area.from.x);add(t.area.from.y);add(t.area.to.x);add(t.area.to.y);}for(const auto& s:sides_){add(s.enabled);add(s.suicide);add(s.target_expansion);add(s.nuclear);add(s.nuke_minutes);add(s.nuke_due);add(s.spotter.raw_value);add(s.missile.raw_value);add(s.center.x);add(s.center.y);add(s.search);add(s.build_frame);add(s.builder.raw_value);for(auto n:s.maximum)add(n);for(auto n:s.desired)add(n);for(auto n:s.defense)add(n);for(auto n:s.attack)add(n);for(auto n:s.upgrades)add(n);for(auto n:s.tech)add(n);}}
 };
 }}

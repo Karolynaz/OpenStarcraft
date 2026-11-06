@@ -13,10 +13,12 @@ int main(int argc,char**argv){
  assert(ResultScreen::next_mission(16,true,"Terran02.scx")==campaign::key_index("terran02"));
  assert(ResultScreen::next_mission(16,true,"")==campaign::key_index("terran02"));
  assert(ResultScreen::next_mission(21,true,"Zerg02.scx")==campaign::key_index("expzerg02"));
- assert(ResultScreen::next_mission(39,true,"Zerg03.scx")==~0u);
+ assert(ResultScreen::next_mission(39,true,"Zerg03.scx")==campaign::key_index("expzerg03"));
+ assert(ResultScreen::next_mission(40,true,"")==~0u);
  assert(ResultScreen::next_mission(16,false,"Terran02.scx")==~0u);
  assert(ResultScreen::next_mission(7,true,"")==~0u);
- assert(ResultScreen::next_mission(38,true,"")==~0u);
+ assert(ResultScreen::next_mission(38,true,"")==campaign::key_index("zerg09"));
+ assert(ResultScreen::next_mission(46,true,"")==~0u);
  assert(ResultScreen::next_mission(16,true,"../Terran02.scx")==~0u);
  for(unsigned race=0;race<3;++race)for(bool won:{false,true}){
   ResultArt art;assert(art.load(argv[1],race,won));assert(fake::allocations==2);

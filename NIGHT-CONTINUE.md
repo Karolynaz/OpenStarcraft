@@ -2430,3 +2430,49 @@ noGitHubpush. Validationreport CAMPAIGN_CHAPTER_FOUR_2026_11_06_VALIDATION.md.
 One-time04:12automation deleted at closeout; nofurtherautomationscreated. All
 campaignsNOTcomplete:30enabledentriesonly, T4silos routeunproven, fifthBWmissions
 notenabled, SCZ9explicitunsupportedAI42 laterblocker retained fornextwork.
+
+### 2026-11-06 Zerg 9 verified checkpoint
+
+Source **src-cbc950f1a30aab88**, catalogue **31 missions**. Added scenario46
+`zerg09` The Invasion of Aiur and original AI42 `value_area` (zero operands,
+occupied-hostile rejection, one response without an owned building, persistent
+with building; independent fixed 5KB region bits and deterministic digest).
+Four native-order cases PASS; old-header negative control fails on42 as expected.
+Later-AI/roaming regressions PASS. ALL30 previous final-source original victory
+routes/exact replays PASS; new Z9 original victory f23365 plus active crystal save
+f21841 and completed exact replays PASS. Original passive colony-loss f65691 and
+exact defeat replay PASS. Paid colony, Lair, Ventral Sacs/speed, real600s harvest,
+physical219 pickup, Overlord loading/unloading and home beacon delivery. No map,
+AI, funds, unit stats or tech edits. Fog-off navigation is the test aid.
+Z9 has no original SetNextScenario action; use ordinary catalogue episode order.
+All31 openings/menu/startup replays, all31 presentations, 8 Z9 dialogue WAVs
+byte-exact bounded mixer IO0, six outcome screen pairs and Z8→Z9 route PASS.
+
+Native original-model CPU100 final-source Z9Victory16:13 observed; active Drone
+Carry/crystal icon observed, ~24TPS. Observedmaxheap31761392, linear8264704,
+linearfree123904. Emulator STOPPED and original virtualSD/config RESTORED via
+`/tmp/sc3ds-valuearea-emulator.py restore`; no physicalSD writes. Account limit
+approval review briefly blocked controls, then worked after reset; no bypass.
+
+Private evidence `nintendo3ds/local-data/campaign-value-area/` (including native
+logs/screenshots, saves and final-regressions/regressions.json:30/30). Detailed
+tracked report `CAMPAIGN_ZERG_NINTH_2026_11_06_VALIDATION.md`. Standalone files:
+`nintendo3ds/out/StarCraft-3DS.cia` 1354605504 bytes SHA256
+502bce5b585b18d6e79b37018ec73b17acdc4ec7092030d6d984eff5bf50b732;
+`StarCraft-3DS.3ds` 1354592256 bytes SHA256
+73d58454c28c3119d702d2d4b0f9a12bf4ecc5513a571cd1d3f14252da6a2f0b.
+Package `local-data/ctr-release-2026-11-06-zerg9`,634staticassets,no userstate/ZIP/
+upload. IdenticalNCCH and ExeFS/RomFS superblock verification PASS. Native test
+was matching3DSX/ELF, not separateCIAinstallation. Existing saves source-specific.
+
+Next: BW Zerg4a–f (all six private normalized maps exist in campaign-all-audit).
+Passive diagnostic `/tmp/sc3ds-bwz4-audit.cpp` with temporary BWZ1 identity reaches
+original defeats for all6 without interpreterexception; NOT victories/notenabled.
+Objectives destroy all enemy bases; starting resources10000/500 in branchA.
+Do not reuse diagnostic identity for production. More useful playthrough needed.
+Also primary PyMS opcode table reveals older mappings requiring isolated fixes:
+5=expand(byte,blockword);17=build_bunkers(noargs),83=prep_down(byte,byte,unitword),
+84=resources_jump(word,word,blockword). Current interpreter wronglyuses17 as
+expand and83 asresourcesjump; synthetic expansiontests encode17too. Notchanged
+in this checkpoint; correcttests+implementation with fullregressions beforeenable.
+No new automation created, no GitHubpush. All campaigns NOT complete.
