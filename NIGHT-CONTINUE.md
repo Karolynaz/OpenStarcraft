@@ -2346,3 +2346,87 @@ window; do not duplicate. Read this before work; delete that automation after
 it runs. Noresetcredits/modelchanges/purchases. Nextwindow focusmoreprovenBW
 missions and actualP4victory/defeat/replay before enablingpropermetadata/audio/
 progression. Current28entries allretailASanwin routes pass; noallcampaignclaim.
+
+
+## 2026-11-06 04:12 continuation — chapter-four validation in progress
+
+Usage checked once at heartbeat: primary0%, ordinaryUsageAllowedtrue; no reset
+credits/purchases/model changes. HUD and artefact work already complete; not
+redone. Added proper original BW Protoss4 scenario44 and BW Terran4 scenario45;
+now30entries, BW4Protoss/4Terran/3Zerg. Source src-eac58d6bbec187e3, finalASan
+engine /tmp/sc3ds-ch4-engine.o. OriginalP4 Stargate remainsdisabled; paid base,
+8Shuttles+GraviticDrive, cargo-confirmedKerrigan safely reachesUraj. Victory40327,
+exactactivecargo andcompletedreplay PASS; originalpublicKerrigan-loss2972 PASS.
+T4paidMarine/Medic/Goliath economy destroysPhysicsLabs, Victory68896, original
+nextTerran05a.scx, exactactivecolony/completedreplay PASS. Silos alternative
+exploration (privateonly) stalls240000, no victoryclaimed; current productiontest
+onlyPhysicsLabsroute. BranchTerran05a/05b notyetenabled. Originals/AI/funds/goals
+unchanged. Captured20P4/7T4originaldialogueWAVs bounded4MiBmixerbyteexact IO0 PASS.
+All30retailvictorydrivers finalsourceASan PASS, all30openings/menu/replay48/
+extended17248 PASS; routes/progress, presentations/storyart PASS. T4original
+force-absencefixtureDefeat2; P4publichero death. Newnative60x56HUDportraits had
+exposedBriefingArt48x48readerregression: fixedreader/fallback to60x56, still64x64
+centered display. Storyarttest nowassertsactualfacecount (previouslyemptydrawloop
+couldpass). NativefinalP4fouranimatedfacesconfirmed in private screenshot.
+
+NATIVE TEST CURRENTLY RUNNING: Azahar PID63419, originalmodelCPU100, finalsource
+ROM local-data/campaign-nov06-ch4/openbw-3ds.3dsx. IsolatedvirtualSD originaltree
+backup openbw.before-campaign-nov06-ch4, marker .campaign-nov06-ch4-test;
+/tmp/sc3ds-ch4-emulator.py prepare/restore. MUST stopemu+restorebeforefinal.
+Config backup work/qt-config.ini. Work/saves slot1T4completed68896, slot2T4active
+28801, slot3P4completed40327. Currently loadingT4slot1 throughrealpauseLoad; long
+68896journal reconstruction active (greenLoading/System60FPS). No physicalSD.
+P4source095 nativeVictory28:00 alreadyobserved beforefacefix, screenshot/evidence
+local-data/campaign-nov06-p4, originalvirtualSD restoredbetweenruns. Finaleac
+P4briefingfaces screenshotcampaign-nov06-ch4/p4-briefing-faces.png. Need finalT4
+nativeVictory observation, ideallyT4activeworld andP4finalVictory iftime.
+
+FinalCIA/3DS builtalready: out/StarCraft-3DS.{cia,3ds},622privateassets,30maps,
+3HUDskins110nativeportraits, noZIP/userstate. Privatepackage
+ctr-release-2026-11-06-ch4/package-manifest.json. CIA1324606400 bytes SHA256
+49c7af71d006cd33bd6bc8cb6dae43bceee14229ee976b71b299d00285d311ef;
+3DS1324593152 bytes SHA256
+7b427dc22caaf025b5cc8e61bc9cde6fee383f033c6af2fd076428ce73969d65.
+IdenticalNCCH/ExeFS/RomFS hashes PASS (campaign-nov06-ch4/package-verify.json).
+No GitHubupload. Need trackedvalidationreport+localcommit+finalNIGHTcloseout.
+One-timeheartbeat starcraft-kampanij-t-sinys-04-12 MUST DELETE atfinal; no more
+scheduledcontinuations authorized by this heartbeat.
+
+Further privateZerg9pilot discovered real later-AIblocker: original zerg09.chk,
+loaded asScenario17for explorationONLY; /tmp/sc3ds-z9-pilot.cpp/log, finaleacASan.
+At~48000+ ticks throws Unsupported campaign AI opcode42; NOT enabled/no victory.
+Pilot wronglymassHydras/noMutas becauseavailableSpire tech/budget priority still
+needswork. Do not edit authoredPUNI. Opcode42 likelyvalue_area, needsprimary
+format/semantics reference and focusedbehavior test before implementation; do not
+silentlyskip. PyMS priorAIBIN.pyURL now404. pr0nogo.wikidot.com/rs-ai hascommandguide;
+no implementation change made. Preserve current30provenstage while investigating.
+
+Opcode42 follow-up research (no code change): command author guide
+https://pr0nogo.wikidot.com/rs-ai#toc126 describes value_area as valuing the
+location-center pathfinding region; skip if hostile units already occupy it.
+Without own buildings it is defended once. ExistingCampaignAI.defended_ bits
+and defend() are a possible integration point, but a mere no-op/permanent bit
+would not implement the described one-time semantics. Verify numeric format
+from primary code before changing it; PyMS FileFormats/AIBIN.py obsolete URL404.
+The candidate nested AIBIN/AIBIN.py URL had a fetch-cache error, not confirmed
+absence. Original Z9 later opcode42 failure remains explicit/unfixed/unenabled.
+
+
+### 2026-11-06 chapter-four checkpoint CLOSED
+
+Localcodecommit35ceee1. Finalsource eac unchanged. Native finalsource P4Victory
+28:00 observed, heap31484120 linearfree123904, screenshotp4-victory.png; T4Victory
+47:50 observed, heap31939864 linearfree123904. P4freshbriefing shows4animatedfaces.
+AttempttochooseT4active28801 loadedslot1again (RPCDOWNdidnotselectrow); no active
+T4nativeworld claim. The host active replay PASS is independent. Correct selection
+viaCirclePad250msdown fromtitleLoadrowsselectedslot3, nativeP4finalVictoryproved.
+Misnamedt4-active.png renamedt4-victory-reload.png. EmulatorSTOPPED, original
+virtualSD/configfullyRESTORED by/tmp/sc3ds-ch4-emulator.py restore. Noactivebackup
+isolationtree remains, physicalSDuntouched. Native logs copied into work/native-logs.
+All30retailASanvictorydrivers finalsourcePASS; cleanedT4test rerunPhysicsLabs/
+Terran05a/exactreplayPASS. New27dialogueclips boundedIO0 PASS. Source-specific
+saves, chapterprogressseparate. CorrectfinalCIA/3DS andchecksumsabove; noZIP,
+noGitHubpush. Validationreport CAMPAIGN_CHAPTER_FOUR_2026_11_06_VALIDATION.md.
+One-time04:12automation deleted at closeout; nofurtherautomationscreated. All
+campaignsNOTcomplete:30enabledentriesonly, T4silos routeunproven, fifthBWmissions
+notenabled, SCZ9explicitunsupportedAI42 laterblocker retained fornextwork.

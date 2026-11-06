@@ -1,5 +1,13 @@
 # OpenBW on the original Nintendo 3DS
 
+Current campaign checkpoint (2026-11-06): 30 original-map victory routes are
+verified, including BW Protoss4 and BW Terran4 (Physics Labs route). Original
+3DS limits remain 36 MiB normal / 8 MiB linear. The new three-race lower HUD and
+60x56 portrait assets are included. Full campaigns and the T4 silo branch are
+not yet verified. See [the chapter-four validation report](nintendo3ds/reports/CAMPAIGN_CHAPTER_FOUR_2026_11_06_VALIDATION.md)
+for actual ASan/native results and limitations. Sections below retain their
+historical milestone dates.
+
 Status: standard Terran, Protoss and Zerg production, construction, research/upgrades
 and controller ability menus are integrated through native OpenBW actions.
 The default Zerg prepared full-army 1v1 has a short score/time limit; all three
