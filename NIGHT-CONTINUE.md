@@ -2573,3 +2573,56 @@ dialogue files also passed the 2 MiB host mixer test byte-for-byte. The
 preceding source also showed Choosing Sides, Homeland and The Hammer Falls
 victories by native replay and opened the voiced Trial of Tassadar briefing.
 Azahar is stopped and its original virtual SD and config have been restored.
+
+## 2026-11-07 original campaign milestone: Eye of the Storm
+
+Source `src-07852d866c78de32`. Enabled original Protoss 10 `protoss10`
+(Scenario 52) with the original normalized CHK, native-size story art, animated
+briefing and original mission objectives. The exported CHK matches the earlier
+private audit copy byte-for-byte. No authored triggers, hero stats, AI, or map
+geometry were changed. The last verified build now has 26 of 30 original
+missions and 11 Brood War missions.
+
+`campaign_protoss_final.cpp` builds a paid Protoss economy and ground army and
+uses public orders to destroy the Overmind. Original victory at frame 28024,
+Zeratul, Gantrithor and Hyperion alive, with an exact completed-save state
+digest after replay. The diagnostic early hero strike still reaches original
+defeat at frame 23625. The engine also now counts Scarabs inside Reavers and
+Warbringers in Bring conditions. The new fighter-hangar regression failed
+before the correction and passed afterward under ASan.
+
+All 37 ASan victory/replay regressions and all 37 menu routes, startups,
+active-save replays, 48-frame continuations and extended ticks passed. All 37
+dual-screen story banks passed their size and lifetime checks. ARM11 verifies
+ARMv6K/VFPv2. The ten mission/briefing clips in the package passed bounded
+2 MiB mixer playback. Nine clips were extracted intact with StormLib. The
+owned MPQ's `PAB05ura.wav` had two unreadable 4096-byte sectors at bytes
+892928–901119. Preserved all readable bytes and replaced that 0.186-second
+interval with silence, leaving the length and original subtitle timings
+intact. The other installed game store was inaccessible to the local CASC
+reader. Private diagnostics and generated media are under
+`nintendo3ds/local-data/sc-original-remaining/`.
+
+Private CIA and 3DS in `nintendo3ds/out/original-campaign-26/`. Verified both
+contain the same NCCH, plus valid ExeFS and RomFS superblock hashes. Package
+manifest lists 706 static resources and excludes profiles, saves and progress.
+
+Four original missions remain. Terran 8 The Big Push still needs a sustainable
+ground economy or effective fleet. Terran 9 New Gettysburg reached twelve
+Battlecruisers, but runs triggered the original defeat conditions by losing
+Kerrigan or a protected Zerg structure. Protoss 6 Into the Darkness reached
+the southern suicide ambush after the southwest door, but Tassadar died before
+Zeratul could be rescued. Protoss 9 Shadow Hunters produced and launched a
+Shuttle convoy, but the transport carrying Zeratul was destroyed before
+unloading. Keep their original triggers and use the private diagnostics when
+continuing. The current campaign navigation can skip an unavailable chapter.
+
+Original-model Azahar at CPU 100% booted the packaged .3ds and opened the
+Protoss finale through the episode card. Verified story, animated briefing,
+objectives, fresh gameplay and the opening transmission. Loaded the
+host-recorded completed save from the in-game Load Game menu. The ARM replay
+reached Victory at 19:27, wrote `protoss10=1`, and OK returned to title.
+Fresh gameplay sampled 30,054,208 bytes normal and 7,937,024 bytes linear at
+peak, with zero missing sprites, missing SFX, or audio IO errors. The measured
+frame rate varied between 5.51 and 60.66 FPS across 73 samples. Emulator
+stopped and its pre-test virtual SD directory and settings were restored.

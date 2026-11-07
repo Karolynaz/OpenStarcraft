@@ -19049,7 +19049,7 @@ struct state_functions {
 			if (unit_is_carrier(u)) {
 				r.completed_unit_counts[u->owner][UnitTypes::Protoss_Interceptor] += u->carrier.inside_count;
 			} else if (unit_is_reaver(u)) {
-				r.completed_unit_counts[u->owner][UnitTypes::Protoss_Reaver] += u->carrier.inside_count;
+				r.completed_unit_counts[u->owner][UnitTypes::Protoss_Scarab] += unit_scarab_count(u);
 			}
 			if (ut_worker(u) && u->worker.powerup) {
 				if (unit_is(u->worker.powerup, UnitTypes::Powerup_Flag)) add_completed(u->worker.powerup);

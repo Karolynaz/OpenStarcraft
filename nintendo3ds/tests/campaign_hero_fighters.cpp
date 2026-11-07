@@ -31,6 +31,8 @@ int main(int argc, char** argv) {
         const xy pos = carrier ? xy{520, 520} : xy{700, 700};
         auto* hero = engine.trigger_create_unit(engine.get_unit_type(hero_type), pos, 0);
         assert(hero);
+        const auto fighter_type = carrier ? UnitTypes::Protoss_Interceptor : UnitTypes::Protoss_Scarab;
+        const location hangar{rect{pos - xy(64, 64), pos + xy(64, 64)}, 0};
         auto& inside = carrier ? hero->carrier.inside_units : hero->reaver.inside_units;
         auto& outside = carrier ? hero->carrier.outside_units : hero->reaver.outside_units;
         const auto& inside_count = carrier ? hero->carrier.inside_count : hero->reaver.inside_count;
@@ -41,6 +43,9 @@ int main(int argc, char** argv) {
             assert(commands.action_train_fighter(0));
             for (unsigned frame = 0; frame < 1000 && !inside_count; ++frame) engine.next_frame();
             assert(inside_count == 1 && !inside.empty());
+            const auto counts = engine.trigger_bring_count(hangar);
+            assert(counts.completed_unit_counts[0][hero_type] == 1);
+            assert(counts.completed_unit_counts[0][fighter_type] == 1);
             auto* fighter = deployed ? engine.release_fighter(hero) : &inside.front();
             assert(fighter && fighter->fighter.parent == hero);
             assert(inside_count == (deployed ? 0 : 1) && outside_count == (deployed ? 1 : 0));
