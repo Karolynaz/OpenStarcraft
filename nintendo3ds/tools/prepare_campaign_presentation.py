@@ -23,6 +23,17 @@ def pages(name):
   text=re.sub(r'</[^>]*>','',page).strip();result.append((bg[1],text))
  return result
 summaries={
+ 'protoss05':'Tassadar refuses to abandon the Dark Templar trapped beneath Char. Escort him and two Zealots to the installation entrance while hostile forces contest the surrounding islands.',
+ 'protoss06':'Tassadar enters the abandoned Terran installation to find Zeratul. Explore its locked passages, rescue the trapped allies and survive the Zerg ambushes beneath Char.',
+ 'protoss07':'Tassadar returns to Aiur with the Dark Templar. The Conclave calls him a traitor. Defend the colony and confront the Conclave while keeping Tassadar, Fenix and Zeratul alive.',
+ 'protoss08':'Tassadar has surrendered to stop the civil war. Fenix and Raynor lead an assault on his prison. Destroy the Stasis Cell and protect both commanders.',
+ 'protoss09':'The Conclave has failed to stop the Swarm. Escort Zeratul against the Cerebrates that control the invading broods, while Fenix defends the expedition.',
+ 'protoss10':'The united forces prepare their final assault on the Overmind. Build the combined armies, protect Tassadar, Raynor and Zeratul, and destroy the heart of the Swarm.',
+ 'terran09':'With the Confederate blockade broken, Mengsk leads the Sons of Korhal against Tarsonis. Land the floating colony near the abandoned equipment, establish a base and eliminate the Confederate defenders. Duke must survive.',
+ 'terran11':'The Psi Emitters have drawn the Zerg to Tarsonis. Mengsk orders Kerrigan to stop the Protoss from destroying the Swarm. Defeat the Protoss force while preserving Kerrigan and every Zerg building.',
+ 'terran12':'Raynor turns against Mengsk and attempts to escape Tarsonis. Establish a colony, break through the Dominion defenses and destroy the Ion Cannon blocking the evacuation. Raynor must survive.',
+ 'zerg10':'The Khaydarin Crystal has been recovered. Destroy the ancient Protoss Temple, then carry the crystal to its remains so the Overmind can establish itself on Aiur.',
+
  'expterran04': "After taking the Psi Disrupter on Tarsonis, the UED attacks the Dominion capital on Korhal. Choose which threat to remove: destroy the enemy Physics Labs to weaken its battlecruisers, or destroy the Nuclear Silos to stop its nuclear strikes.",
  'expprotoss04': "To cleanse Shakuras, the Protoss must recover two crystals that can power the ancient Xel'Naga temple. Kerrigan offers to help retrieve the Uraj crystal from Braxis, where Dominion forces stand between the expedition and its prize.",
  'expterran02': "The UED has secured a foothold in the sector. At the Dylarian shipyards, escort the pilots to commandeer the Dominion's battlecruisers and turn its fleet against Admiral Duke.",

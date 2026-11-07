@@ -16253,18 +16253,18 @@ struct state_functions {
 					unit_t* parent = u->fighter.parent;
 					if (u->fighter.parent) {
 						if (u->fighter.is_outside) {
-							if (unit_is(parent, UnitTypes::Protoss_Carrier)) {
+							if (unit_is_carrier(parent)) {
 								parent->carrier.outside_units.remove(*u);
 								--parent->carrier.outside_count;
-							} else if (unit_is(parent, UnitTypes::Protoss_Reaver)) {
+							} else if (unit_is_reaver(parent)) {
 								parent->reaver.outside_units.remove(*u);
 								--parent->reaver.outside_count;
 							}
 						} else {
-							if (unit_is(parent, UnitTypes::Protoss_Carrier)) {
+							if (unit_is_carrier(parent)) {
 								parent->carrier.inside_units.remove(*u);
 								--parent->carrier.inside_count;
-							} else if (unit_is(parent, UnitTypes::Protoss_Reaver)) {
+							} else if (unit_is_reaver(parent)) {
 								parent->reaver.inside_units.remove(*u);
 								--parent->reaver.inside_count;
 							}

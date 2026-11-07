@@ -34,7 +34,9 @@ static constexpr Product units[]={
  {UnitTypes::Protoss_Carrier,UnitTypes::Protoss_Stargate,"Carrier"},
  {UnitTypes::Protoss_Arbiter,UnitTypes::Protoss_Stargate,"Arbiter"},
  {UnitTypes::Protoss_Interceptor,UnitTypes::Protoss_Carrier,"Interceptor"},
- {UnitTypes::Protoss_Scarab,UnitTypes::Protoss_Reaver,"Scarab"}
+ {UnitTypes::Protoss_Interceptor,UnitTypes::Hero_Gantrithor,"Interceptor"},
+ {UnitTypes::Protoss_Scarab,UnitTypes::Protoss_Reaver,"Scarab"},
+ {UnitTypes::Protoss_Scarab,UnitTypes::Hero_Warbringer,"Scarab"}
 };
 static constexpr Research techs[]={
  {TechTypes::Psionic_Storm,UnitTypes::Protoss_Templar_Archives,"Psionic Storm"},

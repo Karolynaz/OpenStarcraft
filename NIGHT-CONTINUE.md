@@ -2521,3 +2521,55 @@ frame26266 + completed replay PASS.
 CIA/3DS updated at `nintendo3ds/out/StarCraft-3DS.{cia,3ds}`, no ZIP. Same NCCH,
 ExeFS/RomFS hashes verified. Physical SD untouched. Emulator STOPPED and
 original virtual SD/Qt config RESTORED. No further automation created.
+
+## 2026-11-07 — Original campaign milestone, 25/30
+
+Build `src-12dcee779efe0d33`. Added five original campaign maps with owned
+briefing, story art and audio banks. The ASan public-control routes used the
+original objectives and victory triggers, paid for production, disabled fog
+for deterministic navigation, and matched the digest after completed-save
+replay.
+
+| Original mission | Victory frame | Route |
+| --- | ---: | --- |
+| Protoss 5, Choosing Sides | 15192 | Paid shuttle fleet, Tassadar and two Zealots delivered |
+| Protoss 7, Homeland | 102588 | Colony defense and paid Scout fleet |
+| Protoss 8, The Trial of Tassadar | 56658 | Paid fleet and Stasis Cell destroyed |
+| Terran 10, The Hammer Falls (`terran12`) | 84536 | Paid Battlecruiser fleet and Ion Cannon destroyed |
+| Zerg 10, Full Circle | 28403 | Temple destroyed, Drone and crystal ferried by Overlord |
+
+36/36 enabled missions passed the final ASan victory and replay suite
+(25 original, 11 Brood War). The separate 36-map startup/extended tick and
+active-save replay audit also passed. Five-slot labels and original chapter
+numbers, all native-size story art, result screen routes, and ARMv6K/VFPv2
+checks passed. The focused Gantrithor/Warbringer regression built fighters,
+destroyed them inside and outside each hangar, then refilled both. The real
+Protoss finale strike also reproduced the old invalid fighter access and now
+reaches the authored defeat after a failed attack. That run is not a victory.
+
+Remaining original missions: Terran 8 The Big Push (`terran09`), Terran 9 New
+Gettysburg (`terran11`), Protoss 6 Into the Darkness,
+Protoss 9 Shadow Hunters, and Protoss 10 Eye of the Storm. Their diagnostic
+routes are private in `nintendo3ds/local-data/sc-original-finish/`. On maps
+without an authored next filename, existing progression falls forward to the
+next enabled mission, so this build can skip an unimplemented chapter.
+
+Private CIA and 3DS in `nintendo3ds/out/original-campaign-25/`. Identical
+NCCH and ExeFS/RomFS superblock hashes verified. The bundle has 694 static
+resources and excludes profile, saves and progress. Source-specific saves
+from older builds are shown but unavailable. No ZIP or physical SD writes.
+
+Evidence under `nintendo3ds/local-data/sc-original-finish/` includes
+`zerg10-regressions/regressions.json`, per-mission logs, and
+`package-verify-25.json`.
+
+Final private 3DS launched on the original-model Azahar profile (CPU 100%).
+Selected Full Circle through the original Zerg campaign, saw the native story
+and voiced briefing, entered gameplay, then loaded the host-recorded victory.
+The native replay reached the Victory screen (19:43) and OK returned to title.
+Observed gameplay peaks: heap 30129352 bytes, linear 7937024 bytes, zero
+missing images or sound effects, zero audio IO errors. All six original
+dialogue files also passed the 2 MiB host mixer test byte-for-byte. The
+preceding source also showed Choosing Sides, Homeland and The Hammer Falls
+victories by native replay and opened the voiced Trial of Tassadar briefing.
+Azahar is stopped and its original virtual SD and config have been restored.
