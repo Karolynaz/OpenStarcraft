@@ -2626,3 +2626,43 @@ Fresh gameplay sampled 30,054,208 bytes normal and 7,937,024 bytes linear at
 peak, with zero missing sprites, missing SFX, or audio IO errors. The measured
 frame rate varied between 5.51 and 60.66 FPS across 73 samples. Emulator
 stopped and its pre-test virtual SD directory and settings were restored.
+
+## 2026-11-07 original campaign milestone: Shadow Hunters
+
+Source `src-aa2aa55a2c1e6d69`. Enabled original Protoss 9 `protoss09`
+(Scenario 51), between The Trial of Tassadar and Eye of the Storm. The original
+normalized CHK matches the earlier private audit byte-for-byte. The package
+includes the original objectives, story and animated briefing. Its six new
+mission/briefing WAVs independently matched StormLib and passed the 4 MiB
+mixer playback test with no IO errors.
+
+The successful public-control route uses a paid Protoss ground army with
+Dragoons and Reavers to clear a path for Zeratul. It destroyed the western
+Cerebrate at frame 39048, regrouped, and approached the eastern Cerebrate
+along the northern edge. The authored victory fired at frame 50873 with
+Zeratul and Fenix alive and both Cerebrates gone. The completed-save replay
+matched the exact state digest and the result routing selected Eye of the Storm.
+A separate premature assault triggered authored defeat at frame 32569.
+No original map geometry, AI or trigger logic was changed.
+
+All 38 ASan victory/replay regressions and 38 menu routes, startups,
+active-save replays and extended tick tests passed. All 38 native-size story
+banks and ARMv6K/VFPv2 checks passed. The private CIA and 3DS in
+`nintendo3ds/out/original-campaign-27/` contain identical NCCH payloads and
+verified ExeFS/RomFS superblock hashes. The bundle contains 718 static assets,
+excluding user saves, profile and campaign progress.
+
+27 of 30 original StarCraft missions and 11 Brood War missions are verified.
+The Big Push, New Gettysburg and Into the Darkness are the three outstanding
+original missions. Private Shadow Hunters route and build evidence is in
+`nintendo3ds/local-data/sc-original-remaining/` (files prefixed `p9-` and
+`final-27-regressions/`).
+
+The packaged .3ds booted in original-model Azahar at CPU 100%. Verified the
+episode card, Shadow Hunters story, voiced briefing, objectives and fresh
+gameplay. Loaded the host-recorded completion from the in-game Load Game
+menu. ARM replay reached Victory at 35:19 and wrote `protoss09=1`. Pressing OK
+opened the Eye of the Storm story screen. Fresh-gameplay samples peaked at
+31,610,976 bytes normal and 8,264,704 bytes linear, with zero missing sprites,
+missing SFX or audio IO errors. Azahar was stopped and its virtual SD directory
+and config were restored.

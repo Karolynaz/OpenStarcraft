@@ -37,6 +37,7 @@ static constexpr Mission missions[]={
  {"protoss05","Choosing Sides",47,2,false},
  {"protoss07","Homeland",49,2,false},
  {"protoss08","The Trial of Tassadar",50,2,false},
+ {"protoss09","Shadow Hunters",51,2,false},
  {"protoss10","Eye of the Storm",52,2,false},
  {"terran12","The Hammer Falls",55,1,false},
  {"zerg10","Full Circle",56,0,false}
