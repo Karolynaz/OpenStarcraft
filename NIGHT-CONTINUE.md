@@ -2706,3 +2706,42 @@ and 8,264,704 bytes of linear memory, with no missing images, missing SFX,
 or audio IO errors in 172 samples. All 16 original WAVs also matched an
 independent StormLib extraction. The emulator was stopped and its original
 virtual SD directory and configuration were restored.
+
+## 2026-11-08 original campaign milestone: The Big Push
+
+Source `src-f031564992240e44`. Enabled Terran 8 `terran09` (scenario 53)
+after The Trump Card. The owned, normalized CHK matches the previous
+private audit byte for byte. The mission runs the authored map, AI and
+triggers, with the six starting buildings in transit.
+
+The ASan public-command route unloads the SCVs, lands the buildings,
+establishes mining, moves the second Command Center to the central
+expansion and pushes with grouped tanks while Duke stays safe. The
+original victory fired at frame 58220 with Duke alive. Replaying the
+save reproduced the state digest. Flying Duke into the Confederate
+base triggered the original defeat at frame 1011. The host driver
+observes the whole map. Fresh 3DS gameplay starts with normal fog.
+
+All 40 original-map menu routes, startups, active save replays, 48-frame
+continuations and extended ticks passed under ASan. All 40 native-size
+dual-screen story banks passed validation. The 14 owned dialogue WAVs
+matched an independent extraction and passed bounded mixer playback
+with zero IO errors. The ELF passed the ARMv6K/VFPv2 check. The private
+CIA and 3DS in `nintendo3ds/out/original-campaign-29/` contain the same
+NCCH payload and passed ExeFS/RomFS superblock verification.
+
+29 of 30 original missions and 11 Brood War missions have verified
+victory routes. New Gettysburg is the remaining original mission.
+Private diagnostics, logs and the release-matched victory journal are
+under `nintendo3ds/local-data/sc-original-remaining/t8-investigation/`.
+
+The packaged .3ds booted on original-model Azahar at CPU 100%. The episode
+card opened the story, then the voiced briefing (two clips played with
+zero missing and zero IO errors), loading objectives and fresh gameplay.
+Load Game reconstructed the release-matched command journal, showed
+Victory at 40:25, and wrote `terran09=1`. OK opened The Hammer Falls.
+Fresh gameplay sampled up to 31,692,720 bytes of normal heap and 8,264,704
+bytes of linear memory across 54 samples, with zero missing images,
+missing SFX or audio IO errors. The bundle has 742 static assets and
+excludes profiles, campaign progress and saves. The original emulator
+virtual SD directory and config were restored.
