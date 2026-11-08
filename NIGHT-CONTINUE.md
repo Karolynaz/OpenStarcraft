@@ -2666,3 +2666,43 @@ opened the Eye of the Storm story screen. Fresh-gameplay samples peaked at
 31,610,976 bytes normal and 8,264,704 bytes linear, with zero missing sprites,
 missing SFX or audio IO errors. Azahar was stopped and its virtual SD directory
 and config were restored.
+
+## 2026-11-08 original campaign milestone: Into the Darkness
+
+Source `src-cdab82c7debd8228`. Enabled Protoss 6 `protoss06` (Scenario 48)
+between Choosing Sides and Homeland. Re-extracted the owned, normalized CHK
+and verified byte identity with the private audit. The mission uses its
+original map, traps, AI, rescue and win/loss triggers. The native-size story
+art uses the same original location-card background as Choosing Sides.
+
+The ASan public-command route preserves a rescued Marine, sends his
+hallucinations into the southern ambush, withdraws Tassadar, and approaches
+the eastern switch from its southeast edge before returning to the cell.
+The authored victory fired at frame 99381, with Tassadar and Zeratul alive.
+The completed save replay reproduced the exact state digest and routed to
+Homeland. The diagnostic assault instead triggered the authored
+Tassadar-loss defeat at frame 35462. This host pilot observes the full map
+to choose actions. Fresh 3DS gameplay starts with normal fog.
+
+All 39 menu routes, startups, active-save replays, 48-frame continuations,
+and extended ticks passed under ASan. All 39 native-size story banks passed.
+All 16 owned mission/briefing dialogue WAVs passed the 2 MiB mixer playback
+test byte-for-byte with zero IO errors. The ELF passed ARMv6K/VFPv2 checks.
+The CIA and 3DS in `nintendo3ds/out/original-campaign-28/` contain identical
+NCCH payloads and valid ExeFS/RomFS superblock hashes. The bundle contains
+730 static assets and excludes profiles, campaign progress and saves.
+
+28 of 30 original missions and 11 Brood War missions have verified victory
+routes. The Big Push and New Gettysburg are the two outstanding original
+missions. Private diagnostics, test outputs and a replayable fixture are
+under `nintendo3ds/local-data/sc-original-remaining/p6-investigation/`.
+
+The packaged .3ds booted on original-model Azahar at CPU 100%. The episode
+card opened the story, then the voiced briefing, loading objectives and
+fresh gameplay. The in-game Load Game menu restored the release-matched
+command journal, reached Victory at 69:00 and wrote `protoss06=1`. OK opened
+the Homeland story. Fresh gameplay sampled 31,611,072 bytes of normal heap
+and 8,264,704 bytes of linear memory, with no missing images, missing SFX,
+or audio IO errors in 172 samples. All 16 original WAVs also matched an
+independent StormLib extraction. The emulator was stopped and its original
+virtual SD directory and configuration were restored.
