@@ -287,7 +287,7 @@ int main(int argc,char** argv) {
     assert(expansion_landed && outcome.winner==0);
     assert(e.count_units(0,29)==1 && outcome.minerals_gathered>0);
     assert(ResultScreen::next_mission(unsigned(scenario),true,outcome.next_scenario)==
-           campaign::key_index("terran12"));
+           campaign::key_index("terran11"));
     assert(e.save_game((prefix+".sav").c_str(),SaveView{}));
     Engine replay;SaveView view;
     assert(replay.load_save(argv[1],(prefix+".sav").c_str(),(prefix+"-replay").c_str(),(prefix+"-map").c_str(),view));

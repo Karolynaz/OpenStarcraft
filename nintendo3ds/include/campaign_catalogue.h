@@ -23,6 +23,7 @@ static constexpr Mission missions[]={
  {"terran06","Norad II",33,1,false},
  {"terran08","The Trump Card",34,1,false},
  {"terran09","The Big Push",53,1,false},
+ {"terran11","New Gettysburg",54,1,false},
  {"zerg05","The Amerigo",35,0,false},
  {"zerg06","The Dark Templar",36,0,false},
  {"zerg07","The Culling",37,0,false},

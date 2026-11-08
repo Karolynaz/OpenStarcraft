@@ -2745,3 +2745,46 @@ bytes of linear memory across 54 samples, with zero missing images,
 missing SFX or audio IO errors. The bundle has 742 static assets and
 excludes profiles, campaign progress and saves. The original emulator
 virtual SD directory and config were restored.
+
+## 2026-11-08 original campaign milestone: New Gettysburg
+
+Source `src-7a74885063dc486c`. Enabled Terran 9 `terran11` (scenario 54)
+between The Big Push and The Hammer Falls. The newly extracted owned CHK
+matches the earlier audit byte for byte. The original map, AI, objectives,
+dialogue and win/loss triggers are used.
+
+The ASan public-command route mines from the starting base, pays for
+Battlecruisers and Yamato, moves Kerrigan to the southwest by Dropship,
+and routes the fleet east before turning into the Protoss positions.
+The original victory fired at frame 48169 with Kerrigan and the protected
+Zerg buildings intact. Completed-save replay matched the exact state digest.
+The host driver observes the whole map. Fresh gameplay starts with normal
+fog. Separate ASan diagnostic routes reached both authored defeats:
+a protected Zerg building was destroyed at frame 12325, and Kerrigan
+was killed at frame 46580. The Big Push rerun reached its original
+victory and now routes to New Gettysburg.
+
+All 41 enabled mission starts, menu routes, active-save replays, 48-frame
+continuations and extended ticks passed under ASan. All 41 native-size
+story banks and briefing presentation checks passed. All 22 original
+mission and briefing WAVs matched independent StormLib extraction and
+passed the 2 MiB mixer test with zero IO errors. The final ELF passed
+ARMv6K/VFPv2 verification. The private CIA and 3DS in
+`nintendo3ds/out/original-campaign-30/` have identical NCCH payloads
+and valid ExeFS/RomFS superblock hashes. They contain 754 static assets
+and exclude profiles, progress and saves.
+
+All 30 original StarCraft missions and 11 Brood War missions now have
+verified victory routes across the campaign milestones. Private evidence
+for this stage is under
+`nintendo3ds/local-data/sc-original-remaining/t9-investigation/`.
+
+The packaged .3ds booted in original-model Azahar at CPU 100%. The Terran
+episode opened New Gettysburg. Its story, animated briefing, objectives,
+fresh gameplay and Raynor's opening transmission were visible. The briefing
+played three clips before Start with zero missing and IO errors. Load Game
+reconstructed the release-matched command journal, showed Victory at 33:27,
+and wrote `terran11=1`. OK opened The Hammer Falls. Across 93 gameplay
+samples, heap peaked at 31,416,008 bytes and linear memory at 8,264,704,
+with zero missing images, missing SFX or audio IO errors. The emulator's
+virtual SD and configuration were restored.
