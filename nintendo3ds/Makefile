@@ -310,6 +310,11 @@ build/campaign-bw-terran-second-test: tests/campaign_bw_terran_second.cpp source
 	$(HOST_CXX) $(COMMON) -O1 -g -fsanitize=address tests/campaign_bw_terran_second.cpp source/engine.cpp -o $@
 build/campaign-bw-terran-third-test: tests/campaign_bw_terran_third.cpp source/engine.cpp $(HEADERS) build/source_id.h | build
 	$(HOST_CXX) $(COMMON) -O1 -g -fsanitize=address tests/campaign_bw_terran_third.cpp source/engine.cpp -o $@
+build/campaign-bw-terran-sixth-test: tests/campaign_bw_terran_sixth.cpp source/engine.cpp $(HEADERS) build/source_id.h | build
+	$(HOST_CXX) $(COMMON) -O1 -g -fsanitize=address tests/campaign_bw_terran_sixth.cpp source/engine.cpp -o $@
+.PHONY: test-campaign-bw-terran-sixth
+test-campaign-bw-terran-sixth: build/campaign-bw-terran-sixth-test
+	ASAN_OPTIONS=detect_leaks=0 ./build/campaign-bw-terran-sixth-test "$(ASSET_ROOT)" local-data/campaign-all-audit/expterran06.chk /tmp/sc3ds-expterran06-session
 build/campaign-bw-protoss-third-test: tests/campaign_bw_protoss_third.cpp source/engine.cpp $(HEADERS) build/source_id.h | build
 	$(HOST_CXX) $(COMMON) -O1 -g -fsanitize=address tests/campaign_bw_protoss_third.cpp source/engine.cpp -o $@
 

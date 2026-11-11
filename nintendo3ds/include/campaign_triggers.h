@@ -84,6 +84,8 @@ bool campaign_action(execute_trigger_struct& ets,int owner,running_trigger& rt,r
    if((a.flags&8) && a.group2_n>0 && a.group2_n<=64){const auto& prop=campaign.properties[a.group2_n-1];auto word=[&](unsigned n){return unsigned(prop[n])|(unsigned(prop[n+1])<<8);};unsigned valid=word(2),special=word(0),bits=word(14);
     if(valid&2)set_unit_hp(u,std::max(fp8::from_raw(1),u->unit_type->hitpoints*std::min<int>(100,prop[5])/100));if(valid&4)set_unit_shield_points(u,fp8::integer(u->unit_type->shield_points)*std::min<int>(100,prop[6])/100);if(valid&8)set_unit_energy(u,unit_max_energy(u)*std::min<int>(100,prop[7])/100);
     if(valid&16)set_unit_resources(u,data_loading::value_at<uint32_t,true>(prop.data()+8));if((special&8) && (bits&8))make_unit_hallucination(u);
+    // A trigger can create a Terran building already in flight, as in UNIT.
+    if((special&4) && (bits&4))set_initial_building_in_transit(u);
     if(special&16)u_set_status_flag(u,unit_t::status_flag_invincible,(bits&16)!=0);if((special&2) && (bits&2)){set_unit_burrowed(u);set_unit_order(u,get_order_type(Orders::Burrowed));}if((special&1) && (bits&1))cloak_unit(u);
    }
   }return true;}

@@ -29,6 +29,6 @@ int main(int argc,char**argv){assert(argc==3);
  // Brood War retail maps omit Set Next Scenario: catalogue order supplies it.
  for(const auto& key:{"expterran02","expterran03","expterran04","expprotoss02","expprotoss03","expprotoss04"}){std::ofstream out(base+"/campaign/"+key+".brief");out<<"Private route fixture";}
  for(const auto& route:std::vector<std::pair<unsigned,const char*>>{{20,"expterran02"},{41,"expterran03"},{43,"expterran04"},{19,"expprotoss02"},{32,"expprotoss03"},{42,"expprotoss04"}}){assert(front.complete_mission(route.first,""));Frontend next;next.init((base+"/").c_str());next.brood=true;next.activate(campaign::race(route.first)==1?0:1);assert(next.mission==campaign::key_index(route.second));}
- unsigned bt=0,bp=0,bz=0;for(const auto& m:campaign::missions)if(m.brood){if(m.race==1)++bt;else if(m.race==2)++bp;else ++bz;}assert(bt==4 && bp==4 && bz==3);
+ unsigned bt=0,bp=0,bz=0;for(const auto& m:campaign::missions)if(m.brood){if(m.race==1)++bt;else if(m.race==2)++bp;else ++bz;}assert(bt==5 && bp==4 && bz==3);
  Frontend bad;bad.base=base+"/absent/maps";assert(!bad.complete_mission(16,"Terran03.scx") && !bad.completed[0]);
  puts("Disabled zero-location Bring/unsupported condition/action skipped, original next-scenario field/active replay + validated branch keys, episode routes, atomic progress/reload and failed-write rollback PASS");}

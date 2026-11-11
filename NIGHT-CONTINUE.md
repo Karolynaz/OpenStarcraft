@@ -2818,3 +2818,40 @@ Shuttles and dialogue arrive through the original triggers. The diagnostic
 uses fog off and the existing Protoss campaign entry. Remaining work is a full
 five-generator victory, its replay, and presentation and release integration.
 Private route pilots and logs: `nintendo3ds/local-data/bw-braxis-nov11/`.
+
+## 2026-11-11 Brood War Terran 6: Emperor's Flight
+
+Source `src-cd52198055f9d3ca`, stable scenario ID 57. The original trigger's
+Create Unit With Properties flag for buildings in transit was ignored. The
+five Terran buildings now start airborne and travel to the authored
+rendezvous. On the original map the player received the base, two Dropships,
+two Science Vessels and six SCVs by frame 2400. No previously enabled retail
+map used this property on a trigger-created unit in the audited CHKs.
+
+The ASan public-command test boarded two tanks, flew a Dropship around the
+east of the map and attacked Raynor's command center from the north. Original
+victory at frame 6987 and exact completed-save replay passed. The driver
+uses fog off to place repeatable orders. A separate normal-fog test covered
+the campaign menu, active save/replay and 48-frame continuation for all 42
+installed missions, plus extended ticks. All 42 story and briefing banks
+passed presentation checks. All 16 mission and briefing WAVs passed the
+2 MiB bounded mixer with zero IO errors. The ELF passed ARMv6K/VFPv2 and
+the private CIA/3DS have equal NCCH payloads and verified superblocks.
+The emulator was already running another game. No new emulator playthrough
+was performed.
+
+The catalogue now contains 30 original and 12 Brood War missions with
+verified victory routes. Emperor's Flight can be opened from the Terran
+campaign card after the installed chapters through Assault on Korhal are
+marked complete. Emperor's Fall's two authored branches and Patriot's Blood
+still need completion and integration. The private files are in
+`nintendo3ds/out/emperors-flight/`; evidence and original-data staging are in
+`nintendo3ds/local-data/bw-braxis-nov11/`.
+
+Braxis testing reached the central generator with transported Dark Templar
+and damaged it, but the escorts stopped them. In Return to Char, the
+paid Probe/Shuttle route reached the outer ground approach and the Dark
+Templar transport reached the Overmind's vicinity, without a verified
+victory. Both missions remain pending. A separate passive ASan audit
+stepped 21 unfinished Brood War map variants until frame 12000 or defeat;
+no startup or tick errors were observed in that audit.

@@ -35,6 +35,7 @@ static constexpr Mission missions[]={
  {"expterran03","Ruins of Tarsonis",43,1,true},
  {"expprotoss04","The Quest for Uraj",44,2,true},
  {"expterran04","Assault on Korhal",45,1,true},
+ {"expterran06","Emperor's Flight",57,1,true},
  {"zerg09","The Invasion of Aiur",46,0,false},
  {"protoss05","Choosing Sides",47,2,false},
  {"protoss06","Into the Darkness",48,2,false},

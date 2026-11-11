@@ -34,6 +34,7 @@ summaries={
  'terran12':'Raynor turns against Mengsk and attempts to escape Tarsonis. Establish a colony, break through the Dominion defenses and destroy the Ion Cannon blocking the evacuation. Raynor must survive.',
  'zerg10':'The Khaydarin Crystal has been recovered. Destroy the ancient Protoss Temple, then carry the crystal to its remains so the Overmind can establish itself on Aiur.',
 
+ 'expterran06': "Mengsk escaped the UED assault on Korhal with Raynor's help. Pursue them to Aiur, secure a landing zone for the UED forces and destroy Raynor's command center.",
  'expterran04': "After taking the Psi Disrupter on Tarsonis, the UED attacks the Dominion capital on Korhal. Choose which threat to remove: destroy the enemy Physics Labs to weaken its battlecruisers, or destroy the Nuclear Silos to stop its nuclear strikes.",
  'expprotoss04': "To cleanse Shakuras, the Protoss must recover two crystals that can power the ancient Xel'Naga temple. Kerrigan offers to help retrieve the Uraj crystal from Braxis, where Dominion forces stand between the expedition and its prize.",
  'expterran02': "The UED has secured a foothold in the sector. At the Dylarian shipyards, escort the pilots to commandeer the Dominion's battlecruisers and turn its fleet against Admiral Duke.",
