@@ -2788,3 +2788,33 @@ and wrote `terran11=1`. OK opened The Hammer Falls. Across 93 gameplay
 samples, heap peaked at 31,416,008 bytes and linear memory at 8,264,704,
 with zero missing images, missing SFX or audio IO errors. The emulator's
 virtual SD and configuration were restored.
+
+## 2026-11-11 portable saves and Braxis investigation
+
+Local commit `d2d8878` decouples the saved-game simulation version from the
+executable build and records stable campaign scenario IDs in the replay digest.
+V1 replay checks the legacy catalogue position and can migrate on re-save.
+Copy the five named slot files, campaign progress and optional profile between
+userdata roots. See PORTING_3DS.md for paths. Progress accepts CRLF and preserves
+completion keys for missions absent from the current catalogue.
+
+Host ASan passed slot metadata and backup tests, save/load and exact continuation,
+mixed AI, timer journals and separate asset/userdata roots. Three genuine V1
+victory saves (The Big Push, New Gettysburg and Eye of the Storm) replayed and
+migrated, including a save written before New Gettysburg was inserted. The
+ARM64-produced V2 New Gettysburg save also replayed exactly in an x86-64
+ASan executable. The ARMv6K/VFPv2 ELF and package container hashes were checked.
+Private CIA/3DS: `nintendo3ds/out/portable-saves/`. Another game was running in
+the emulator, so no emulator session was replaced for this stage. Android was
+not tested. Evidence: `nintendo3ds/local-data/save-portability-nov11/`.
+
+Brood War Protoss 5 (The Battle of Braxis) is still under test and disabled in
+the catalogue. The unmodified map ran through opening objectives, an authored
+defeat after Artanis was killed, and a legitimate generator destruction and
+the first reinforcement sequence. The successful first approach boards two
+Dragoons and unloads the Shuttle around (1390, 3220), then attacks the generator
+at (1600, 3056). A Dragoon survives the drop. The four Dark Templar, replacement
+Shuttles and dialogue arrive through the original triggers. The diagnostic
+uses fog off and the existing Protoss campaign entry. Remaining work is a full
+five-generator victory, its replay, and presentation and release integration.
+Private route pilots and logs: `nintendo3ds/local-data/bw-braxis-nov11/`.
