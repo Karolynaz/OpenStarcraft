@@ -28,6 +28,7 @@ struct Frontend {
  bool saved_notice=false,campaign_start=false;
  std::array<std::string,5> load_labels,load_short_labels;std::array<bool,5> load_enabled{};unsigned load_requested_slot=~0u;
  unsigned mission=0;std::array<bool,campaign::count> completed{};std::array<std::string,6> next_missions{};
+ std::vector<std::string> other_completed_missions;
  std::vector<std::string> briefing;std::vector<unsigned> briefing_voices;unsigned briefing_page=0;bool briefing_paginated=false;
  // Shared by pagination and drawing: top-screen text must never be clipped
  // using the old, smaller bottom-screen paragraph dimensions.
@@ -143,9 +144,28 @@ struct Frontend {
   // and all profile/progress files remain on the SD card.
   if(userdata){const auto custom=user_root+"maps";if(auto* dir=opendir(custom.c_str())){closedir(dir);directory=custom;}}
   if(FILE* f=std::fopen(settings.c_str(),"r")){unsigned v,r;if(std::fscanf(f,"OPENBW_PROFILE1\nversion=%u\nrace=%u",&v,&r)==2){brood=v==1;race=r<3?r:1;}char line[128];while(std::fgets(line,sizeof line,f)){unsigned value;if(std::sscanf(line,"difficulty=%u",&value)==1)difficulty=value==1?1:0;if(std::sscanf(line,"portraits=%u",&value)==1)show_portraits=value!=0;}std::fclose(f);}else save();scan();
-  if(FILE* progress=std::fopen(progress_path().c_str(),"r")){char line[80];while(std::fgets(line,sizeof line,progress)){std::string route=line;if(route.compare(0,5,"next=")==0){route=route.substr(5);while(!route.empty() && (route.back()=='\n' || route.back()=='\r'))route.pop_back();auto ep=campaign::key_episode(route);if(ep<next_missions.size())next_missions[ep]=route;}for(unsigned i=0;i<campaign::count;++i)if(std::string(line)==std::string(campaign::missions[i].key)+"=1\n" || (i==0 && std::string(line)=="terran=1\n"))completed[i]=true;}std::fclose(progress);}
+  if(FILE* progress=std::fopen(progress_path().c_str(),"r")){
+   char line[80];
+   while(std::fgets(line,sizeof line,progress)){
+    std::string entry=line;
+    while(!entry.empty() && (entry.back()=='\n' || entry.back()=='\r'))entry.pop_back();
+    if(entry.compare(0,5,"next=")==0){
+     const auto route=entry.substr(5);
+     const auto episode=campaign::key_episode(route);
+     if(episode<next_missions.size())next_missions[episode]=route;
+    }else if(entry.size()>2 && entry.compare(entry.size()-2,2,"=1")==0){
+     const auto key=entry.substr(0,entry.size()-2);
+     const auto index=key=="terran"?0u:campaign::key_index(key);
+     if(index<campaign::count)completed[index]=true;
+     else if(campaign::key_episode(key)<next_missions.size() &&
+             std::find(other_completed_missions.begin(),other_completed_missions.end(),key)==other_completed_missions.end())
+      other_completed_missions.push_back(key);
+    }
+   }
+   std::fclose(progress);
+  }
  }
- bool complete_mission(unsigned scenario,const std::string& filename){auto i=campaign::index(scenario);if(i>=campaign::count)return false;auto done=completed;auto routes=next_missions;done[i]=true;const auto& m=campaign::missions[i];routes[(m.brood?3:0)+m.race]=campaign::next_key(scenario,filename);const auto path=progress_path(),temp=path+".tmp";FILE* out=std::fopen(temp.c_str(),"w");if(!out)return false;bool ok=std::fprintf(out,"OPENBW_CAMPAIGN1\n")>0;for(unsigned j=0;j<done.size();++j)ok=(std::fprintf(out,"%s=%u\n",campaign::missions[j].key,done[j]?1:0)>0)&&ok;for(const auto& route:routes)if(!route.empty())ok=(std::fprintf(out,"next=%s\n",route.c_str())>0)&&ok;const bool closed=std::fclose(out)==0;if(!ok || !closed || std::rename(temp.c_str(),path.c_str()))return false;completed=done;next_missions=routes;return true;}
+ bool complete_mission(unsigned scenario,const std::string& filename){auto i=campaign::index(scenario);if(i>=campaign::count)return false;auto done=completed;auto routes=next_missions;done[i]=true;const auto& m=campaign::missions[i];routes[(m.brood?3:0)+m.race]=campaign::next_key(scenario,filename);const auto path=progress_path(),temp=path+".tmp";FILE* out=std::fopen(temp.c_str(),"w");if(!out)return false;bool ok=std::fprintf(out,"OPENBW_CAMPAIGN1\n")>0;for(unsigned j=0;j<done.size();++j)ok=(std::fprintf(out,"%s=%u\n",campaign::missions[j].key,done[j]?1:0)>0)&&ok;for(const auto& key:other_completed_missions)ok=(std::fprintf(out,"%s=1\n",key.c_str())>0)&&ok;for(const auto& route:routes)if(!route.empty())ok=(std::fprintf(out,"next=%s\n",route.c_str())>0)&&ok;const bool closed=std::fclose(out)==0;if(!ok || !closed || std::rename(temp.c_str(),path.c_str()))return false;completed=done;next_missions=routes;return true;}
  void save(){
   const auto temp=settings+".tmp";FILE* f=std::fopen(temp.c_str(),"w");if(!f){save_failed=true;return;}
   const bool ok=std::fprintf(f,"OPENBW_PROFILE1\nversion=%u\nrace=%u\nname=Player1\ndifficulty=%u\nportraits=%u\n",brood?1:0,race,difficulty,show_portraits?1:0)>0;

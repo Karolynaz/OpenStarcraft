@@ -14,8 +14,32 @@ int main(int argc,char** argv){assert(argc==4);const std::string tmp="/tmp/sc3ds
  Engine restored;SaveView loaded;assert(restored.load_save(argv[1],slot.c_str(),session2.c_str(),map.c_str(),loaded));assert(loaded.camera_y==view.camera_y && loaded.auto_camera);compare(original,restored,300);
  restored.select_workers();restored.move_selected(1000,1000);ticks(restored,24);
  assert(restored.save_game(slot.c_str(),view));assert(access((slot+".bak").c_str(),F_OK)==0);Engine twice;assert(twice.load_save(argv[1],slot.c_str(),session.c_str(),map.c_str(),loaded));compare(restored,twice,100);
- std::ifstream in(slot,std::ios::binary);std::string bytes((std::istreambuf_iterator<char>(in)),{});bytes.back()^=1;{std::ofstream bad(tmp+"/bad",std::ios::binary);bad.write(bytes.data(),bytes.size());}const auto digest=twice.state_digest();assert(!twice.load_save(argv[1],(tmp+"/bad").c_str(),session.c_str(),map.c_str(),loaded) && twice.ready() && twice.state_digest()==digest);
- {auto foreign=bytes;foreign[136]^=1;std::ofstream bad(tmp+"/foreign",std::ios::binary);bad.write(foreign.data(),foreign.size());bad.close();assert(!Engine::inspect_save((tmp+"/foreign").c_str(),info,error,sizeof error));assert(std::string(error).find("different build")!=std::string::npos);}
+ std::ifstream in(slot,std::ios::binary);std::string bytes((std::istreambuf_iterator<char>(in)),{});auto damaged=bytes;damaged.back()^=1;{std::ofstream bad(tmp+"/bad",std::ios::binary);bad.write(damaged.data(),damaged.size());}const auto digest=twice.state_digest();assert(!twice.load_save(argv[1],(tmp+"/bad").c_str(),session.c_str(),map.c_str(),loaded) && twice.ready() && twice.state_digest()==digest);
+ auto variant=[&](const std::string& name,unsigned format,unsigned simulation){
+  savegame::Header header;
+  std::memcpy(header.bytes.data(),bytes.data(),header.bytes.size());
+  header.field(0,format);
+  header.field(savegame::simulation_field,simulation);
+  std::memcpy(header.bytes.data()+136,"src-other-device",17);
+  header.field(28,0);
+  header.field(28,savegame::hash(2166136261u,header.bytes.data(),header.bytes.size()));
+  std::ofstream output(name,std::ios::binary);
+  output.write(reinterpret_cast<const char*>(header.bytes.data()),header.bytes.size());
+  output.write(bytes.data()+header.bytes.size(),bytes.size()-header.bytes.size());
+ };
+ variant(tmp+"/foreign",savegame::format_version,savegame::simulation_version+1);
+ assert(!Engine::inspect_save((tmp+"/foreign").c_str(),info,error,sizeof error));
+ assert(std::string(error).find("different simulation version")!=std::string::npos);
+ for(unsigned format:{savegame::legacy_version,savegame::format_version}){
+  variant(tmp+"/portable",format,savegame::simulation_version);
+  Engine portable;assert(portable.load_save(argv[1],(tmp+"/portable").c_str(),session2.c_str(),map.c_str(),loaded));
+  Engine baseline;assert(baseline.load_save(argv[1],slot.c_str(),session.c_str(),map.c_str(),loaded));
+  compare(portable,baseline,48);
+  assert(portable.save_game((tmp+"/migrated").c_str(),view));
+  std::ifstream migrated(tmp+"/migrated",std::ios::binary);savegame::Header header;
+  assert(migrated.read(reinterpret_cast<char*>(header.bytes.data()),header.bytes.size()));
+  assert(header.field(0)==savegame::format_version);
+ }
  {std::ofstream bad(tmp+"/short",std::ios::binary);bad.write(bytes.data(),100);bad.close();assert(!Engine::inspect_save((tmp+"/short").c_str(),info,error,sizeof error));}
  bool cancelled=false;assert(!twice.load_save(argv[1],slot.c_str(),session.c_str(),map.c_str(),loaded,[&](unsigned,unsigned){cancelled=true;return false;}));assert(cancelled);
  Engine interrupted;unsigned callbacks=0;assert(!interrupted.load_save(argv[1],slot.c_str(),session2.c_str(),map.c_str(),loaded,[&](unsigned done,unsigned){++callbacks;return done<48;}));assert(callbacks>=3 && !interrupted.ready());

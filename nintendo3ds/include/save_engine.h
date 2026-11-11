@@ -3,13 +3,10 @@ namespace {
 bool checked_save(const char* path,savegame::Header& h,char* error,size_t capacity){
  auto fail=[&](const char* s){std::snprintf(error,capacity,"%s",s);return false;};FILE* file=std::fopen(path,"rb");if(!file)return fail("No saved game in this slot");
  bool ok=false;do{
-  if(std::fread(h.bytes.data(),1,h.bytes.size(),file)!=h.bytes.size() || std::memcmp(h.bytes.data(),"OB3SAVE1",8) || h.field(0)!=1){fail("Invalid save header");break;}
-  // Campaign trigger ownership and AI state changed; old replay journals must
-  // not silently reconstruct a different simulation under this build.
-  const auto* build=reinterpret_cast<char*>(h.bytes.data()+136);
-  if(std::strncmp(build,source_id,32)){fail("Save belongs to a different build");break;}
+  if(std::fread(h.bytes.data(),1,h.bytes.size(),file)!=h.bytes.size() || !h.supported_format()){fail("Unsupported or invalid save format");break;}
   const auto crc=h.field(28);h.field(28,0);const auto actual=savegame::hash(2166136261u,h.bytes.data(),h.bytes.size());h.field(28,crc);
   if(crc!=actual || h.field(1)>savegame::max_frames || h.field(2)>savegame::max_events || !h.field(3) || h.field(3)>savegame::max_map || h.field(4)>1 || (h.field(6)>15 && !campaign::scenario(h.field(6)))){fail("Invalid or damaged save metadata");break;}
+  if(h.field(0)==savegame::format_version && h.field(savegame::simulation_field)!=savegame::simulation_version){fail("Save uses a different simulation version");break;}
   const auto info=h.info();bool valid=unsigned(info.setup.difficulty)<=1 && info.setup.game_type<=2;
   for(unsigned p=0;p<3;++p)valid=valid && info.setup.races[p]>=-1 && info.setup.races[p]<=2 && info.setup.teams[p]<=2 && info.setup.side_difficulty[p]>=-1 && info.setup.side_difficulty[p]<=1;
   for(float v:{info.view.camera_x,info.view.camera_y,info.view.cursor_x,info.view.cursor_y})valid=valid && std::isfinite(v) && std::abs(v)<1000000;
@@ -25,9 +22,12 @@ bool checked_save(const char* path,savegame::Header& h,char* error,size_t capaci
 }
 }
 bool Engine::inspect_save(const char* path,SaveInfo& info,char* error,size_t capacity){savegame::Header h;if(!checked_save(path,h,error,capacity))return false;info=h.info();return true;}
-uint32_t Engine::state_digest()const{
+uint32_t Engine::state_digest() const {
+ return state_digest(unsigned(impl_->initial_scenario));
+}
+uint32_t Engine::state_digest(unsigned campaign_identity) const {
  if(!ready())return 0;const auto& st=impl_->player->st();const auto& f=impl_->player->funcs();uint32_t hash=2166136261u;auto add=[&](uint32_t v){unsigned char bytes[4];savegame::put(bytes,v);hash=savegame::hash(hash,bytes,4);};
- add(st.players[0].victory_state);const auto& campaign=impl_->sound->campaign;add(campaign.active);add(campaign.cinematic);add(campaign.objective);add(campaign.message);add(campaign.message_until);add(campaign.camera_serial);add(campaign.camera.x);add(campaign.camera.y);if(campaign.active){for(auto v:st.shared_vision)add(v);for(const auto& row:st.alliances)for(auto v:row)add(v);add(campaign.mission);add(campaign.next_scenario);add(uint32_t(campaign.countdown_frames));add(uint32_t(campaign.countdown_frames>>32));add(campaign.countdown_paused);add(campaign.countdown_active);for(auto v:campaign.switches)add(v);for(auto v:campaign.scores)add(v);for(const auto& row:campaign.deaths)for(auto v:row)add(v);for(const auto& row:campaign.kills)for(auto v:row)add(v);for(auto v:campaign.death_ids)add(v);add(campaign.ping_frame);add(campaign.ping.x);add(campaign.ping.y);impl_->sound->campaign_ai.digest(add);}
+ add(st.players[0].victory_state);const auto& campaign=impl_->sound->campaign;add(campaign.active);add(campaign.cinematic);add(campaign.objective);add(campaign.message);add(campaign.message_until);add(campaign.camera_serial);add(campaign.camera.x);add(campaign.camera.y);if(campaign.active){for(auto v:st.shared_vision)add(v);for(const auto& row:st.alliances)for(auto v:row)add(v);add(campaign_identity);add(campaign.next_scenario);add(uint32_t(campaign.countdown_frames));add(uint32_t(campaign.countdown_frames>>32));add(campaign.countdown_paused);add(campaign.countdown_active);for(auto v:campaign.switches)add(v);for(auto v:campaign.scores)add(v);for(const auto& row:campaign.deaths)for(auto v:row)add(v);for(const auto& row:campaign.kills)for(auto v:row)add(v);for(auto v:campaign.death_ids)add(v);add(campaign.ping_frame);add(campaign.ping.x);add(campaign.ping.y);impl_->sound->campaign_ai.digest(add);}
  add(st.current_frame);add(st.lcg_rand_state);add(st.active_orders_size);add(st.active_bullets_size);add(st.active_thingies_size);add(impl_->fog);
  for(unsigned p=0;p<12;++p){add(st.current_minerals[p]);add(st.current_gas[p]);for(auto v:st.tech_researched[p])add(v);for(auto v:st.upgrade_levels[p])add(v);
   for(auto* u:ptr(st.player_units[p])){add(f.get_unit_id_32(u).raw_value);add(unsigned(u->unit_type->id));add(u->status_flags);add(u->kill_count);add(u->hp.raw_value);add(u->shield_points.raw_value);add(u->energy.raw_value);add(u->exact_position.x.raw_value);add(u->exact_position.y.raw_value);add(unsigned(u->order_type->id));add(u->order_state);add(u->order_signal);add(u->main_order_timer);add(u->sprite?u->sprite->elevation_level:0);for(const auto& order:u->order_queue){add(unsigned(order.order_type->id));add(order.target.position.x);add(order.target.position.y);add(order.target.unit?f.get_unit_id_32(order.target.unit).raw_value:0);}add(0xfffffffeu);add(u->order_target.pos.x);add(u->order_target.pos.y);add(u->order_target.unit?f.get_unit_id_32(u->order_target.unit).raw_value:0);add(u->remaining_build_time);add(u->carrying_flags);if(f.ut_worker(u))add(u->worker.powerup?f.get_unit_id_32(u->worker.powerup).raw_value:0);for(auto* t:u->build_queue)add(unsigned(t->id));add(0xffffffffu);}
@@ -39,14 +39,14 @@ uint32_t Engine::state_digest()const{
 bool Engine::start_recording(const char* path){
  if(!ready() || frame()!=0){std::snprintf(impl_->message,sizeof impl_->message,"Recording must start at frame zero");return false;}
  FILE* map=std::fopen(impl_->initial_map.c_str(),"rb");if(!map)return false;std::fseek(map,0,SEEK_END);const auto size=std::ftell(map);std::rewind(map);
- if(size<=0 || size>savegame::max_map){std::fclose(map);return false;}savegame::Header h;std::memcpy(h.bytes.data(),"OB3SAVE1",8);h.field(0,1);h.field(3,unsigned(size));h.field(4,chk_path(impl_->initial_map));std::snprintf(reinterpret_cast<char*>(h.bytes.data()+136),32,"%s",source_id);SaveInfo info;info.scenario=unsigned(impl_->initial_scenario);info.setup=impl_->initial_setup;h.setup(info);
+ if(size<=0 || size>savegame::max_map){std::fclose(map);return false;}savegame::Header h;std::memcpy(h.bytes.data(),"OB3SAVE1",8);h.set_current_version();h.field(3,unsigned(size));h.field(4,chk_path(impl_->initial_map));SaveInfo info;info.scenario=unsigned(impl_->initial_scenario);info.setup=impl_->initial_setup;h.setup(info);
  const bool ok=impl_->journal.open(path,h,map);std::fclose(map);return ok;
 }
 bool Engine::save_game(const char* path,const SaveView& view,std::uint64_t saved_at){
  auto fail=[&](const char* s){std::snprintf(impl_->message,sizeof impl_->message,"%s",s);return false;};auto& writer=impl_->journal;
  if(!ready() || !writer.flush())return fail("Save unavailable: session journal failed");
  if(writer.path==path)return fail("Save and session paths must differ");
- auto h=writer.header;h.field(1,frame());h.field(2,writer.events);h.field(5,state_digest());h.view(view);if(!saved_at){const auto now=std::time(nullptr);if(now>0)saved_at=std::uint64_t(now);}h.field(29,uint32_t(saved_at));h.field(30,uint32_t(saved_at>>32));h.field(28,0);
+ auto h=writer.header;h.set_current_version();h.field(1,frame());h.field(2,writer.events);h.field(5,state_digest());h.view(view);if(!saved_at){const auto now=std::time(nullptr);if(now>0)saved_at=std::uint64_t(now);}h.field(29,uint32_t(saved_at));h.field(30,uint32_t(saved_at>>32));h.field(28,0);
  const std::string temp=std::string(path)+".tmp",backup=std::string(path)+".bak";FILE* in=std::fopen(writer.path.c_str(),"rb");if(!in)return fail("Cannot read session journal");FILE* out=std::fopen(temp.c_str(),"wb+");if(!out){std::fclose(in);return fail("Cannot create save on SD");}
  bool ok=std::fwrite(h.bytes.data(),1,h.bytes.size(),out)==h.bytes.size() && std::fseek(in,savegame::header_size,SEEK_SET)==0;uint32_t checksum=2166136261u;
  if(ok)ok=savegame::copy(in,out,h.field(3)+size_t(h.field(2))*savegame::record_size,&checksum);std::fclose(in);h.field(7,checksum);h.field(28,savegame::hash(2166136261u,h.bytes.data(),h.bytes.size()));
@@ -73,8 +73,21 @@ bool Engine::load_save(const char* root,const char* path,const char* session,con
   if(!(ok=tick()))break;impl_->sound->count=0;impl_->sound->dropped=0;
   if(frame()%24==0 && progress && !progress(frame(),h.field(1))){cancelled=true;ok=false;break;}
  }
- std::fclose(input);if(ok)ok=!have && frame()==h.field(1) && state_digest()==h.field(5);
+ std::fclose(input);
+ if(ok) {
+  ok = !have && frame() == h.field(1);
+  if(ok && h.field(0) == savegame::legacy_version && impl_->sound->campaign.active) {
+   // Legacy checksums included the mission's position in the catalogue.
+   // Try other positions so adding missions does not strand an old save.
+   const unsigned current_index = campaign::index(info.scenario);
+   ok = state_digest(current_index) == h.field(5);
+   for(unsigned i = 0; !ok && i < campaign::count; ++i)
+    if(i != current_index) ok = state_digest(i) == h.field(5);
+  } else if(ok) {
+   ok = state_digest() == h.field(5);
+  }
+ }
  if(ok)ok=impl_->journal.clone(path,session,h);
- if(!ok){impl_->loaded=false;std::snprintf(impl_->message,sizeof impl_->message,"%s",cancelled?"Load cancelled":"Save reconstruction failed or assets differ");return false;}
+ if(!ok){impl_->loaded=false;std::snprintf(impl_->message,sizeof impl_->message,"%s",cancelled?"Load cancelled":"Save replay differs from this version or its assets");return false;}
  impl_->sound->count=0;impl_->sound->dropped=0;view=info.view;impl_->command_message="Saved game loaded";return true;
 }

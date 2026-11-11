@@ -143,6 +143,7 @@ public:
     std::size_t image_types(unsigned* output, std::size_t capacity) const;
     std::uint32_t terrain_signature() const;
 private:
+    std::uint32_t state_digest(unsigned campaign_identity) const;
     struct Impl;
     std::unique_ptr<Impl> impl_;
 };

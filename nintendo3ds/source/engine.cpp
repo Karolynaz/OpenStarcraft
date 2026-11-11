@@ -5,7 +5,6 @@
 #include "terran_battle.h"
 #include "creep_graphics.h"
 #include "fog_memory.h"
-#include "source_id.h"
 #include "sound_ids.h"
 #include <cmath>
 #include "command_icons.h"

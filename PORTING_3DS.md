@@ -183,6 +183,24 @@ it reads required paths directly below the supplied data root. Offline CASC
 extraction is not implemented or validated; renaming CASC blobs to MPQ cannot
 work. Loose filenames must match upstream's path spelling and case.
 
+## Moving saved games and campaign progress
+
+Close the game on both devices. Copy `saves/slot1.ob3` through
+`saves/slot5.ob3` (whichever exist), `campaign/progress.cfg`, and optionally
+`player1.cfg` from the old userdata root into the same relative paths on the
+destination. The 3DS userdata root is `sdmc:/3ds/openbw/`. Copy the files
+as-is. The `.ob3.bak` files are optional slot backups. The session journal
+and restored map cache are temporary and are recreated by the loader.
+
+The save uses fixed-width little-endian fields and includes the original map
+and the command journal. Keep the owned game data on the destination.
+Save format 2 identifies the simulation independently from the executable
+build. A version 1 save can be reopened when replay reproduces its recorded
+state. Save it again to write format 2. If a future simulation changes
+replay semantics, that build needs either a replay compatibility path or a
+new simulation version. Keep scenario IDs stable across ports. An Android
+port can use the same format and relative userdata paths.
+
 ## Controls and touch
 
 The current mapping is documented in `nintendo3ds/CONTROLS.md`. A executes

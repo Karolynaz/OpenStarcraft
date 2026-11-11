@@ -7,12 +7,22 @@
 #include <cstdint>
 #include <string>
 #include <functional>
+#include <limits>
 #include <ctime>
 namespace port3ds {
 struct SaveView {float camera_x=0,camera_y=0,cursor_x=200,cursor_y=120;bool auto_camera=false;};
 struct SaveInfo {std::uint64_t saved_at=0;unsigned frame=0,scenario=0;bool raw_map=false;MatchSetup setup;SaveView view;};
 namespace savegame {
 constexpr unsigned header_size=256,record_size=24,max_map=2*1024*1024,max_events=1000000,max_frames=24*60*60*12;
+constexpr unsigned legacy_version = 1;
+constexpr unsigned format_version = 2;
+// Increase when an existing map and command journal would replay differently.
+// Platform, presentation, and catalogue additions do not change this value.
+constexpr unsigned simulation_version = 1;
+constexpr unsigned simulation_field = 31;
+static_assert(sizeof(float) == 4 && std::numeric_limits<float>::is_iec559,
+              "Save view requires IEEE-754 binary32");
+
 enum Op:unsigned {select=1,clear,activate,army,workers,store,recall,command,perform,move,cancel,fog,surrender,elapsed,rectangle,similar,last=similar};
 inline uint32_t get(const unsigned char* p){return uint32_t(p[0])|uint32_t(p[1])<<8|uint32_t(p[2])<<16|uint32_t(p[3])<<24;}
 inline void put(unsigned char* p,uint32_t v){for(unsigned i=0;i<4;++i)p[i]=v>>(8*i);}
@@ -20,6 +30,15 @@ inline uint32_t hash(uint32_t h,const void* data,size_t n){auto* p=static_cast<c
 struct Header {
  std::array<unsigned char,header_size> bytes{};
  unsigned field(unsigned i)const{return get(bytes.data()+8+i*4);}void field(unsigned i,unsigned v){put(bytes.data()+8+i*4,v);}
+ bool supported_format() const {
+  return std::memcmp(bytes.data(), "OB3SAVE1", 8) == 0 &&
+         (field(0) == legacy_version || field(0) == format_version);
+ }
+ void set_current_version() {
+  field(0, format_version);
+  field(simulation_field, simulation_version);
+  std::fill(bytes.begin() + 136, bytes.begin() + 168, 0);
+ }
  void view(const SaveView& v){float a[]={v.camera_x,v.camera_y,v.cursor_x,v.cursor_y};for(unsigned i=0;i<4;++i){uint32_t b;std::memcpy(&b,&a[i],4);field(9+i,b);}field(13,v.auto_camera);}
  SaveInfo info()const{SaveInfo i;i.saved_at=uint64_t(field(29))|(uint64_t(field(30))<<32);i.frame=field(1);i.scenario=field(6);i.raw_map=field(4);i.setup.enabled=field(14);i.setup.difficulty=AiDifficulty(field(15));i.setup.game_type=field(16);i.setup.observer=field(17);for(unsigned p=0;p<3;++p){i.setup.races[p]=int32_t(field(18+p));i.setup.teams[p]=field(21+p);i.setup.side_difficulty[p]=int32_t(field(24+p));}float* a[]={&i.view.camera_x,&i.view.camera_y,&i.view.cursor_x,&i.view.cursor_y};for(unsigned p=0;p<4;++p){auto b=field(9+p);std::memcpy(a[p],&b,4);}i.view.auto_camera=field(13);return i;}
  void setup(const SaveInfo& i){field(6,i.scenario);field(14,i.setup.enabled);field(15,unsigned(i.setup.difficulty));field(16,i.setup.game_type);field(17,i.setup.observer);for(unsigned p=0;p<3;++p){field(18+p,i.setup.races[p]);field(21+p,i.setup.teams[p]);field(24+p,i.setup.side_difficulty[p]);}}

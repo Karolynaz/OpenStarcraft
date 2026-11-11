@@ -23,7 +23,7 @@ struct SaveSlots {
   if(!m.brood && m.race==1)number-=unsigned(number>7)+unsigned(number>10);
   return std::string(m.brood?"BW ":"")+(m.race==0?"Zerg":m.race==2?"Protoss":"Terran")+" mission "+std::to_string(number);
  }
- static bool metadata(const std::string& path,SaveInfo& info){FILE* f=std::fopen(path.c_str(),"rb");if(!f)return false;savegame::Header h;bool ok=std::fread(h.bytes.data(),1,h.bytes.size(),f)==h.bytes.size();std::fclose(f);if(!ok || std::memcmp(h.bytes.data(),"OB3SAVE1",8) || h.field(0)!=1)return false;const auto crc=h.field(28);h.field(28,0);if(savegame::hash(2166136261u,h.bytes.data(),h.bytes.size())!=crc)return false;if(h.field(6)>15 && !campaign::scenario(h.field(6)))return false;info=h.info();return true;}
+ static bool metadata(const std::string& path,SaveInfo& info){FILE* f=std::fopen(path.c_str(),"rb");if(!f)return false;savegame::Header h;bool ok=std::fread(h.bytes.data(),1,h.bytes.size(),f)==h.bytes.size();std::fclose(f);if(!ok || !h.supported_format())return false;const auto crc=h.field(28);h.field(28,0);if(savegame::hash(2166136261u,h.bytes.data(),h.bytes.size())!=crc)return false;if(h.field(6)>15 && !campaign::scenario(h.field(6)))return false;info=h.info();return true;}
  template<class Inspect> void scan(const std::string& root,Inspect inspect){
   for(unsigned i=0;i<count;++i){auto& s=slots[i];s=Slot{};s.path=path(root,i);char error[192]{};struct stat st{};s.occupied=stat(s.path.c_str(),&st)==0;const auto primary=s.path;
    s.available=inspect(s.path.c_str(),s.info,error,sizeof error);s.error=error;

@@ -21,7 +21,7 @@ int main(int argc,char**argv){assert(argc==3);const std::string dir="/tmp/sc3ds-
  }
  // Overwrite one slot; damage only its primary and prove recovery from its own backup.
  assert(engine.save_game(SaveSlots::path(dir,2).c_str(),view));{std::fstream f(SaveSlots::path(dir,2),std::ios::in|std::ios::out|std::ios::binary);f.seekp(-1,std::ios::end);f.put('\xff');}scan();assert(slots.slots[2].available && slots.slots[2].path.find(".bak")!=std::string::npos && slots.slots[2].info.frame==frames[2]);
- // A foreign-build save remains described instead of pretending the slot is empty.
- {const auto path=SaveSlots::path(dir,3);std::fstream f(path,std::ios::in|std::ios::out|std::ios::binary);savegame::Header h;f.read((char*)h.bytes.data(),h.bytes.size());h.bytes[136]^=1;h.field(28,0);h.field(28,savegame::hash(2166136261u,h.bytes.data(),h.bytes.size()));f.seekp(0);f.write((char*)h.bytes.data(),h.bytes.size());}scan();assert(slots.slots[3].occupied && !slots.slots[3].available && slots.slots[3].label.find("Zerg mission 1")!=std::string::npos);
- puts("5 real campaign save slots: independent states, timestamp labels, exact replay, per-slot backup and foreign-build metadata PASS");
+ // A different-simulation save remains described instead of pretending the slot is empty.
+ {const auto path=SaveSlots::path(dir,3);std::fstream f(path,std::ios::in|std::ios::out|std::ios::binary);savegame::Header h;f.read((char*)h.bytes.data(),h.bytes.size());h.field(savegame::simulation_field,savegame::simulation_version+1);h.field(28,0);h.field(28,savegame::hash(2166136261u,h.bytes.data(),h.bytes.size()));f.seekp(0);f.write((char*)h.bytes.data(),h.bytes.size());}scan();assert(slots.slots[3].occupied && !slots.slots[3].available && slots.slots[3].label.find("Zerg mission 1")!=std::string::npos);
+ puts("5 real campaign save slots: independent states, timestamp labels, exact replay, per-slot backup and different-simulation metadata PASS");
 }
