@@ -44,8 +44,10 @@ static constexpr Mission missions[]={
  {"protoss09","Shadow Hunters",51,2,false},
  {"protoss10","Eye of the Storm",52,2,false},
  {"terran12","The Hammer Falls",55,1,false},
- {"zerg10","Full Circle",56,0,false}
+ {"zerg10","Full Circle",56,0,false},
+ {"tutorial","Boot Camp",58,1,false}
 };
+constexpr unsigned tutorial_scenario=58;
 constexpr unsigned count=sizeof(missions)/sizeof(missions[0]);
 inline unsigned index(unsigned scenario){for(unsigned i=0;i<count;++i)if(missions[i].scenario==scenario)return i;return ~0u;}
 inline bool scenario(unsigned value){return index(value)<count;}
@@ -54,6 +56,6 @@ inline unsigned key_episode(const std::string& key){unsigned prefix=key.compare(
 inline std::string next_key(unsigned current,const std::string& filename){const auto i=index(current);if(i>=count || filename.size()<5 || filename.size()>31)return {};std::string stem;for(unsigned char c:filename){if(c>='A' && c<='Z')c+=32;if(!((c>='a' && c<='z') || (c>='0' && c<='9') || c=='.'))return {};stem+=char(c);}if(stem.substr(stem.size()-4)!=".scx")return {};stem.resize(stem.size()-4);if(missions[i].brood)stem="exp"+stem;return key_episode(stem)==unsigned(missions[i].brood?3:0)+missions[i].race?stem:std::string{};}
 inline unsigned key_index(const std::string& key){for(unsigned i=0;i<count;++i)if(key==missions[i].key)return i;return ~0u;}
 inline unsigned race(unsigned value){auto i=index(value);return i<count?missions[i].race:1;}
-inline unsigned adjacent(unsigned current,int step){if(current>=count)return 0;const auto& m=missions[current];for(unsigned n=1;n<=count;++n){unsigned next=(current+count+(step>0?n:count-n))%count;if(missions[next].brood==m.brood && missions[next].race==m.race)return next;}return current;}
+inline unsigned adjacent(unsigned current,int step){if(current>=count)return 0;const auto& m=missions[current];for(unsigned n=1;n<=count;++n){unsigned next=(current+count+(step>0?n:count-n))%count;if(missions[next].scenario!=tutorial_scenario && missions[next].brood==m.brood && missions[next].race==m.race)return next;}return current;}
 inline unsigned opening(bool brood,unsigned race){for(unsigned i=0;i<count;++i)if(missions[i].brood==brood && missions[i].race==race)return i;return 0;}
 }}

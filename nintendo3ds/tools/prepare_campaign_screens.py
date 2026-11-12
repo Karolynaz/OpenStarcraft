@@ -24,7 +24,8 @@ def split_screens(image):
 
 def background(raw, key, race, brood):
     code = ['z', 't', 'p'][race]
-    path = raw / f'rez_est{code}{key[-2:]}{"x" if brood else ""}.txt'
+    number = '0t' if key == 'tutorial' else key[-2:]
+    path = raw / f'rez_est{code}{number}{"x" if brood else ""}.txt'
     pages = re.findall(r'</BACKGROUND\s+([^>]+)>', path.read_text(encoding='cp1252'), re.I)
     if not pages:
         raise ValueError(f'No background in {path}')

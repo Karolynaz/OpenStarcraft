@@ -152,7 +152,7 @@ def animations(path,entries):
 cat=Path(__file__).parents[1]/'include/campaign_catalogue.h'
 for key,title,scenario,race,bw in re.findall(r'\{"([^"]+)","([^"]+)",(\d+),(\d+),(true|false)\}',cat.read_text()):
  if args.missions and key not in args.missions:continue
- race=int(race);bw=bw=='true';r=['z','t','p'][race];number=key[-2:]
+ race=int(race);bw=bw=='true';r=['z','t','p'][race];number='0t' if key=='tutorial' else key[-2:]
  shots=pages(f'rez/est{r}{number}{"x" if bw else ""}.txt')
  bg,location=next((s for s in reversed(shots) if 'blank.pcx' not in s[0].lower()),shots[-1])
  story='\n\n'.join(t for b,t in shots if 'blank.pcx' in b.lower())

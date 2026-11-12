@@ -185,6 +185,30 @@ inline void draw_frontend(Frontend& f,UiArt& art,MenuAnimation& animation,C2D_Te
    for(unsigned i=0;i<5;++i){const UiRect r={24,60+int(i)*28,272,24};if(f.hover==int(120+i))ui_border(r,bright);ui_limited(text,(ui_fits(f.load_labels[i].c_str(),.43f,260)?f.load_labels[i]:f.load_short_labels[i]).c_str(),30,r.y+4,.43f,260,1,f.load_enabled[i]?(f.hover==int(120+i)?bright:green):dim);}
    ui_text(text,"B: Cancel",160,204,.44f,green,true);
   }
+  else if(f.dialog==Frontend::Dialog::campaign_missions){
+   const auto& episode=campaign::missions[f.episode_opening];
+   const char* races[]={"Zerg campaign","Terran campaign","Protoss campaign"};
+   ui_text(text,races[episode.race],160,38,.58f,white,true);
+   ui_centered(text,f.episode_finished?"Replay opening":"Continue",Frontend::mission_button(0),.49f,f.hover==130?bright:green);
+   const auto page=f.mission_page();
+   for(unsigned i=0;i<5 && page+i<f.mission_choices.size();++i){
+    const auto index=f.mission_choices[page+i];
+    const auto row=Frontend::mission_button(i+1);
+    const auto color=f.hover==int(131+i)?bright:green;
+    if(f.hover==int(131+i))ui_border(row,color);
+    ui_limited(text,campaign::missions[index].title,row.x+5,row.y+4,.44f,192,1,color);
+    if(f.completed[index])ui_text(text,"Cleared",row.x+229,row.y+4,.36f,white,true);
+   }
+   if(page)label("<",136,56,201,.42f);
+   if(page+5<f.mission_choices.size())label(">",137,264,201,.42f);
+   ui_text(text,"B: Back",160,202,.39f,white,true);
+  }
+  else if(f.dialog==Frontend::Dialog::episode_complete){
+   ui_text(text,f.starcraft_finished?"StarCraft ending":"Episode complete",160,63,.61f,white,true);
+   ui_centered(text,campaign::missions[f.mission].title,{32,94,256,24},.49f,white);
+   label(f.starcraft_finished?"Campaign Menu":"Next Episode",140,160,150,.50f);
+   if(!f.starcraft_finished)label("Campaign Menu",141,160,185,.47f);
+  }
   else if(f.dialog==Frontend::Dialog::ai_tests){
    ui_text(text,"AI observer scenarios",160,43,.55f,white,true);
    const char* names[]={"Terran island AI vs AI","Protoss island AI vs AI","Zerg island AI vs AI","Medium vs 2 Easy (all races)"};

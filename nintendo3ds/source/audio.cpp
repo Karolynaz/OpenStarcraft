@@ -134,7 +134,7 @@ struct Audio::Impl {
 };
 Audio::Audio():impl_(new Impl) {}
 Audio::~Audio()=default;
-bool Audio::load(const char* root,bool dsp_ready,const char* music_prefix,const char* effects_path,unsigned cache_limit,bool music_only) {
+bool Audio::load(const char* root,bool dsp_ready,const char* music_prefix,const char* effects_path,unsigned cache_limit,bool music_only,bool single_track) {
     auto& s=*impl_;s.close();s.counters={};s.underruns=0;s.io_errors=0;s.buffers=0;s.track=0;s.next_track=1;s.streamed=0;s.stream_slot=0;s.effect_index.fill(-1);s.long_voice=false;
     std::fill(std::begin(s.last_played),std::end(s.last_played),0);
     auto fail=[&](const char* m) {s.close();std::snprintf(s.message,sizeof s.message,"%s",m);return false;};
@@ -144,7 +144,7 @@ bool Audio::load(const char* root,bool dsp_ready,const char* music_prefix,const 
         const int length=effects_path?std::snprintf(path,sizeof path,"%s",effects_path):std::snprintf(path,sizeof path,"%s/effects.bin",root);
         if(length<0 || unsigned(length)>=sizeof path)return fail("Audio path too long");
         for(unsigned i=0;i<3;++i) {
-            const int n=std::snprintf(s.track_paths[i],sizeof s.track_paths[i],"%s/%s%u.pcm",root,music_prefix,i+1);
+            const int n=std::snprintf(s.track_paths[i],sizeof s.track_paths[i],"%s/%s%u.pcm",root,music_prefix,single_track?1:i+1);
             if(n<0 || unsigned(n)>=sizeof s.track_paths[i])return fail("Music path too long");
         }
         if(!music_only){

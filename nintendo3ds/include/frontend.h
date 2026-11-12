@@ -22,11 +22,49 @@ struct BriefingLayout {
  static UiRect text(){return {43,52,340,163};}
 };
 struct Frontend {
- enum class Screen {campaign,custom};enum class Dialog {none,version,unsupported,exit,error,map_list,ai_tests,briefing,story,load_slots};
+ enum class Screen {campaign,custom};enum class Dialog {none,version,unsupported,exit,error,map_list,ai_tests,briefing,story,load_slots,campaign_missions,episode_complete};
  Screen screen=Screen::campaign;Dialog dialog=Dialog::none;
  bool brood=true,play=false,load=false,quit=false,save_failed=false;
  bool saved_notice=false,campaign_start=false;
  std::array<std::string,5> load_labels,load_short_labels;std::array<bool,5> load_enabled{};unsigned load_requested_slot=~0u;
+ unsigned episode_opening=0, episode_resume=0, mission_row=0;
+ bool episode_finished=false, starcraft_finished=false;
+ std::vector<unsigned> mission_choices;
+ static UiRect mission_button(unsigned row){return {26,62+int(row)*24,268,22};}
+ unsigned mission_page()const{return mission_row==0?0:(mission_row-1)/5*5;}
+ void open_episode(unsigned opening){
+  episode_opening=episode_resume=opening;mission_row=0;mission_choices.clear();
+  const auto& first=campaign::missions[opening];
+  unsigned current=opening;
+  do {
+   if(!completed[current])break;
+   current=campaign::adjacent(current,1);
+  } while(current!=opening);
+  const auto route=campaign::key_index(next_missions[(first.brood?3:0)+first.race]);
+  if(route<campaign::count && !completed[route])current=route;
+  episode_finished=current==opening && completed[current];
+  episode_resume=current;
+  if(!first.brood && first.race==1){
+   if(FILE* tutorial=std::fopen((campaign_folder()+"tutorial.brief").c_str(),"rb")){
+    std::fclose(tutorial);
+    mission_choices.push_back(campaign::index(campaign::tutorial_scenario));
+   }
+  }
+  for(unsigned j=opening;;){
+   if(completed[j] || j==episode_resume)mission_choices.push_back(j);
+   j=campaign::adjacent(j,1);
+   if(j==opening)break;
+  }
+  dialog=Dialog::campaign_missions;x=160;y=73;hover=130;
+ }
+ void open_episode_complete(unsigned index){
+  brood=false;mission=index;starcraft_finished=campaign::missions[index].race==2;
+  dialog=Dialog::episode_complete;x=160;y=157;hover=140;
+ }
+ void return_from_presentation(){
+  const auto& current=campaign::missions[mission];
+  open_episode(campaign::opening(current.brood,current.race));
+ }
  unsigned mission=0;std::array<bool,campaign::count> completed{};std::array<std::string,6> next_missions{};
  std::vector<std::string> other_completed_missions;
  std::vector<std::string> briefing;std::vector<unsigned> briefing_voices;unsigned briefing_page=0;bool briefing_paginated=false;
@@ -165,7 +203,7 @@ struct Frontend {
    std::fclose(progress);
   }
  }
- bool complete_mission(unsigned scenario,const std::string& filename){auto i=campaign::index(scenario);if(i>=campaign::count)return false;auto done=completed;auto routes=next_missions;done[i]=true;const auto& m=campaign::missions[i];routes[(m.brood?3:0)+m.race]=campaign::next_key(scenario,filename);const auto path=progress_path(),temp=path+".tmp";FILE* out=std::fopen(temp.c_str(),"w");if(!out)return false;bool ok=std::fprintf(out,"OPENBW_CAMPAIGN1\n")>0;for(unsigned j=0;j<done.size();++j)ok=(std::fprintf(out,"%s=%u\n",campaign::missions[j].key,done[j]?1:0)>0)&&ok;for(const auto& key:other_completed_missions)ok=(std::fprintf(out,"%s=1\n",key.c_str())>0)&&ok;for(const auto& route:routes)if(!route.empty())ok=(std::fprintf(out,"next=%s\n",route.c_str())>0)&&ok;const bool closed=std::fclose(out)==0;if(!ok || !closed || std::rename(temp.c_str(),path.c_str()))return false;completed=done;next_missions=routes;return true;}
+ bool complete_mission(unsigned scenario,const std::string& filename){auto i=campaign::index(scenario);if(i>=campaign::count)return false;auto done=completed;auto routes=next_missions;done[i]=true;const auto& m=campaign::missions[i];if(scenario!=campaign::tutorial_scenario && !completed[i])routes[(m.brood?3:0)+m.race]=campaign::next_key(scenario,filename);const auto path=progress_path(),temp=path+".tmp";FILE* out=std::fopen(temp.c_str(),"w");if(!out)return false;bool ok=std::fprintf(out,"OPENBW_CAMPAIGN1\n")>0;for(unsigned j=0;j<done.size();++j)ok=(std::fprintf(out,"%s=%u\n",campaign::missions[j].key,done[j]?1:0)>0)&&ok;for(const auto& key:other_completed_missions)ok=(std::fprintf(out,"%s=1\n",key.c_str())>0)&&ok;for(const auto& route:routes)if(!route.empty())ok=(std::fprintf(out,"next=%s\n",route.c_str())>0)&&ok;const bool closed=std::fclose(out)==0;if(!ok || !closed || std::rename(temp.c_str(),path.c_str()))return false;completed=done;next_missions=routes;return true;}
  void save(){
   const auto temp=settings+".tmp";FILE* f=std::fopen(temp.c_str(),"w");if(!f){save_failed=true;return;}
   const bool ok=std::fprintf(f,"OPENBW_PROFILE1\nversion=%u\nrace=%u\nname=Player1\ndifficulty=%u\nportraits=%u\n",brood?1:0,race,difficulty,show_portraits?1:0)>0;
@@ -177,6 +215,17 @@ struct Frontend {
  int hit(int px,int py)const{
   if(leaving || transition<1)return -1;
   if(dialog==Dialog::load_slots){for(unsigned i=0;i<5;++i)if(UiRect{24,60+int(i)*28,272,24}.hit(px,py))return 120+i;return -1;}
+  if(dialog==Dialog::campaign_missions){
+   for(unsigned i=0;i<=5;++i)if((i==0 || mission_page()+i<=mission_choices.size()) && mission_button(i).hit(px,py))return 130+i;
+   if(UiRect{25,203,67,14}.hit(px,py))return 136;
+   if(UiRect{228,203,67,14}.hit(px,py))return 137;
+   return -1;
+  }
+  if(dialog==Dialog::episode_complete){
+   if(UiRect{65,143,190,28}.hit(px,py))return 140;
+   if(!starcraft_finished && UiRect{65,178,190,28}.hit(px,py))return 141;
+   return -1;
+  }
   if(dialog==Dialog::story)return -1;
   if(dialog==Dialog::briefing && rich_briefing){if(!briefing_ready())return -1;if(BriefingLayout::cancel_hit().hit(px,py))return 111;const bool zerg=campaign::missions[mission].race==0;return UiRect{208,zerg?97:118,112,zerg?143:122}.hit(px,py)?116:-1;}
   if(dialog==Dialog::briefing){if(campaign::adjacent(mission,1)!=mission){if(UiRect{15,30,24,24}.hit(px,py))return 112;if(UiRect{281,30,24,24}.hit(px,py))return 113;}if(UiRect{178,198,124,28}.hit(px,py))return 110;return UiRect{18,198,124,28}.hit(px,py)?111:-1;}
@@ -226,15 +275,27 @@ struct Frontend {
  void activate(int id){
   if(id<0 || leaving || transition<1)return;
   if(dialog==Dialog::load_slots){if(id>=120 && id<125 && load_enabled[id-120])load_requested_slot=unsigned(id-120);return;}
-  if(dialog==Dialog::story){if(id==112 || id==113)open_briefing(campaign::adjacent(mission,id==112?-1:1));else if(id==115 || id==110)begin_briefing();else if(id==111)dialog=Dialog::none;return;}
-  if(dialog==Dialog::briefing && rich_briefing){if(briefing_loading)return;if(id==111)dialog=Dialog::none;else if(briefing_ready() && id==116){briefing_loading=true;briefing_exit=0;campaign_start=true;play=false;}return;}
+  if(dialog==Dialog::campaign_missions){
+   const auto page=mission_page();
+   if(id==136 || id==137){const auto target=int(page)+(id==136?-5:5);if(target>=0 && unsigned(target)<mission_choices.size()){mission_row=unsigned(target)+1;x=160;y=97;hover=131;}return;}
+   if(id==130)open_briefing(episode_resume);
+   else if(id>130 && id<=135 && page+unsigned(id-131)<mission_choices.size())open_briefing(mission_choices[page+id-131]);
+   return;
+  }
+  if(dialog==Dialog::episode_complete){
+   if(id==140 && !starcraft_finished)open_episode(campaign::opening(false,campaign::missions[mission].race==1?0:2));
+   else if(id==140 || id==141)dialog=Dialog::none;
+   return;
+  }
+  if(dialog==Dialog::story){if(id==112 || id==113)open_briefing(campaign::adjacent(mission,id==112?-1:1));else if(id==115 || id==110)begin_briefing();else if(id==111)return_from_presentation();return;}
+  if(dialog==Dialog::briefing && rich_briefing){if(briefing_loading)return;if(id==111)return_from_presentation();else if(briefing_ready() && id==116){briefing_loading=true;briefing_exit=0;campaign_start=true;play=false;}return;}
   if(dialog==Dialog::briefing){if(id==112 || id==113){open_briefing(campaign::adjacent(mission,id==112?-1:1));return;}if(id==110){if(briefing_page+1<briefing.size())++briefing_page;else {dialog=Dialog::none;campaign_start=true;play=true;}}else if(id==111)back();return;}
   if(dialog==Dialog::ai_tests){if(id>=100 && id<104){campaign_start=false;observer_test=unsigned(id-100);dialog=Dialog::none;play=true;}else if(id==32)dialog=Dialog::none;return;}
   if(dialog==Dialog::map_list){if(id>=70 && id<75 && scroll+unsigned(id-70)<maps.size()){selected_map=scroll+unsigned(id-70);preview_dirty=true;dialog=Dialog::none;}else if(id==90 || id==91){if(id==90)scroll=scroll>=5?scroll-5:0;else if(scroll+5<maps.size())scroll+=5;}else if(id==32)dialog=Dialog::none;return;}
   if(dialog!=Dialog::none){if(dialog==Dialog::version && (id==30 || id==31)){brood=id==31;save();dialog=Dialog::none;}else if(id==33 && dialog==Dialog::exit)quit=true;else if(id==32)dialog=Dialog::none;return;}
   if(screen==Screen::campaign){if(id==5){load=true;}else if(id<3){
-   {static const unsigned original_races[]={0,1,2},brood_races[]={1,2,0};mission=campaign::opening(brood,(brood?brood_races:original_races)[id]);for(unsigned n=0;n<campaign::count && completed[mission];++n){unsigned next=campaign::adjacent(mission,1);if(next==campaign::opening(brood,(brood?brood_races:original_races)[id]))break;mission=next;}const auto& selected=campaign::missions[mission];const auto preferred=campaign::key_index(next_missions[(selected.brood?3:0)+selected.race]);if(preferred<campaign::count)mission=preferred;open_briefing(mission);
-   }
+   static const unsigned original_races[]={0,1,2},brood_races[]={1,2,0};
+   open_episode(campaign::opening(brood,(brood?brood_races:original_races)[id]));
   }else if(id==3){campaign_start=false;observer_test=~0u;navigate(Screen::custom);}else if(id==4)dialog=Dialog::version;else if(id==6)dialog=Dialog::ai_tests;}
   else if(id==60){scroll=selected_map/5*5;dialog=Dialog::map_list;x=160;y=77+(selected_map-scroll)*24;}
   else if(id>=40 && id<52)adjust(unsigned(id-40)/2,id%2?1:-1);
@@ -254,6 +315,14 @@ struct Frontend {
  }
  void direction(unsigned direction){
   if(dialog==Dialog::load_slots){unsigned i=hover>=120 && hover<125?unsigned(hover-120):0;i=(i+5+(direction==0 || direction==3?-1:1))%5;hover=120+i;x=160;y=72+i*28;return;}
+  if(dialog==Dialog::campaign_missions){
+   if(direction==1 || direction==3){activate(direction==1?137:136);return;}
+   const auto size=unsigned(mission_choices.size())+1;
+   mission_row=(mission_row+size+(direction==0?-1:1))%size;
+   const unsigned row=mission_row==0?0:1+(mission_row-1)%5;
+   x=160;y=mission_button(row).y+11;hover=130+row;return;
+  }
+  if(dialog==Dialog::episode_complete){if(!starcraft_finished){const bool first=y<175;x=160;y=first?192:157;hover=first?141:140;}return;}
   if(dialog==Dialog::story){if(direction==0 || direction==2)scroll_story(direction==0?-36:36);return;}
   if(dialog==Dialog::briefing && rich_briefing)return;
   if(dialog==Dialog::briefing && (direction==1 || direction==3)){activate(direction==1?113:112);return;}
@@ -270,6 +339,6 @@ struct Frontend {
   else {row=(row+row_count+(direction==0?-1:1))%row_count;x=208;y=row_y(row);}hover=hit(int(x),int(y));
  }
  void confirm(){activate(dialog==Dialog::story?115:hit(int(x),int(y)));}
- void back(){if(briefing_loading)return;if(rich_briefing && presentation()){dialog=Dialog::none;return;}if(dialog==Dialog::briefing && briefing_page){--briefing_page;return;}if(leaving || transition<1)return;if(dialog!=Dialog::none)dialog=Dialog::none;else if(screen==Screen::custom)navigate(Screen::campaign);else dialog=Dialog::exit;}
+ void back(){if(briefing_loading)return;if(rich_briefing && presentation()){return_from_presentation();return;}if(dialog==Dialog::briefing && briefing_page){--briefing_page;return;}if(leaving || transition<1)return;if(dialog!=Dialog::none)dialog=Dialog::none;else if(screen==Screen::custom)navigate(Screen::campaign);else dialog=Dialog::exit;}
 };
 }

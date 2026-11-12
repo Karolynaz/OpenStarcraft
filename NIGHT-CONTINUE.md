@@ -2855,3 +2855,32 @@ Templar transport reached the Overmind's vicinity, without a verified
 victory. Both missions remain pending. A separate passive ASan audit
 stepped 21 unfinished Brood War map variants until frame 12000 or defeat;
 no startup or tick errors were observed in that audit.
+
+## 2026-11-12 — Original campaign presentation and completion
+
+Original StarCraft now plays the 12 inter-mission and finale movies from the
+owned English CD after accepting the victory results. The upper screen streams
+12 fps RGB565 with a 22.05 kHz stereo soundtrack. A, B or START skips to the
+next story card or episode ending. The private converter validates each SMK
+against the CD reference and runs locally. No game media is tracked in Git.
+
+Original Terran offers optional Boot Camp. The campaign picker exposes Continue
+and completed missions. The original Terran and Zerg finales offer the next
+episode, and Protoss has the StarCraft ending. Defeat offers retry, load and
+campaign menu. Campaign progress writes remain atomic and a failed write shows
+Retry Save and Continue without saving.
+
+Verification: host ASan startup, briefings and replay round-trip for all 43
+catalogued maps; campaign routes and failed-write rollback PASS. Boot Camp won
+using public orders at frame 13,918 (112 gas). Eye of the Storm original victory
+and exact save replay PASS at frame 28,024. Azahar original-model run loaded the
+real Protoss finale save, showed victory, played the movie image, skipped to
+StarCraft ending and retained the Cleared flag after restarting. Boot Camp
+loaded with speech, surrendered into Defeat and retried to the story card.
+Movie audio was converted and packaged, but speaker output and the full duration
+of every cinematic were not verified. No physical SD access.
+
+Private build src-aec7bd58271b08c4:
+`nintendo3ds/out/campaign-completion-final/StarCraft-3DS.cia` and
+`nintendo3ds/out/campaign-completion-final/StarCraft-3DS.3ds`.
+ARMv6K/VFPv2 and matching NCCH/ExeFS/RomFS checks passed.
