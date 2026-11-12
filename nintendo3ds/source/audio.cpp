@@ -39,6 +39,8 @@ struct Audio::Impl {
     std::atomic<bool> running{false}, paused{false};
     std::atomic<unsigned> underruns{0}, io_errors{0}, buffers{0}, track{0};
     AudioStats counters;
+    float music_gain=1,effects_gain=1;
+    std::array<std::array<float,2>,voice_count> voice_mix{};
     char message[100]="Audio not loaded";
     u64 last_played[audio_sound_limit]{};
     unsigned next_track=1,sample_bytes=2;bool long_voice=false;
@@ -192,7 +194,7 @@ bool Audio::load(const char* root,bool dsp_ready,const char* music_prefix,const 
         for(unsigned i=0;i<=voice_count;++i) {
             ndspChnReset(i);ndspChnSetRate(i,22050);ndspChnSetInterp(i,NDSP_INTERP_LINEAR);
             ndspChnSetFormat(i,i?(s.sample_bytes==1?NDSP_FORMAT_MONO_PCM8:NDSP_FORMAT_MONO_PCM16):NDSP_FORMAT_STEREO_PCM16);
-            float mix[12]={};mix[0]=mix[1]=i?0.5f:0.25f;ndspChnSetMix(i,mix);
+            float mix[12]={};mix[0]=mix[1]=i?0.5f*s.effects_gain:0.25f*s.music_gain;ndspChnSetMix(i,mix);
         }
         for(unsigned i=0;i<voice_count;++i) {s.voices[i].wave={};s.voices[i].tail={};s.voices[i].pending=0;s.voices[i].cancelled=false;s.voices[i].id=~0u;s.voices[i].audible_sample=~0u;s.voices[i].audible_clock=0;s.voices[i].data=music_only?nullptr:s.linear+(i?i+(s.long_voice?1:0):0)*voice_bytes;s.voices[i].capacity=(music_only?0:voice_bytes)*((!i && s.long_voice)?2:1);}
         for(unsigned i=0;i<3;++i) {
@@ -211,6 +213,18 @@ void Audio::unload(){impl_->close();}
 void Audio::reset() {
     auto& s=*impl_;if(!s.counters.ready) return;
     s.lock();for(unsigned i=0;i<voice_count;++i) {s.voices[i].cancelled=true;ndspChnWaveBufClear(i+1);s.voices[i].wave={};s.voices[i].tail={};}s.unlock();
+}
+void Audio::set_volume(unsigned music,unsigned effects){
+    auto& s=*impl_;
+    s.music_gain=std::min(100u,music)/100.f;
+    s.effects_gain=std::min(100u,effects)/100.f;
+    if(!s.counters.ready)return;
+    float mix[12]={};mix[0]=mix[1]=.25f*s.music_gain;ndspChnSetMix(0,mix);
+    for(unsigned i=0;i<voice_count;++i){
+        mix[0]=s.voice_mix[i][0]*s.effects_gain;
+        mix[1]=s.voice_mix[i][1]*s.effects_gain;
+        ndspChnSetMix(i+1,mix);
+    }
 }
 void Audio::update(const SoundEvent* events,unsigned count,int cx,int cy,bool paused) {
     auto& s=*impl_;if(!s.counters.ready) return;
@@ -248,7 +262,8 @@ void Audio::update(const SoundEvent* events,unsigned count,int cx,int cy,bool pa
         v.wave.data_vaddr=v.data;v.wave.nsamples=it->samples;v.id=e.id;v.priority=it->priority;
         const float pan=e.x||e.y?std::max(-1.f,std::min(1.f,(e.x-cx-200)/400.f)):0;
         const float volume=0.6f*(512-distance)/512.f;
-        float mix[12]={};mix[0]=volume*(pan>0?1-pan:1);mix[1]=volume*(pan<0?1+pan:1);
+        s.voice_mix[slot]={{volume*(pan>0?1-pan:1),volume*(pan<0?1+pan:1)}};
+        float mix[12]={};mix[0]=s.voice_mix[slot][0]*s.effects_gain;mix[1]=s.voice_mix[slot][1]*s.effects_gain;
         ndspChnSetMix(slot+1,mix);
         if(it->cached!=~0u){ndspChnWaveBufAdd(slot+1,&v.wave);++s.counters.played;}
         else {v.offset=it->offset;v.bytes=it->samples*s.sample_bytes;v.filled=0;v.cancelled=false;v.pending.store(1,std::memory_order_release);}

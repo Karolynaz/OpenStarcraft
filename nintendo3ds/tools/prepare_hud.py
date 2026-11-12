@@ -32,17 +32,30 @@ def prepare(background, portrait_raw, root):
     shutil.copy2(root/'ui/hud-protoss.bin',root/'ui/hud.bin')
     manifest=json.loads(manifest_path.read_text());manifest['hud']=manifest['hud-protoss'].copy()
     manifest_path.write_text(json.dumps(manifest,indent=2)+'\n')
-    folder=root/'portraits';folder.mkdir(exist_ok=True);portraits={}
+    prepare_portraits(portrait_raw, root)
+
+def prepare_portraits(portrait_raw, root):
+    folder=root/'portraits'
+    folder.mkdir(parents=True,exist_ok=True)
+    portraits={}
     for source in sorted(portrait_raw.glob('*.smk')):
-        raw=subprocess.check_output(['ffmpeg','-v','error','-i',str(source),'-frames:v','1','-vf','scale=60:56:flags=area','-f','rawvideo','-pix_fmt','rgb24','-'])
-        assert len(raw)==60*56*3
-        pcm=bytearray()
-        for i in range(0,len(raw),3):
-            r,g,b=raw[i:i+3];pcm+=struct.pack('<H',(r>>3)<<11|(g>>3)<<6|(b>>3)<<1|1)
-        target=folder/(source.stem+'.bin');target.write_bytes(pcm)
-        portraits[target.name]={'sha256':hashlib.sha256(pcm).hexdigest(),'bytes':len(pcm),'width':60,'height':56}
+        if not source.stem.isdecimal():
+            continue
+        raw=subprocess.check_output([
+            'ffmpeg','-v','error','-i',str(source),
+            '-vf','scale=60:56:flags=area,tpad=stop_mode=clone:stop_duration=2,fps=8',
+            '-frames:v','16','-f','rawvideo','-pix_fmt','rgb24','-',
+        ])
+        assert len(raw)==16*60*56*3
+        packed=bytearray()
+        for r,g,b in zip(raw[0::3],raw[1::3],raw[2::3]):
+            packed+=struct.pack('<H',(r>>3)<<11|(g>>3)<<6|(b>>3)<<1|1)
+        for suffix,data in [('.bin',packed[:60*56*2]),('-anim.bin',packed)]:
+            target=folder/(source.stem+suffix)
+            target.write_bytes(data)
+            portraits[target.name]={'sha256':hashlib.sha256(data).hexdigest(),'bytes':len(data),'width':60,'height':56}
     (folder/'manifest.json').write_text(json.dumps(portraits,indent=2)+'\n')
-    print(f'Three race HUDs, one 256 KiB page resident; {len(portraits)} native portraits')
+    print(f'{len(portraits)//2} native portraits with static and animated versions')
 
 if __name__=='__main__':
     p=argparse.ArgumentParser(description=__doc__)

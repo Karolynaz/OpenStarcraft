@@ -9,6 +9,7 @@
 #include <cmath>
 #include "command_icons.h"
 #include "campaign_runtime.h"
+#include "campaign_map.h"
 #include "campaign_ai.h"
 #include <cstdio>
 #include <cstring>
@@ -234,8 +235,10 @@ bool Engine::load(const char* data_root, const char* map_path, Scenario scenario
     impl_->journal.close();impl_->initial_root=data_root;impl_->alert_hp.fill(-1);impl_->alert_ids.fill(0);impl_->alert_frame=0;impl_->initial_map=map_path;impl_->initial_scenario=scenario;impl_->initial_setup=setup?*setup:MatchSetup{};
     const bool campaign=campaign::scenario(unsigned(scenario));
     const bool custom=!campaign && setup && setup->enabled;
+    const bool ums=custom && setup->game_type==2;
+    const bool scripted=campaign || ums;
     impl_->loaded = false;
-    impl_->fog=campaign || scenario==Scenario::melee || scenario==Scenario::versus_ai || scenario==Scenario::protoss_versus_ai || scenario==Scenario::zerg_versus_ai;
+    impl_->fog=scripted || scenario==Scenario::melee || scenario==Scenario::versus_ai || scenario==Scenario::protoss_versus_ai || scenario==Scenario::zerg_versus_ai;
     if(custom && setup->observer)impl_->fog=false;
     impl_->battle.reset(scenario==Scenario::terran_battle || scenario==Scenario::protoss_battle || scenario==Scenario::zerg_battle,scenario_race(scenario));
     impl_->selected.clear();
@@ -244,7 +247,8 @@ bool Engine::load(const char* data_root, const char* map_path, Scenario scenario
     impl_->ai.reset(scenario==Scenario::ai_battle || scenario==Scenario::gas_battle || scenario==Scenario::protoss_ai_battle || scenario==Scenario::zerg_ai_battle,
         scenario==Scenario::ai_battle || scenario==Scenario::versus_ai || scenario==Scenario::gas_battle || scenario==Scenario::protoss_ai_battle || scenario==Scenario::protoss_versus_ai || scenario==Scenario::zerg_ai_battle || scenario==Scenario::zerg_versus_ai,
         scenario==Scenario::gas_battle || scenario==Scenario::protoss_ai_battle || scenario==Scenario::protoss_versus_ai || scenario==Scenario::zerg_ai_battle || scenario==Scenario::zerg_versus_ai,scenario_race(scenario)==2,scenario_race(scenario)==0);
-    if(custom)impl_->ai.configure(*setup);
+    if(ums)impl_->ai.reset(false,false);
+    else if(custom)impl_->ai.configure(*setup);
     impl_->sound.reset();
     impl_->creep.reset();
     impl_->icons.reset();
@@ -258,13 +262,38 @@ bool Engine::load(const char* data_root, const char* map_path, Scenario scenario
             data_loading::mpq_file<> archive(map);
             archive(chk, "staredit/scenario.chk");
         }
-        std::array<unsigned,12> campaign_races{};campaign_races.fill(1);
-        if(campaign)for(size_t at=0;at+8<=chk.size();){unsigned n=data_loading::value_at<uint32_t,true>(chk.data()+at+4);if(n>chk.size()-at-8)throw std::runtime_error("Campaign chunk bounds");if(!std::memcmp(chk.data()+at,"SIDE",4)){if(n!=12)throw std::runtime_error("Campaign race table");for(unsigned i=0;i<12;++i)campaign_races[i]=chk[at+8+i]<3?chk[at+8+i]:0;}at+=8+n;}
         unsigned width = 0, height = 0;
         validate_map(chk, width, height);
-        if(custom){
-            if(setup->races[0]<0 || setup->races[0]>2)throw std::runtime_error("Invalid player race");for(unsigned i=1;i<3;++i)if(setup->races[i]<-1 || setup->races[i]>2)throw std::runtime_error("Invalid AI race");
-            if(setup->game_type>1)throw std::runtime_error("Use Map Settings is not supported yet. Choose Melee or Free for all.");
+        if(ums){
+            if(setup->races[0]<0 || setup->races[0]>2)throw std::runtime_error("Invalid player race");
+            unsigned human=8;
+            for(size_t at=0;at+8<=chk.size();){
+                const auto length=campaign::get(chk.data()+at+4);
+                if(!std::memcmp(chk.data()+at,"OWNR",4)){
+                    if(length!=12)throw std::runtime_error("Invalid Use Map Settings player table");
+                    for(unsigned i=0;i<8;++i)if(chk[at+8+i]==player_t::controller_open){human=i;break;}
+                }
+                at+=8+length;
+            }
+            if(human>=8)throw std::runtime_error("Use Map Settings needs an open player slot");
+            campaign::normalize(chk,human);
+        }
+        std::array<unsigned,12> campaign_races{};campaign_races.fill(1);
+        if(scripted)for(size_t at=0;at+8<=chk.size();){
+            const auto length=campaign::get(chk.data()+at+4);
+            if(!std::memcmp(chk.data()+at,"SIDE",4)){
+                if(length!=12)throw std::runtime_error("Invalid map race table");
+                for(unsigned i=0;i<12;++i){
+                    const unsigned race=chk[at+8+i];
+                    campaign_races[i]=race<3?race:ums?unsigned(setup->races[0]):0;
+                }
+            }
+            at+=8+length;
+        }
+        if(custom && !ums){
+            if(setup->races[0]<0 || setup->races[0]>2)throw std::runtime_error("Invalid player race");
+            for(unsigned i=1;i<3;++i)if(setup->races[i]<-1 || setup->races[i]>2)throw std::runtime_error("Invalid AI race");
+            if(setup->game_type>2)throw std::runtime_error("Invalid custom game type");
             // Compact sparse/native start owners into the three active UI slots.
             // Modify start markers only; resources retain their neutral ownership.
             std::array<int,8> remap;remap.fill(-1);unsigned starts=0;
@@ -302,15 +331,20 @@ bool Engine::load(const char* data_root, const char* map_path, Scenario scenario
         game_load_functions loader(player.st());
         loader.load_map_data(chk.data(), chk.size(), [&]() {
             const bool melee=scenario==Scenario::melee || scenario==Scenario::ai_battle || scenario==Scenario::versus_ai || scenario==Scenario::gas_battle || scenario==Scenario::protoss_ai_battle || scenario==Scenario::protoss_versus_ai || scenario==Scenario::zerg_ai_battle || scenario==Scenario::zerg_versus_ai;
-            if(campaign){
+            if(scripted){
                 loader.setup_info.create_no_units=false;loader.setup_info.victory_condition=0;loader.setup_info.starting_units=0;loader.setup_info.resource_type=0;
                 // UMS computer slots begin allied across Force boundaries. Preserve
                 // that relationship before replacing the retail AI controller;
                 // original alliance/AI triggers may change it during the mission.
                 std::array<bool,8> computers{};
                 for(unsigned i=0;i<8;++i)computers[i]=player.st().players[i].controller==player_t::controller_computer;
-                for(unsigned i=0;i<8;++i)for(unsigned j=0;j<8;++j)if(i!=j && computers[i] && computers[j])player.st().alliances[i][j]=2;
-                for(unsigned i=0;i<12;++i){auto& p=player.st().players[i];p.race=static_cast<race_t>(campaign_races[i]);if(p.controller==player_t::controller_open || p.controller==player_t::controller_computer)p.controller=player_t::controller_occupied;}
+                for(unsigned i=0;i<8;++i)for(unsigned j=0;j<8;++j)if(i!=j){
+                    const auto force=player.st().players[i].force;
+                    if((campaign && computers[i] && computers[j]) ||
+                       (ums && force>=1 && force<=4 && force==player.st().players[j].force && (player.st().game->forces[force-1].flags&2)))
+                        player.st().alliances[i][j]=2;
+                }
+                for(unsigned i=0;i<12;++i){auto& p=player.st().players[i];p.race=static_cast<race_t>(campaign_races[i]);if(p.controller==player_t::controller_open)p.controller=ums && i!=0?player_t::controller_closed:player_t::controller_occupied;else if(p.controller==player_t::controller_computer)p.controller=player_t::controller_occupied;}
                 return;
             }
             loader.setup_info.create_no_units = !melee;
@@ -326,8 +360,8 @@ bool Engine::load(const char* data_root, const char* map_path, Scenario scenario
                 loader.setup_info.create_melee_units_for_player[i] = active && melee;
             }
         });
-        if(custom)for(unsigned p=0;p<3;++p)for(unsigned q=0;q<3;++q)if(p!=q)player.st().alliances[p][q]=setup->teams[p]==setup->teams[q]?2:0;
-        if(campaign)for(const auto& trigger:player.st().game->triggers){
+        if(custom && !ums)for(unsigned p=0;p<3;++p)for(unsigned q=0;q<3;++q)if(p!=q)player.st().alliances[p][q]=setup->teams[p]==setup->teams[q]?2:0;
+        if(scripted)for(const auto& trigger:player.st().game->triggers){
             for(const auto& c:trigger.conditions){if(!c.type)break;if(c.flags&2)continue;if(c.type!=1 && c.type!=5 && c.type!=6 && c.type!=7 && c.type!=16 && c.type!=17 && c.type!=23 && c.type!=2 && c.type!=3 && c.type!=4 && c.type!=11 && c.type!=12 && c.type!=14 && c.type!=15 && c.type!=21 && c.type!=22)throw std::runtime_error("Unsupported campaign trigger condition "+std::to_string(c.type));}
             for(const auto& a:trigger.actions){if(a.flags&2)continue;if(!a.type)break;if(a.type!=1 && a.type!=2 && a.type!=3 && a.type!=4 && a.type!=5 && a.type!=6 && a.type!=7 && a.type!=8 && a.type!=9 && a.type!=10 && a.type!=11 && a.type!=12 && a.type!=13 && a.type!=14 && a.type!=45 && a.type!=54 && a.type!=55 && a.type!=15 && a.type!=16 && a.type!=17 && a.type!=19 && a.type!=21 && a.type!=22 && a.type!=23 && a.type!=24 && a.type!=25 && a.type!=26 && a.type!=27 && a.type!=28 && a.type!=30 && a.type!=31 && a.type!=32 && a.type!=36 && a.type!=37 && a.type!=38 && a.type!=39 && a.type!=41 && a.type!=42 && a.type!=43 && a.type!=44 && a.type!=46 && a.type!=47 && a.type!=48 && a.type!=49 && a.type!=50 && a.type!=51 && a.type!=52 && a.type!=57)throw std::runtime_error("Unsupported campaign trigger action "+std::to_string(a.type));}
         }
@@ -338,7 +372,7 @@ bool Engine::load(const char* data_root, const char* map_path, Scenario scenario
                 !loader.create_initial_unit(type, {512, 128}, 1))
                 throw std::runtime_error("Could not place the two probe units");
         }
-        if(scenario==Scenario::ai_battle || scenario==Scenario::versus_ai || scenario==Scenario::gas_battle || scenario==Scenario::protoss_ai_battle || scenario==Scenario::protoss_versus_ai || scenario==Scenario::zerg_ai_battle || scenario==Scenario::zerg_versus_ai) {
+        if(!ums && (scenario==Scenario::ai_battle || scenario==Scenario::versus_ai || scenario==Scenario::gas_battle || scenario==Scenario::protoss_ai_battle || scenario==Scenario::protoss_versus_ai || scenario==Scenario::zerg_ai_battle || scenario==Scenario::zerg_versus_ai)) {
             unit_t* bases[3]={nullptr,nullptr,nullptr};
             for(unsigned p=0;p!=(custom?3u:2u);++p) for(auto* u:ptr(player.st().player_units[p]))
                 if(loader.unit_is(u,(custom?setup->races[p]:int(scenario_race(scenario)))==0?UnitTypes::Zerg_Hatchery:(custom?setup->races[p]:int(scenario_race(scenario)))==2?UnitTypes::Protoss_Nexus:UnitTypes::Terran_Command_Center)) bases[p]=u;
@@ -397,16 +431,17 @@ bool Engine::load(const char* data_root, const char* map_path, Scenario scenario
         }};
         if(exists(root+"arr/units.dat"))load_cursors(load_asset);
         else {auto files=data_loading::data_files_directory(root);load_cursors(files);}
-        if(campaign || scenario_race(scenario)==0 || (custom && (setup->races[1]==0 || setup->races[2]==0))){impl_->creep.reset(new detail::CreepGraphics);impl_->creep->load(player.st(),terrain,impl_->palette,load_asset);}
+        if(scripted || scenario_race(scenario)==0 || (custom && (setup->races[1]==0 || setup->races[2]==0))){impl_->creep.reset(new detail::CreepGraphics);impl_->creep->load(player.st(),terrain,impl_->palette,load_asset);}
         // UI art is optional for loose-asset installations; core gameplay can
         // retain its text menu if the original command assets were not supplied.
-        try {impl_->icons.reset(new detail::CommandIcons);impl_->icons->load(load_asset,pcx,scenario_race(scenario));}
+        try {impl_->icons.reset(new detail::CommandIcons);impl_->icons->load(load_asset,pcx,ums?unsigned(player.st().players[0].race):scenario_race(scenario));}
         catch(const std::exception&){impl_->icons.reset();}
         impl_->sound.reset(new Impl::SoundFunctions(player.st()));
         impl_->sound->fog=impl_->fog;
-        impl_->sound->campaign.active=campaign;impl_->sound->campaign.mission=campaign::index(unsigned(scenario));
-        if(campaign)for(size_t at=0;at+8<=chk.size();){unsigned n=data_loading::value_at<uint32_t,true>(chk.data()+at+4);if(!std::memcmp(chk.data()+at,"UPRP",4)){if(n>64*20 || n%20)throw std::runtime_error("Campaign unit property bounds");for(unsigned i=0;i<n/20;++i)std::copy_n(chk.data()+at+8+i*20,20,impl_->sound->campaign.properties[i].begin());}at+=8+n;}
-        if(campaign){impl_->sound->campaign_ai.load(load_asset);impl_->sound->campaign.camera=player.st().game->start_locations[0];impl_->sound->campaign.camera_serial=1;}
+        impl_->sound->campaign.active=scripted;impl_->sound->campaign.mission=campaign::index(unsigned(scenario));
+        if(scripted)for(size_t at=0;at+8<=chk.size();){unsigned n=data_loading::value_at<uint32_t,true>(chk.data()+at+4);if(!std::memcmp(chk.data()+at,"UPRP",4)){if(n>64*20 || n%20)throw std::runtime_error("Campaign unit property bounds");for(unsigned i=0;i<n/20;++i)std::copy_n(chk.data()+at+8+i*20,20,impl_->sound->campaign.properties[i].begin());}at+=8+n;}
+        if(scripted)impl_->sound->campaign_ai.load(load_asset);
+        if(campaign){impl_->sound->campaign.camera=player.st().game->start_locations[0];impl_->sound->campaign.camera_serial=1;}
         // User-requested shorter Reign of Fire intro: only the four authored
         // generators start damaged; the Psi Disrupter and other missions keep
         // their original HP and native destruction / victory triggers.
@@ -512,11 +547,11 @@ Snapshot Engine::snapshot() const {
     }
     for(auto id:impl_->selected) if(auto* u=funcs.get_unit(id)) if(!funcs.unit_dead(u) && (!impl_->fog || player_sees(funcs,u))) ++s.selected;
     s.workers_only=s.selected>0;for(auto id:impl_->selected)if(auto* u=funcs.get_unit(id))if(!funcs.unit_dead(u) && !funcs.ut_worker(u))s.workers_only=false;
-    s.campaign=impl_->sound->campaign.active;s.countdown_active=s.campaign && impl_->sound->campaign.countdown_active;s.countdown_seconds=impl_->sound->campaign.countdown();
+    s.campaign=campaign::scenario(unsigned(impl_->initial_scenario));s.scripted=impl_->sound->campaign.active;s.countdown_active=s.scripted && impl_->sound->campaign.countdown_active;s.countdown_seconds=impl_->sound->campaign.countdown();
 
 
-    if(s.campaign){const auto& c=impl_->sound->campaign;s.next_scenario=c.text(impl_->player->st(),c.next_scenario);s.objectives=c.text(impl_->player->st(),c.objective);s.transmission=frame()<c.message_until?c.text(impl_->player->st(),c.message):"";s.mission_camera_serial=c.camera_serial;s.mission_camera_x=c.camera.x;s.mission_camera_y=c.camera.y;}
-    s.observer=impl_->ai.observer() || impl_->battle.enabled(); s.winner=impl_->battle.enabled()?impl_->battle.winner():impl_->ai.winner();if(s.campaign){int result=impl_->player->st().players[0].victory_state;s.winner=result>=3?0:result==2?1:-1;}
+    if(s.scripted){const auto& c=impl_->sound->campaign;s.next_scenario=c.text(impl_->player->st(),c.next_scenario);s.objectives=c.text(impl_->player->st(),c.objective);s.transmission=frame()<c.message_until?c.text(impl_->player->st(),c.message):"";s.mission_camera_serial=c.camera_serial;s.mission_camera_x=c.camera.x;s.mission_camera_y=c.camera.y;}
+    s.observer=impl_->ai.observer() || impl_->battle.enabled(); s.winner=impl_->battle.enabled()?impl_->battle.winner():impl_->ai.winner();if(s.scripted){int result=impl_->player->st().players[0].victory_state;s.winner=result>=3?0:result==2?1:-1;}
     s.benchmark=impl_->battle.enabled();s.battle_seconds=impl_->battle.seconds();s.end_reason=impl_->battle.reason();
     s.score[0]=impl_->battle.score(0);s.score[1]=impl_->battle.score(1);
     for(unsigned p=0;p!=3;++p) {
@@ -1149,7 +1184,7 @@ SpriteView Engine::cursor_image(CursorKind kind,std::uint64_t elapsed_us) const 
     return {int(f.offset.x)-64,int(f.offset.y)-64,cursor_image_base+index,frame,11,false,false,0,255};
 }
 SpriteInfo Engine::sprite_info(unsigned image,unsigned frame) const {
-    if(image==65384)return {60,56,frame<110};
+    if(image==65384)return {60,56,frame<110*17};
     if(!ready())return {};
     if(image==detail::wireframe_image)return impl_->icons && impl_->icons->has_wireframes && frame<228*6?SpriteInfo{64,64,true}:SpriteInfo{};
     if(image==detail::resource_icon_image)return impl_->icons && impl_->icons->has_resources && frame<7?SpriteInfo{14,14,true}:SpriteInfo{};
@@ -1163,7 +1198,21 @@ SpriteInfo Engine::sprite_info(unsigned image,unsigned frame) const {
     const auto& f=grp->frames[frame];return {unsigned(f.size.x),unsigned(f.size.y),true};
 }
 bool Engine::sprite_pixels(unsigned image,unsigned frame,unsigned owner,uint16_t* out,std::size_t capacity) const {
-    if(image==65384){if(capacity<60*56 || frame>=110)return false;char path[512];std::snprintf(path,sizeof path,"%s%sportraits/%u.bin",impl_->initial_root.c_str(),(!impl_->initial_root.empty() && impl_->initial_root.back()=='/')?"":"/",frame);FILE* f=std::fopen(path,"rb");if(!f)return false;bool ok=std::fread(out,2,60*56,f)==60*56 && std::fgetc(f)==EOF;std::fclose(f);return ok;}
+    if(image==65384){
+        constexpr unsigned portraits=110,pixels=60*56;
+        if(capacity<pixels || frame>=portraits*17)return false;
+        const auto directory=impl_->initial_root+(impl_->initial_root.empty() || impl_->initial_root.back()!='/'?"/":"")+"portraits/";
+        const auto path=directory+std::to_string(frame%portraits);
+        auto read=[&](const std::string& name,long offset){
+            FILE* f=std::fopen(name.c_str(),"rb");
+            if(!f)return false;
+            const bool ok=!std::fseek(f,offset,SEEK_SET) && std::fread(out,2,pixels,f)==pixels;
+            std::fclose(f);
+            return ok;
+        };
+        if(frame>=portraits && read(path+"-anim.bin",long((frame/portraits-1)*pixels*2)))return true;
+        return read(path+".bin",0);
+    }
 
     const auto info=sprite_info(image,frame);if(!info.valid || info.width>512 || info.height>512 || size_t(info.width)*info.height>capacity)return false;
     if(image==detail::wireframe_image)return impl_->icons && impl_->icons->wire_pixels(frame,out,capacity);

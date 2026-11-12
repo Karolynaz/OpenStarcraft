@@ -2884,3 +2884,39 @@ Private build src-aec7bd58271b08c4:
 `nintendo3ds/out/campaign-completion-final/StarCraft-3DS.cia` and
 `nintendo3ds/out/campaign-completion-final/StarCraft-3DS.3ds`.
 ARMv6K/VFPv2 and matching NCCH/ExeFS/RomFS checks passed.
+
+## 2026-11-12 — Non-campaign polish checkpoint
+
+Melee lobby allies the two computer opponents, FFA leaves them separate. The
+lobby currently offers these two supported modes. UMS still needs a real map
+rules implementation. Load/start failures keep the error dialog. Catalogue
+diagnostics no longer replace the active page. The empty-selection HUD shows
+Select / R+X / R+Y. Save restoration displays progress and its B cancel control.
+Options persist music/effects volumes. The HUD uses 8 fps portraits with static
+fallback; generated 110 banks (109 source clips visibly change).
+
+Host frontend, command grid, HUD layout, custom match and savegame tests passed.
+ARMv6K/VFPv2 build passed. Private assets are in local-data/polish-stage and
+package output is in out/gameplay-polish. Native emulator UX/audio and real
+hardware stress still need checking. Next work: UMS map rules, snapshot-based
+loading that keeps old saves readable, then the replay and multiplayer work
+from the review. Do not write to the physical SD. The user requested a pause
+near the current 5h limit and a single continuation after the verified reset at
+23:53:05 Vilnius time. The app created the 23:57 continuation on this thread.
+
+## 2026-11-13 — Custom Play map rules
+
+Custom Play now includes Use Map Settings for single-console maps. It uses
+the first human slot, closes other human slots, retains preplaced units and
+forces, and runs supported CHK triggers and map AI scripts. Saved UMS matches
+keep the original map and restore the same simulated state. The launcher
+lists bundled maps and user SD maps together, with the SD version taking
+precedence when relative names match. Unsupported trigger actions remain
+outside the supported subset and report an error.
+
+Next: a bounded portable snapshot format with command-journal fallback for old
+saves, followed by replay playback and multiplayer. The existing OpenBW
+copy_state routine is an in-memory pointer-rebased clone, not a portable or
+streaming file codec. Do not store raw state memory as a save format.
+The requested continuation is scheduled for 05:00 Vilnius time on Nov 13,
+after the verified 04:56:10 reset.

@@ -163,7 +163,8 @@ inline void draw_frontend(Frontend& f,UiArt& art,MenuAnimation& animation,C2D_Te
 
   char map_name[38]{};std::snprintf(map_name,sizeof map_name,"%.27s",f.preview.title[0]?f.preview.title:f.selected_map<f.maps.size()?f.maps[f.selected_map].name.c_str():"No maps");
   const char* values[]={types[f.game_type],map_name,Frontend::race_name(f.race),f.ai_name(0),f.ai_name(1),f.difficulty?"Medium":"Easy"};
-  for(unsigned i=0;i<Frontend::row_count;++i){const bool enabled=i<3 || i==5 || f.ai_available(i-3);const auto color=enabled?green:dim;
+  if(f.game_type==2)for(unsigned row=2;row<Frontend::row_count;++row)values[row]="Map setting";
+  for(unsigned i=0;i<Frontend::row_count;++i){const bool enabled=f.custom_row_enabled(i);const auto color=enabled?green:dim;
    ui_text(text,labels[i],35-shift,Frontend::row_y(i),.50f,white);
    ui_text(text,"<",123-shift,Frontend::row_y(i)-1,.58f,f.hover==int(40+i*2)?bright:color,true);
    ui_limited(text,values[i],141-shift,Frontend::row_y(i),.52f,132,1,color);

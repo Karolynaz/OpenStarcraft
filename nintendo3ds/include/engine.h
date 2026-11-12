@@ -48,7 +48,7 @@ struct Snapshot {
     SelectionKind selection = SelectionKind::none;
     std::array<PlayerView,3> players{};
     int winner = -1;
-    bool observer = false, benchmark = false,campaign=false;
+    bool observer = false, benchmark = false,campaign=false,scripted=false;
     unsigned alert_frame=0;int alert_x=0,alert_y=0;
     std::string objectives,transmission,next_scenario;unsigned mission_camera_serial=0;int mission_camera_x=0,mission_camera_y=0;
     unsigned battle_seconds=0,end_reason=0,score[2]{};

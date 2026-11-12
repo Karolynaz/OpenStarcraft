@@ -137,8 +137,9 @@ struct Frontend {
 
  unsigned race=1,speed=4,game_type=0,subtype=0,scroll=0,selected_map=0;
  std::array<unsigned,2> ai{{3,3}};
- unsigned difficulty=0,observer_test=~0u;bool show_portraits=true;
+ unsigned difficulty=0,observer_test=~0u;bool show_portraits=true;unsigned music_volume=100,effects_volume=100;
  static constexpr unsigned row_count=6;
+ bool custom_row_enabled(unsigned row)const{return row<2 || (game_type!=2 && (row<3 || row==5 || ai_available(row-3)));}
  static int row_y(unsigned row){return 51+int(row)*23;}
  char error[192]{};
  bool leaving=false;Screen destination=Screen::campaign;
@@ -147,14 +148,14 @@ struct Frontend {
  std::string directory,base,settings,user_root,asset_root;
  std::string campaign_folder()const{return asset_root.empty()?base+"/../campaign/":asset_root+"campaign/";}
  std::string progress_path()const{return (user_root.empty()?base+"/../":user_root)+"campaign/progress.cfg";}
- struct Map{std::string name;bool folder;};std::vector<Map> maps;
+ struct Map{std::string name;bool folder;std::string root;};std::vector<Map> maps;
  static const char* race_name(unsigned r){return r==0?"Zerg":r==2?"Protoss":"Terran";}
  unsigned scenario()const{if(campaign_start)return campaign::missions[mission].scenario;if(observer_test<4)return observer_test==1?12:observer_test==2?14:5;return race==0?15:race==2?13:4;}
  unsigned capacity()const{return preview.valid?std::min(3u,preview.players):0;}
  bool ai_available(unsigned i)const{return capacity()>i+1;}
  const char* ai_name(unsigned i)const{return !ai_available(i) || ai[i]==4?"Off":ai[i]==3?"Random":race_name(ai[i]);}
- std::string map_path()const{if(campaign_start)return campaign_folder()+campaign::missions[mission].key+".chk";if(observer_test<4)return base+(observer_test==3?"/AI/three-islands.scm":"/AI/islands.scm");return selected_map<maps.size()?directory+"/"+maps[selected_map].name:"";}
- MatchSetup match(unsigned seed)const{MatchSetup m;if(campaign_start)return m;m.enabled=true;if(observer_test<4){m.observer=true;m.difficulty=AiDifficulty::medium;int r=observer_test==1?2:observer_test==2?0:1;m.races={{r,r,-1}};if(observer_test==3){m.races={{1,2,0}};m.teams={{0,1,1}};m.side_difficulty={{1,0,0}};}return m;}m.game_type=game_type;m.difficulty=difficulty?AiDifficulty::medium:AiDifficulty::easy;m.races[0]=int(race);for(unsigned i=0;i<2;++i){seed=seed*1664525u+1013904223u;m.races[i+1]=!ai_available(i) || ai[i]==4?-1:ai[i]==3?int((seed>>16)%3):int(ai[i]);}return m;}
+ std::string map_path()const{if(campaign_start)return campaign_folder()+campaign::missions[mission].key+".chk";if(observer_test<4)return base+(observer_test==3?"/AI/three-islands.scm":"/AI/islands.scm");return selected_map<maps.size()?(maps[selected_map].root.empty()?directory:maps[selected_map].root)+"/"+maps[selected_map].name:"";}
+ MatchSetup match(unsigned seed)const{MatchSetup m;if(campaign_start)return m;m.enabled=true;if(observer_test<4){m.observer=true;m.difficulty=AiDifficulty::medium;int r=observer_test==1?2:observer_test==2?0:1;m.races={{r,r,-1}};if(observer_test==3){m.races={{1,2,0}};m.teams={{0,1,1}};m.side_difficulty={{1,0,0}};}return m;}m.game_type=game_type;if(game_type==0)m.teams={{0,1,1}};m.difficulty=difficulty?AiDifficulty::medium:AiDifficulty::easy;m.races[0]=int(race);for(unsigned i=0;i<2;++i){seed=seed*1664525u+1013904223u;m.races[i+1]=!ai_available(i) || ai[i]==4?-1:ai[i]==3?int((seed>>16)%3):int(ai[i]);}return m;}
  static UiRect campaign_button(unsigned i){return i==2?UiRect{92,205,136,24}:UiRect{18+int(i)*148,174,136,24};}
  void navigate(Screen to){if(leaving || transition<1 || screen==to)return;destination=to;leaving=true;transition=1;}
  void advance(float dt){
@@ -165,23 +166,26 @@ struct Frontend {
  void scan(){
   preview_dirty=true;
   maps.clear();scroll=selected_map=0;
-  std::function<void(const std::string&,unsigned)> visit=[&](const std::string& prefix,unsigned depth){
+  std::function<void(const std::string&,const std::string&,unsigned)> visit=[&](const std::string& root,const std::string& prefix,unsigned depth){
    if(depth>8 || maps.size()>=256)return;
-   if(auto* d=opendir((base+"/"+prefix).c_str())){while(auto* e=readdir(d)){
+   if(auto* d=opendir((root+"/"+prefix).c_str())){while(auto* e=readdir(d)){
     std::string n=e->d_name;if(n.empty() || n[0]=='.')continue;struct stat st{};const auto relative=prefix+n;
-    if(stat((base+"/"+relative).c_str(),&st))continue;
-    if(S_ISDIR(st.st_mode)){visit(relative+"/",depth+1);continue;}
+    if(stat((root+"/"+relative).c_str(),&st))continue;
+    if(S_ISDIR(st.st_mode)){visit(root,relative+"/",depth+1);continue;}
     const auto dot=n.find_last_of('.');std::string ext=dot==std::string::npos?"":n.substr(dot);for(auto& c:ext)c=char(std::tolower(static_cast<unsigned char>(c)));
-    if((ext==".scx" || ext==".scm" || ext==".chk") && maps.size()<256)maps.push_back({relative,false});
+    if(S_ISREG(st.st_mode) && (ext==".scx" || ext==".scm" || ext==".chk") && maps.size()<256){
+     const auto existing=std::find_if(maps.begin(),maps.end(),[&](const Map& map){return map.name==relative;});
+     if(existing==maps.end())maps.push_back({relative,false,root});
+    }
    }closedir(d);}
-  };visit("",0);
+  };visit(directory,"",0);if(directory!=base)visit(base,"",0);
   std::sort(maps.begin(),maps.end(),[](const Map& a,const Map& b){return a.folder!=b.folder?a.folder>b.folder:a.name<b.name;});
  }
  void init(const char* root,const char* userdata=nullptr){asset_root=root;base=asset_root+"maps";directory=base;user_root=userdata?userdata:root;settings=user_root+"player1.cfg";
   // Installed bundles keep authored assets read-only; user-added custom maps
   // and all profile/progress files remain on the SD card.
   if(userdata){const auto custom=user_root+"maps";if(auto* dir=opendir(custom.c_str())){closedir(dir);directory=custom;}}
-  if(FILE* f=std::fopen(settings.c_str(),"r")){unsigned v,r;if(std::fscanf(f,"OPENBW_PROFILE1\nversion=%u\nrace=%u",&v,&r)==2){brood=v==1;race=r<3?r:1;}char line[128];while(std::fgets(line,sizeof line,f)){unsigned value;if(std::sscanf(line,"difficulty=%u",&value)==1)difficulty=value==1?1:0;if(std::sscanf(line,"portraits=%u",&value)==1)show_portraits=value!=0;}std::fclose(f);}else save();scan();
+  if(FILE* f=std::fopen(settings.c_str(),"r")){unsigned v,r;if(std::fscanf(f,"OPENBW_PROFILE1\nversion=%u\nrace=%u",&v,&r)==2){brood=v==1;race=r<3?r:1;}char line[128];while(std::fgets(line,sizeof line,f)){unsigned value;if(std::sscanf(line,"difficulty=%u",&value)==1)difficulty=value==1?1:0;if(std::sscanf(line,"portraits=%u",&value)==1)show_portraits=value!=0;if(std::sscanf(line,"music=%u",&value)==1)music_volume=std::min(100u,value);if(std::sscanf(line,"effects=%u",&value)==1)effects_volume=std::min(100u,value);}std::fclose(f);}else save();scan();
   if(FILE* progress=std::fopen(progress_path().c_str(),"r")){
    char line[80];
    while(std::fgets(line,sizeof line,progress)){
@@ -206,7 +210,7 @@ struct Frontend {
  bool complete_mission(unsigned scenario,const std::string& filename){auto i=campaign::index(scenario);if(i>=campaign::count)return false;auto done=completed;auto routes=next_missions;done[i]=true;const auto& m=campaign::missions[i];if(scenario!=campaign::tutorial_scenario && !completed[i])routes[(m.brood?3:0)+m.race]=campaign::next_key(scenario,filename);const auto path=progress_path(),temp=path+".tmp";FILE* out=std::fopen(temp.c_str(),"w");if(!out)return false;bool ok=std::fprintf(out,"OPENBW_CAMPAIGN1\n")>0;for(unsigned j=0;j<done.size();++j)ok=(std::fprintf(out,"%s=%u\n",campaign::missions[j].key,done[j]?1:0)>0)&&ok;for(const auto& key:other_completed_missions)ok=(std::fprintf(out,"%s=1\n",key.c_str())>0)&&ok;for(const auto& route:routes)if(!route.empty())ok=(std::fprintf(out,"next=%s\n",route.c_str())>0)&&ok;const bool closed=std::fclose(out)==0;if(!ok || !closed || std::rename(temp.c_str(),path.c_str()))return false;completed=done;next_missions=routes;return true;}
  void save(){
   const auto temp=settings+".tmp";FILE* f=std::fopen(temp.c_str(),"w");if(!f){save_failed=true;return;}
-  const bool ok=std::fprintf(f,"OPENBW_PROFILE1\nversion=%u\nrace=%u\nname=Player1\ndifficulty=%u\nportraits=%u\n",brood?1:0,race,difficulty,show_portraits?1:0)>0;
+  const bool ok=std::fprintf(f,"OPENBW_PROFILE1\nversion=%u\nrace=%u\nname=Player1\ndifficulty=%u\nportraits=%u\nmusic=%u\neffects=%u\n",brood?1:0,race,difficulty,show_portraits?1:0,music_volume,effects_volume)>0;
   const bool closed=std::fclose(f)==0;save_failed=!ok || !closed || std::rename(temp.c_str(),settings.c_str())!=0;
  }
  void stick(int dx,int dy,float dt){
@@ -245,7 +249,7 @@ struct Frontend {
   }else{
    if(transition<1)return -1;
 
-   for(unsigned row=0;row<row_count;++row){if(row>=3 && row<5 && !ai_available(row-3))continue;
+   for(unsigned row=0;row<row_count;++row){if(!custom_row_enabled(row))continue;
     if(UiRect{112,row_y(row)-3,23,20}.hit(px,py))return 40+row*2;
     if(UiRect{277,row_y(row)-3,23,20}.hit(px,py))return 41+row*2;
     if(UiRect{139,row_y(row)-3,135,20}.hit(px,py))return row==1?60:41+row*2;
@@ -305,6 +309,7 @@ struct Frontend {
  }
  void adjust(unsigned row,int direction){
   auto cycle=[&](unsigned value,unsigned count){return (value+count+direction)%count;};
+  if(!custom_row_enabled(row))return;
   if(row==0)game_type=cycle(game_type,3);
   else if(row==1){
    if(maps.empty())return;unsigned index=selected_map;
@@ -336,7 +341,7 @@ struct Frontend {
   unsigned row=0;float distance=999;
   for(unsigned i=0;i<row_count;++i)if(std::abs(y-row_y(i))<distance){distance=std::abs(y-row_y(i));row=i;}
   if(direction==1 || direction==3)adjust(row,direction==1?1:-1);
-  else {row=(row+row_count+(direction==0?-1:1))%row_count;x=208;y=row_y(row);}hover=hit(int(x),int(y));
+  else {do{row=(row+row_count+(direction==0?-1:1))%row_count;}while(!custom_row_enabled(row));x=208;y=row_y(row);}hover=hit(int(x),int(y));
  }
  void confirm(){activate(dialog==Dialog::story?115:hit(int(x),int(y)));}
  void back(){if(briefing_loading)return;if(rich_briefing && presentation()){return_from_presentation();return;}if(dialog==Dialog::briefing && briefing_page){--briefing_page;return;}if(leaving || transition<1)return;if(dialog!=Dialog::none)dialog=Dialog::none;else if(screen==Screen::custom)navigate(Screen::campaign);else dialog=Dialog::exit;}
