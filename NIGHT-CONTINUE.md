@@ -3009,3 +3009,9 @@ compared 48 continuation frames. The November 6 V1 Protoss 1 journal at
 checks passed. The user requested a manual continuation, so the scheduled
 10:05 run was deleted. Next: bounded classic .rep import and multiplayer
 player-slot work. Test build src-8562d06a9ab587c8 is in out/legacy-save.
+
+Azahar with original 3DS mode restored the actual November 5 slot 1 into
+gameplay at about 05:35 on the in-game clock. The modern opening fixture
+passed for seven protected hives, 88 undetected ambushers and eight linked
+Nydus entrances. CIA and 3DS contain identical NCCH data with valid
+ExeFS/RomFS hashes. Compatibility code is commit 5a91119.
