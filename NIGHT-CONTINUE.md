@@ -2955,3 +2955,39 @@ still simulate all recorded frames. Portable state snapshots remain open.
 ARMv6K/VFPv2 passed. Private test files are in
 `nintendo3ds/out/save-loading/StarCraft-3DS.cia` and
 `nintendo3ds/out/save-loading/StarCraft-3DS.3ds`.
+
+## 2026-11-13 — Watch a saved match
+
+In the title screen's Load Game list, highlight a populated slot and press Y
+to watch the recorded commands from frame zero. START pauses and resumes.
+B exits to the title. Camera and minimap remain available. Watching cannot
+issue commands or change campaign progression. Playback and restoration
+share the same command decoder and final deterministic digest. Playback
+keeps only one pending record in memory. This plays the 3DS save journals.
+Retail StarCraft .rep import and multiplayer remain open.
+
+The host ASan save suite watched a 524-frame recording to the exact same
+ending as full restore. Further ticks leave that endpoint unchanged.
+Re-recording and writing a new save from playback are rejected. V1/V2
+restore, mixed AI, UMS and the original Terran Wasteland victory/defeat and
+save regression tests passed. In original-mode Azahar, the November 6
+Brood War Protoss 1 save began at the opening, played, paused and resumed
+with the clock advancing only during playback, and B returned to title.
+
+The final replay package (src-2f43c90c8a9a89f0) keeps replay controls clear
+of the HUD portrait. Original-mode Azahar booted that package and entered
+replay. The private CIA and 3DS in `nintendo3ds/out/replay-watch/` have
+identical NCCH contents and valid ExeFS/RomFS hashes. Native hardware and
+the complete emulator playback ending were not verified. Host verified the
+ending against restore.
+
+A host build of the 2026-11-05 engine (689fb3a), using the source ID stored
+in the file for its then-mandatory version check, restored the rejected BW
+Zerg 1 save at frame 7873. That confirms the file still works with the older
+simulation. A compatibility path needs to preserve the older ambusher
+initialization and verify the full recorded digest before trusting the
+result. Keep the modern behavior for new games. For multiplayer, the 3DS
+adapter currently hardcodes the human slot to 0 and has no network
+transport. Start by validating player-slot-aware commands on two host peers
+before exposing a lobby. Classic .rep import also needs bounded decoding
+of action/map payloads before connecting it to the native UI.

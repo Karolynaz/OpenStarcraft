@@ -91,6 +91,8 @@ public:
     // Listing validates metadata and length. Opening still validates the payload.
     static bool inspect_save_header(const char* path,SaveInfo& info,char* error,std::size_t capacity);
     bool load_save(const char* data_root,const char* path,const char* session_path,const char* extracted_map,SaveView& view,const std::function<bool(unsigned,unsigned)>& progress={});
+    bool watch_save(const char* data_root,const char* path,const char* extracted_map,const std::function<bool(unsigned,unsigned)>& progress={});
+    bool replay_finished() const;
     std::uint32_t state_digest() const;
     bool surrender();
     bool tick();
@@ -145,6 +147,11 @@ public:
     std::size_t image_types(unsigned* output, std::size_t capacity) const;
     std::uint32_t terrain_signature() const;
 private:
+    bool load_journal(const char* root,const char* path,const char* session,const char* extracted,SaveView& view,const std::function<bool(unsigned,unsigned)>& progress);
+    bool apply_journal_commands(savegame::Reader& reader);
+    bool journal_matches(const savegame::Reader& reader) const;
+    bool replay_step();
+    bool simulate_frame();
     std::uint32_t state_digest(unsigned campaign_identity) const;
     struct Impl;
     std::unique_ptr<Impl> impl_;

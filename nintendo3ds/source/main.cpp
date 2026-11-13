@@ -111,7 +111,7 @@ int main() {
     int launch_scenario=-1;port3ds::MatchSetup match_setup;
     unsigned continue_campaign=~0u,finished_episode=~0u,return_episode=~0u;
     const char* movie_name=nullptr;
-    std::string launch_map,restore_path;bool return_custom=false,pending_restore=false;port3ds::SaveInfo restore_info;
+    std::string launch_map,restore_path;bool return_custom=false,pending_restore=false,watching=false;port3ds::SaveInfo restore_info;
     front.play=false;
 
     {
@@ -125,7 +125,12 @@ int main() {
             if(down&KEY_TOUCH){touchPosition t{};hidTouchRead(&t);front.x=t.px;front.y=t.py;front.hover=front.hit(t.px,t.py);front.activate(front.hover);}
             if(down&KEY_A)front.confirm();
             if((down&KEY_START) && front.rich_briefing && front.dialog==port3ds::Frontend::Dialog::briefing)front.activate(116);
-            if(down&KEY_Y)front.replay_briefing();
+            if(down&KEY_Y){
+                if(front.dialog==port3ds::Frontend::Dialog::load_slots){
+                    front.activate(front.hover);
+                    watching=front.load_requested_slot<5;
+                }else front.replay_briefing();
+            }
             if(down&KEY_B)front.back();
             if(front.dialog==port3ds::Frontend::Dialog::briefing && !front.briefing_paginated){
                 if(auto measure=C2D_TextBufNew(160)){front.paginate_briefing([&](const char* line){return port3ds::ui_width(measure,line,port3ds::Frontend::briefing_font);},port3ds::Frontend::briefing_width,port3ds::Frontend::briefing_rows);C2D_TextBufDelete(measure);}
@@ -166,7 +171,7 @@ int main() {
             if(front.screen==port3ds::Frontend::Screen::custom && front.preview_dirty){front.preview_dirty=false;port3ds::Engine::preview_map(root,front.map_path().c_str(),front.preview);if(front.preview.valid)art.preview(front.preview.pixels.data());last=now_us();}
             if(down&KEY_DUP)front.direction(0);if(down&KEY_DRIGHT)front.direction(1);if(down&KEY_DDOWN)front.direction(2);if(down&KEY_DLEFT)front.direction(3);
             if(front.load){front.load=false;scan_slots();for(unsigned i=0;i<5;++i){front.load_labels[i]=save_slots.slots[i].label;front.load_short_labels[i]=save_slots.slots[i].short_label;front.load_enabled[i]=save_slots.slots[i].available;}front.dialog=port3ds::Frontend::Dialog::load_slots;front.x=160;front.y=72;front.hover=120;}
-            if(front.load_requested_slot<5){const auto slot=front.load_requested_slot;front.load_requested_slot=~0u;if(find_save(slot,restore_path,restore_info,front.error,sizeof front.error)){launch_scenario=int(restore_info.scenario);match_setup=restore_info.setup;pending_restore=true;front.dialog=port3ds::Frontend::Dialog::none;break;}front.dialog=port3ds::Frontend::Dialog::error;}
+            if(front.load_requested_slot<5){const auto slot=front.load_requested_slot;front.load_requested_slot=~0u;if(find_save(slot,restore_path,restore_info,front.error,sizeof front.error)){launch_scenario=int(restore_info.scenario);match_setup=restore_info.setup;pending_restore=true;front.dialog=port3ds::Frontend::Dialog::none;break;}watching=false;front.dialog=port3ds::Frontend::Dialog::error;}
             if(front.play){if(front.briefing_loading){
                 C3D_FrameBegin(C3D_FRAME_SYNCDRAW);C2D_TextBufClear(text_buf);C2D_TargetClear(top,C2D_Color32(0,0,0,255));C2D_SceneBegin(top);port3ds::draw_campaign_top(front,presentation_art,text_buf);
                 C2D_TargetClear(bottom,C2D_Color32(0,0,0,255));C2D_SceneBegin(bottom);port3ds::draw_campaign_bottom(front,presentation_art,art,text_buf,animation,unsigned(now/125000));C3D_FrameEnd(0);C3D_FrameSync();presentation_art.clear();
@@ -240,7 +245,7 @@ int main() {
             const u64 now = now_us();
             if (restored) { previous = now; scheduler.reset(); restored = false; }
             const u64 elapsed = now - previous;
-            if (!paused && engine.ready()) {scheduler.add(elapsed);engine.advance_wall_time(elapsed);}
+            if (!paused && engine.ready()) {scheduler.add(elapsed);if(!watching)engine.advance_wall_time(elapsed);}
             previous = now;
             const bool load_now = pending_load;
             pending_load = false;
@@ -269,7 +274,7 @@ int main() {
                     if(!aptMainLoop())return false;
                     hidScanInput();
                     if(hidKeysHeld()&KEY_B)return false;
-                    const int percent=total?int(uint64_t(done)*100/total):0;
+                    const int percent=!watching && total?int(uint64_t(done)*100/total):0;
                     const auto time=now_us();
                     if(percent!=shown_percent && (shown_percent<0 || time-last_restore_draw>=100000 || percent==100)){
                         shown_percent=percent;
@@ -280,7 +285,9 @@ int main() {
                 };
                 mkdir("sdmc:/3ds/openbw/saves",0777);
                 u64 last_load_draw=now_us();auto animate_loading=[&](){const auto t=now_us();if(t-last_load_draw>=375000){loading_screen();last_load_draw=t;}};
-                const bool loaded_ok=restoring?engine.load_save(root,restore_path.c_str(),session_path,restore_map,restored_view,progress):engine.load(root, (custom_match || campaign_mode)?launch_map.c_str():arena_mode?arena.c_str():map.c_str(), static_cast<port3ds::Scenario>(scenario),scenario==unsigned(launch_scenario)?&match_setup:nullptr,animate_loading);
+                const bool loaded_ok=watching?engine.watch_save(root,restore_path.c_str(),restore_map,progress):
+                    restoring?engine.load_save(root,restore_path.c_str(),session_path,restore_map,restored_view,progress):
+                    engine.load(root,(custom_match || campaign_mode)?launch_map.c_str():arena_mode?arena.c_str():map.c_str(),mode,scenario==unsigned(launch_scenario)?&match_setup:nullptr,animate_loading);
                 paused=!loaded_ok;
                 pending_restore=false;
                 if(!restoring && engine.ready())engine.start_recording(session_path);
@@ -337,7 +344,7 @@ int main() {
                 renders = ticks = 0; tick_sum = tick_max = 0;
                 fps = tps = mean = worst = 0;
                 auto_camera=engine.snapshot().observer;
-                if(restoring){controls.camera_x=restored_view.camera_x;controls.camera_y=restored_view.camera_y;controls.cursor_x=restored_view.cursor_x;controls.cursor_y=restored_view.cursor_y;auto_camera=restored_view.auto_camera;mission_camera_serial=state.mission_camera_serial;}
+                if(restoring && !watching){controls.camera_x=restored_view.camera_x;controls.camera_y=restored_view.camera_y;controls.cursor_x=restored_view.cursor_x;controls.cursor_y=restored_view.cursor_y;auto_camera=restored_view.auto_camera;mission_camera_serial=state.mission_camera_serial;}
                 camera_manual_until=0;
                 if(!log) toggle_log();
                 action = engine.ready() ? (auto_camera ? "AI vs AI: automatic camera / START menu" : "Circle Pad cursor / A action / B cancel") : engine.error();
@@ -462,6 +469,20 @@ int main() {
                 else if(select_only)engine.select(x,y);else engine.activate(x,y);
                 action=engine.command_status();ability_page=0;choice=0;production_focus=false;
             };
+            if(watching){
+                if(down&KEY_B){return_custom=true;break;}
+                if(down&KEY_START && !engine.replay_finished()){
+                    paused=!paused;
+                    scheduler.reset();
+                    previous=now_us();
+                }
+                if(held&KEY_TOUCH){
+                    touchPosition touch{};
+                    hidTouchRead(&touch);
+                    controls.minimap_touch(touch.px,touch.py);
+                    camera_manual_until=now+8000000;
+                }
+            }else{
             port3ds::InputFrame frame;
             frame.a=down&KEY_A; frame.b=down&KEY_B; frame.x=down&KEY_X; frame.y=down&KEY_Y;
             if(overlay(menu)){frame.x=frame.y=false;}
@@ -543,10 +564,11 @@ int main() {
             if(was_overlay!=overlay(menu)){paused=overlay(menu) || !engine.ready();scheduler.reset();previous=now_us();}
             // Menus own all simulation and camera input until dismissed.
             if(overlay(menu))paused=true;
+            }
             if(exit_requested) break;
             const bool step = false;
             for (unsigned n = 0; n != 2 && engine.ready(); ++n) {
-                if (!(step && n == 0) && (paused || !scheduler.due())) break;
+                if (!(step && n == 0) && (paused || !scheduler.due() || engine.replay_finished())) break;
                 const u64 begin = now_us();
                 const bool ok = engine.tick();
                 const double duration = static_cast<double>(now_us() - begin);
@@ -568,7 +590,8 @@ int main() {
             }
             if(!paused){int x=0,y=0;if(engine.cinematic_focus(x,y))controls.follow(x,y,ui_seconds);}
             if(state.scripted && state.mission_camera_serial!=mission_camera_serial){controls.focus(state.mission_camera_x,state.mission_camera_y);mission_camera_serial=state.mission_camera_serial;}
-            if(state.winner>=0 && !result_shown) {
+            if(watching && engine.replay_finished())paused=true;
+            if(!watching && state.winner>=0 && !result_shown) {
                 result_defeat=state.campaign && state.winner!=0;
                 result_save_failed=state.campaign && state.winner==0 && !front.complete_mission(scenario,state.next_scenario);
                 result_shown=true;paused=true;scheduler.reset();menu=Menu::result;choice=0;action=state.observer?(state.winner==0?"Red wins":state.winner==1?"Blue wins":state.winner==2?"Green wins":"Battle finished"):(state.winner==0?"Victory!":state.winner==3?"Draw":"Defeat");
@@ -753,9 +776,14 @@ int main() {
             hud_art.draw("hud",0,0);
             char clock[20];const unsigned seconds=state.countdown_active?state.countdown_seconds:state.frame/24;std::snprintf(clock,sizeof clock,"%s%02lu:%02lu",state.countdown_active?"T-":"",static_cast<unsigned long>(seconds/60),static_cast<unsigned long>(seconds%60));
             port3ds::ui_centered(hud_buf,clock,{120,208,64,20},.47f,white);
-            port3ds::ui_text(hud_buf,"MENU",152,130,.48f,white,true);
-            if(menu==Menu::none)refresh_world();
-            if(menu==Menu::none || menu==Menu::catalogue){
+            if(watching){
+                port3ds::ui_text(hud_buf,engine.replay_finished()?"REPLAY ENDED":paused?"PAUSED":"REPLAY",152,130,.38f,white,true);
+                if(!engine.replay_finished())
+                    port3ds::ui_text(hud_buf,paused?"START: Play":"START: Pause",152,153,.34f,white,true);
+                port3ds::ui_text(hud_buf,"B: Exit",152,170,.40f,white,true);
+            }else port3ds::ui_text(hud_buf,"MENU",152,130,.48f,white,true);
+            if(!watching && menu==Menu::none)refresh_world();
+            if(!watching && (menu==Menu::none || menu==Menu::catalogue)){
                 for(unsigned i=0;i<option_count;++i){if(!option_rows[i].label[0])continue;auto cell=port3ds::CommandGrid::cell(i);
                     graphics.ui_image(engine.command_icon(option_rows[i].icon,option_rows[i].enabled),cell.x,cell.y,1,engine);
                     if((menu==Menu::catalogue || (menu==Menu::none && production_focus && production_grid())) && i==choice)port3ds::ui_border({cell.x,cell.y,36,34},green);
@@ -765,7 +793,7 @@ int main() {
 
                 }
             }
-            if(menu==Menu::none && !state.selected && !state.observer){
+            if(!watching && menu==Menu::none && !state.selected && !state.observer){
                 const char* labels[]={"All units","Army","Workers"};
                 const char* keys[]={"Select","R+X","R+Y"};
                 for(unsigned i=0;i<3;++i){
@@ -787,7 +815,7 @@ int main() {
 
                 ++selected_slot;
             }
-            if(front.show_portraits){
+            if(front.show_portraits && !watching){
                 auto portrait=engine.portrait();
                 if(portrait.image)portrait.frame+=110*(1+(state.frame/3)%16);
                 graphics.ui_image(portrait,122,152,1,engine);
@@ -878,7 +906,7 @@ int main() {
             }
         }else load_stage(unsigned(launch_scenario),"campaign-movie-unavailable",movie_name);
     }
-    front.screen=(match_setup.observer || port3ds::campaign::scenario(unsigned(launch_scenario)))?port3ds::Frontend::Screen::campaign:port3ds::Frontend::Screen::custom;front.transition=0;front.preview_dirty=true;front.x=240;front.y=218;
+    front.screen=(watching || match_setup.observer || port3ds::campaign::scenario(unsigned(launch_scenario)))?port3ds::Frontend::Screen::campaign:port3ds::Frontend::Screen::custom;front.transition=0;front.preview_dirty=true;front.x=240;front.y=218;
     if(front.dialog!=port3ds::Frontend::Dialog::error)front.dialog=port3ds::Frontend::Dialog::none;
     if(finished_episode<port3ds::campaign::count)front.open_episode_complete(finished_episode);
     else if(return_episode<port3ds::campaign::count){

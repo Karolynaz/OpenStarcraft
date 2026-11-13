@@ -46,6 +46,17 @@ int main(int argc,char** argv){assert(argc==4);const std::string tmp="/tmp/sc3ds
  bool cancelled=false;assert(!twice.load_save(argv[1],slot.c_str(),session.c_str(),map.c_str(),loaded,[&](unsigned,unsigned){cancelled=true;return false;}));assert(cancelled);
  Engine interrupted;unsigned callbacks=0;assert(!interrupted.load_save(argv[1],slot.c_str(),session2.c_str(),map.c_str(),loaded,[&](unsigned done,unsigned){assert(!done);return ++callbacks<2;}));assert(callbacks==2 && !interrupted.ready() && std::string(interrupted.error())=="Load cancelled");
  unsigned last_frame=0;assert(!interrupted.load_save(argv[1],slot.c_str(),session2.c_str(),map.c_str(),loaded,[&](unsigned done,unsigned){last_frame=done;return done<48;}));assert(last_frame==48 && !interrupted.ready() && std::string(interrupted.error())=="Load cancelled");
+ assert(Engine::inspect_save(slot.c_str(),info,error,sizeof error));
+ Engine endpoint;assert(endpoint.load_save(argv[1],slot.c_str(),(tmp+"/endpoint-journal").c_str(),(tmp+"/endpoint-map").c_str(),loaded));
+ Engine playback;assert(playback.watch_save(argv[1],slot.c_str(),(tmp+"/watch-map").c_str()));
+ assert(playback.frame()==0 && !playback.replay_finished());
+ assert(!playback.start_recording((tmp+"/watch-journal").c_str()));
+ while(!playback.replay_finished())ticks(playback,1);
+ assert(playback.frame()==info.frame && playback.state_digest()==endpoint.state_digest());
+ assert(playback.tick() && playback.frame()==info.frame);
+ assert(!playback.save_game((tmp+"/watch-save").c_str(),view));
+ assert(playback.load(argv[1],argv[3],Scenario::terran_lab) && !playback.replay_finished());
+ puts("Read-only replay: frame-zero start, normal stepping and exact recorded ending PASS");
  puts("Save queue/cancel/selection/groups/fog/camera + exact continuation + re-save/backup + corrupt preflight PASS");
  }
  {

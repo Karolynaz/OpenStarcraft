@@ -69,6 +69,7 @@ struct Engine::Impl {
     char message[192] = "Not loaded";
     bool loaded = false,fog=false;
     savegame::Writer journal;std::string initial_map,initial_root;Scenario initial_scenario=Scenario::empty;MatchSetup initial_setup;
+    std::unique_ptr<savegame::Reader> replay;
     static_vector<unit_id_32,192> selected;
     std::array<static_vector<unit_id_32,192>,4> groups;
     detail::FogMemory memory;
@@ -232,6 +233,7 @@ bool Engine::preview_map(const char* data_root,const char* map_path,MapPreview& 
 Engine::Engine() : impl_(new Impl) {}
 Engine::~Engine() = default;
 bool Engine::load(const char* data_root, const char* map_path, Scenario scenario,const MatchSetup* setup,const std::function<void()>& progress) {
+    impl_->replay.reset();
     impl_->journal.close();impl_->initial_root=data_root;impl_->alert_hp.fill(-1);impl_->alert_ids.fill(0);impl_->alert_frame=0;impl_->initial_map=map_path;impl_->initial_scenario=scenario;impl_->initial_setup=setup?*setup:MatchSetup{};
     const bool campaign=campaign::scenario(unsigned(scenario));
     const bool custom=!campaign && setup && setup->enabled;
@@ -495,6 +497,10 @@ bool Engine::write_terrain(const char* data_root,const char* output){
 
 bool Engine::surrender(){savegame::Writer::Guard record(impl_->journal,{frame(),savegame::surrender});if(ready() && impl_->sound->campaign.active){impl_->sound->st.players[0].victory_state=2;return true;}return ready() && !impl_->battle.enabled() && impl_->ai.surrender();}
 bool Engine::tick() {
+    if(impl_->replay)return replay_step();
+    return simulate_frame();
+}
+bool Engine::simulate_frame() {
     if (!impl_->loaded) return false;
     try {
         if(impl_->sound->campaign.active){impl_->sound->campaign.advance();impl_->sound->campaign.rescue(*impl_->sound);}

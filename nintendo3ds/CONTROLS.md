@@ -84,12 +84,16 @@ excludes bases. Game Menu contains Save, Load, End, Options and Return (B).
 Options contains test scenarios, auto-camera, CSV, reload and exit. CSV drains
 on exit. Both screens dim while the game is paused.
 
-## Persistent Save / Load (2026-10-25)
+## Saves and replays
 
-START -> Save Game writes slot 1 under 3ds/openbw/saves/slot1.ob3.
-START -> Load Game or title -> Load restores it. Previous saves are retained
-as slot1.ob3.bak; Load tries that backup if the main file fails validation.
+START -> Save Game offers five slots under `3ds/openbw/saves/`.
+START -> Load Game or title -> Load restores the selected slot. Load tries
+that slot's `.bak` file if the primary file fails preflight validation.
 B cancels reconstruction and returns to the title menu. Save while paused.
+
+In the title Load list, highlight a slot and press Y to watch from the
+beginning. START pauses or resumes the replay. Touch the minimap or move
+the cursor to explore. B exits to the title.
 
 The save embeds the starting map, deterministic input journal and camera.
 Native simulation reconstructs resources, units, production, research, RNG,
@@ -97,9 +101,8 @@ AI plans, transport missions, fog exploration, selection and bookmarks.
 Continuing and saving again is supported. Music restarts after loading;
 unfinished UI targeting/placement is cancelled.
 
-This first disk format is build-specific: keep the matching executable with
-important saves. Different builds are rejected. The purchased MPQs must still
-be installed. Long games take longer to load because the simulation runs from
+Saves require compatible simulation rules and the same original game data.
+Long games take longer to load because the simulation runs from
 the beginning; progress is shown during replay. Limits: 12 game hours,
 1,000,000 recorded input events, and a 2 MiB starting map. Session journals
 stream to SD with bounded buffers. They are not crash-autosaves. Installation

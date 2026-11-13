@@ -62,7 +62,7 @@ uint32_t Engine::state_digest(unsigned campaign_identity) const {
  for(unsigned p=0;p<3;++p){add(impl_->ai.trained(p));add(impl_->ai.built(p));add(impl_->ai.waves(p));add(impl_->ai.target(p).x);add(impl_->ai.target(p).y);add(impl_->ai.tactics(p).casts());add(impl_->ai.tactics(p).drops());}add(impl_->ai.winner());add(impl_->battle.winner());add(impl_->battle.seconds());return hash;
 }
 bool Engine::start_recording(const char* path){
- if(!ready() || frame()!=0){std::snprintf(impl_->message,sizeof impl_->message,"Recording must start at frame zero");return false;}
+ if(!ready() || impl_->replay || frame()!=0){std::snprintf(impl_->message,sizeof impl_->message,"Recording must start at frame zero of a live game");return false;}
  FILE* map=std::fopen(impl_->initial_map.c_str(),"rb");if(!map)return false;std::fseek(map,0,SEEK_END);const auto size=std::ftell(map);std::rewind(map);
  if(size<=0 || size>savegame::max_map){std::fclose(map);return false;}savegame::Header h;std::memcpy(h.bytes.data(),"OB3SAVE1",8);h.set_current_version();h.field(3,unsigned(size));h.field(4,chk_path(impl_->initial_map));SaveInfo info;info.scenario=unsigned(impl_->initial_scenario);info.setup=impl_->initial_setup;h.setup(info);
  const bool ok=impl_->journal.open(path,h,map);std::fclose(map);return ok;
@@ -82,48 +82,103 @@ bool Engine::save_game(const char* path,const SaveView& view,std::uint64_t saved
  if(std::rename(temp.c_str(),path)){if(had)std::rename(backup.c_str(),path);return fail("Cannot finish save; previous save retained");}
  impl_->command_message="Game saved";return true;
 }
+bool Engine::apply_journal_commands(savegame::Reader& reader){
+ while(reader.pending && reader.next.frame==frame()){
+  const auto r=reader.next;
+  switch(r.op){
+  case savegame::similar:select_similar(r.a,r.b,r.c,r.d);break;
+  case savegame::rectangle:select_area(r.a,r.b,r.c,r.d);break;
+  case savegame::select:select(r.a,r.b);break;
+  case savegame::clear:clear_selection();break;
+  case savegame::activate:activate(r.a,r.b);break;
+  case savegame::army:select_army(r.a,r.b);break;
+  case savegame::workers:select_workers(r.a,r.b);break;
+  case savegame::store:store_group(r.a);break;
+  case savegame::recall:recall_group(r.a);break;
+  case savegame::command:command(Command(r.a),r.b,r.c);break;
+  case savegame::perform:perform(unsigned(r.a),r.b,r.c);break;
+  case savegame::move:move_selected(r.a,r.b);break;
+  case savegame::cancel:cancel_selected_work(r.a);break;
+  case savegame::fog:set_fog_enabled(r.a);break;
+  case savegame::surrender:surrender();break;
+  case savegame::elapsed:advance_wall_time(uint64_t(uint32_t(r.a))|(uint64_t(uint32_t(r.b))<<32));break;
+  default:return false;
+  }
+  if(!reader.advance())return false;
+ }
+ return !reader.pending || reader.next.frame>frame();
+}
+bool Engine::replay_finished() const {
+ return ready() && impl_->replay && !impl_->replay->pending && frame()==impl_->replay->end_frame;
+}
+bool Engine::replay_step(){
+ if(replay_finished())return true;
+ auto& reader=*impl_->replay;
+ if(!simulate_frame())return false;
+ if(apply_journal_commands(reader) && (!replay_finished() || journal_matches(reader))){
+  if(replay_finished())reader.file.reset();
+  return true;
+ }
+ impl_->loaded=false;
+ std::snprintf(impl_->message,sizeof impl_->message,"Replay differs from this version or its assets");
+ return false;
+}
+bool Engine::journal_matches(const savegame::Reader& reader) const {
+ if(reader.pending || frame()!=reader.end_frame)return false;
+ if(!reader.legacy || !impl_->sound->campaign.active)return state_digest()==reader.digest;
+ // V1 stored a digest of the mission's catalogue position, which may move.
+ const auto current=campaign::index(unsigned(impl_->initial_scenario));
+ if(state_digest(current)==reader.digest)return true;
+ for(unsigned i=0;i<campaign::count;++i)
+  if(i!=current && state_digest(i)==reader.digest)return true;
+ return false;
+}
 bool Engine::load_save(const char* root,const char* path,const char* session,const char* extracted,SaveView& view,const std::function<bool(unsigned,unsigned)>& progress){
+ return load_journal(root,path,session,extracted,view,progress);
+}
+bool Engine::watch_save(const char* root,const char* path,const char* extracted,const std::function<bool(unsigned,unsigned)>& progress){
+ SaveView unused;
+ return load_journal(root,path,nullptr,extracted,unused,progress);
+}
+bool Engine::load_journal(const char* root,const char* path,const char* session,const char* extracted,SaveView& view,const std::function<bool(unsigned,unsigned)>& progress){
  savegame::Header h;if(!checked_save(path,h,impl_->message,sizeof impl_->message))return false;
- FILE* input=std::fopen(path,"rb");if(!input)return false;const auto map_path=std::string(extracted)+(h.field(4)?".chk":".scx");FILE* map=std::fopen(map_path.c_str(),"wb");bool ok=map && std::fseek(input,savegame::header_size,SEEK_SET)==0 && savegame::copy(input,map,h.field(3));if(map && std::fclose(map))ok=false;
- if(!ok){std::fclose(input);std::snprintf(impl_->message,sizeof impl_->message,"Cannot extract saved map");return false;}
- const auto info=h.info();if(progress && !progress(0,h.field(1))){std::fclose(input);std::snprintf(impl_->message,sizeof impl_->message,"Load cancelled");return false;}
- bool cancelled=false;
+ savegame::Reader reader;
+ reader.remaining=h.field(2);
+ reader.end_frame=h.field(1);
+ reader.digest=h.field(5);
+ reader.legacy=h.field(0)==savegame::legacy_version;
+ reader.file.reset(std::fopen(path,"rb"));
+ if(!reader.file)return false;
+ const auto map_path=std::string(extracted)+(h.field(4)?".chk":".scx");
+ FILE* map=std::fopen(map_path.c_str(),"wb");
+ bool ok=map && std::fseek(reader.file.get(),savegame::header_size,SEEK_SET)==0 && savegame::copy(reader.file.get(),map,h.field(3));
+ if(map && std::fclose(map))ok=false;
+ if(!ok){std::snprintf(impl_->message,sizeof impl_->message,"Cannot extract saved map");return false;}
+ const auto info=h.info();
+ if(progress && !progress(0,reader.end_frame)){std::snprintf(impl_->message,sizeof impl_->message,"Load cancelled");return false;}
  const auto poll_loading=[&](){
-  if(!progress(0,h.field(1))){
-   cancelled=true;
-   throw std::runtime_error("Load cancelled");
-  }
+  if(!progress(0,reader.end_frame))throw std::runtime_error("Load cancelled");
  };
- if(!load(root,map_path.c_str(),Scenario(info.scenario),&info.setup,progress?std::function<void()>(poll_loading):std::function<void()>{})){
-  std::fclose(input);return false;
+ if(!load(root,map_path.c_str(),Scenario(info.scenario),&info.setup,progress?std::function<void()>(poll_loading):std::function<void()>{}))return false;
+
+ // Old effects must never be queued or visibility-tested during restore.
+ impl_->sound->mute=session!=nullptr;
+ ok=reader.advance() && apply_journal_commands(reader);
+ if(!session && ok && (reader.end_frame || journal_matches(reader))){
+  impl_->replay=std::make_unique<savegame::Reader>(std::move(reader));
+  if(replay_finished())impl_->replay->file.reset();
+  return true;
  }
- // Old effects must never be queued or visibility-tested during replay.
- impl_->sound->mute=true;
- unsigned char bytes[savegame::record_size];unsigned n=0;savegame::Record next{};bool have=false;
- auto read=[&](){if(n>=h.field(2)){have=false;return true;}if(std::fread(bytes,1,sizeof bytes,input)!=sizeof bytes)return false;next=savegame::decode(bytes);++n;have=true;return true;};ok=read();
- while(ok){
-  while(have && next.frame==frame()){
-   auto r=next;switch(r.op){case savegame::similar:select_similar(r.a,r.b,r.c,r.d);break;case savegame::rectangle:select_area(r.a,r.b,r.c,r.d);break;case savegame::select:select(r.a,r.b);break;case savegame::clear:clear_selection();break;case savegame::activate:activate(r.a,r.b);break;case savegame::army:select_army(r.a,r.b);break;case savegame::workers:select_workers(r.a,r.b);break;case savegame::store:store_group(r.a);break;case savegame::recall:recall_group(r.a);break;case savegame::command:command(Command(r.a),r.b,r.c);break;case savegame::perform:perform(unsigned(r.a),r.b,r.c);break;case savegame::move:move_selected(r.a,r.b);break;case savegame::cancel:cancel_selected_work(r.a);break;case savegame::fog:set_fog_enabled(r.a);break;case savegame::surrender:surrender();break;case savegame::elapsed:advance_wall_time(uint64_t(uint32_t(r.a))|(uint64_t(uint32_t(r.b))<<32));break;default:ok=false;break;}if(!ok || !(ok=read()))break;
-  }
-  if(!ok || frame()==h.field(1))break;
-  if(!(ok=tick()))break;
-  if((frame()%8==0 || frame()==h.field(1)) && progress && !progress(frame(),h.field(1))){cancelled=true;ok=false;break;}
- }
- std::fclose(input);
- if(ok) {
-  ok = !have && frame() == h.field(1);
-  if(ok && h.field(0) == savegame::legacy_version && impl_->sound->campaign.active) {
-   // Legacy checksums included the mission's position in the catalogue.
-   // Try other positions so adding missions does not strand an old save.
-   const unsigned current_index = campaign::index(info.scenario);
-   ok = state_digest(current_index) == h.field(5);
-   for(unsigned i = 0; !ok && i < campaign::count; ++i)
-    if(i != current_index) ok = state_digest(i) == h.field(5);
-  } else if(ok) {
-   ok = state_digest() == h.field(5);
+ bool cancelled=false;
+ while(ok && frame()<reader.end_frame){
+  ok=simulate_frame() && apply_journal_commands(reader);
+  if(ok && (frame()%8==0 || frame()==reader.end_frame) && progress && !progress(frame(),reader.end_frame)){
+   cancelled=true;ok=false;
   }
  }
+ reader.file.reset();
+ if(ok)ok=journal_matches(reader);
  if(ok)ok=impl_->journal.clone(path,session,h);
- if(!ok){impl_->loaded=false;std::snprintf(impl_->message,sizeof impl_->message,"%s",cancelled?"Load cancelled":"Save replay differs from this version or its assets");return false;}
+ if(!ok || !session){impl_->loaded=false;std::snprintf(impl_->message,sizeof impl_->message,"%s",cancelled?"Load cancelled":"Save replay differs from this version or its assets");return false;}
  impl_->sound->mute=false;impl_->sound->count=0;impl_->sound->dropped=0;view=info.view;impl_->command_message="Saved game loaded";return true;
 }

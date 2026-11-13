@@ -184,7 +184,7 @@ inline void draw_frontend(Frontend& f,UiArt& art,MenuAnimation& animation,C2D_Te
   if(f.dialog==Frontend::Dialog::load_slots){
    ui_text(text,"Load Game",160,38,.58f,white,true);
    for(unsigned i=0;i<5;++i){const UiRect r={24,60+int(i)*28,272,24};if(f.hover==int(120+i))ui_border(r,bright);ui_limited(text,(ui_fits(f.load_labels[i].c_str(),.43f,260)?f.load_labels[i]:f.load_short_labels[i]).c_str(),30,r.y+4,.43f,260,1,f.load_enabled[i]?(f.hover==int(120+i)?bright:green):dim);}
-   ui_text(text,"B: Cancel",160,204,.44f,green,true);
+   ui_text(text,"Y: Watch Replay      B: Cancel",160,204,.44f,green,true);
   }
   else if(f.dialog==Frontend::Dialog::campaign_missions){
    const auto& episode=campaign::missions[f.episode_opening];

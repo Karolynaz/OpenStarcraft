@@ -7,6 +7,7 @@
 #include <cstdint>
 #include <string>
 #include <functional>
+#include <memory>
 #include <limits>
 #include <ctime>
 namespace port3ds {
@@ -47,6 +48,24 @@ struct Record {unsigned frame=0,op=0;int a=0,b=0,c=0,d=0;};
 inline void encode(const Record& r,unsigned char* b){put(b,r.frame);put(b+4,r.op);put(b+8,r.a);put(b+12,r.b);put(b+16,r.c);put(b+20,r.d);}
 inline Record decode(const unsigned char* b){return {get(b),get(b+4),int32_t(get(b+8)),int32_t(get(b+12)),int32_t(get(b+16)),int32_t(get(b+20))};}
 inline bool copy(FILE* from,FILE* to,size_t bytes,uint32_t* digest=nullptr){unsigned char buffer[4096];while(bytes){auto n=std::min(bytes,sizeof buffer);if(std::fread(buffer,1,n,from)!=n)return false;if(digest)*digest=hash(*digest,buffer,n);if(to && std::fwrite(buffer,1,n,to)!=n)return false;bytes-=n;}return true;}
+struct Reader {
+ std::unique_ptr<FILE,decltype(&std::fclose)> file{nullptr,&std::fclose};
+ unsigned remaining=0,end_frame=0,digest=0;
+ bool legacy=false;
+ Record next;
+ bool pending=false;
+
+ bool advance(){
+  pending=false;
+  if(!remaining)return true;
+  unsigned char bytes[record_size];
+  if(std::fread(bytes,1,sizeof bytes,file.get())!=sizeof bytes)return false;
+  next=decode(bytes);
+  --remaining;
+  pending=true;
+  return true;
+ }
+};
 class Writer {
  FILE* file_=nullptr;public:unsigned events=0,depth=0;Header header;std::string path;bool failed=false;
  ~Writer(){close();}void close(){if(file_)std::fclose(file_);file_=nullptr;events=depth=0;failed=false;}
