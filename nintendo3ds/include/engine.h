@@ -12,6 +12,7 @@
 
 namespace port3ds {
 enum class Scenario { empty, two_units, melee, ai_battle, versus_ai, gas_battle, terran_battle, terran_lab, protoss_battle, protoss_lab, zerg_battle, zerg_lab, protoss_ai_battle, protoss_versus_ai, zerg_ai_battle, zerg_versus_ai, terran_campaign, zerg_campaign, protoss_campaign, bw_protoss_campaign, bw_terran_campaign, bw_zerg_campaign, terran_campaign_2, zerg_campaign_2, protoss_campaign_2, terran_campaign_3, zerg_campaign_3, protoss_campaign_3, terran_campaign_4, protoss_campaign_4, zerg_campaign_4, terran_campaign_5, bw_protoss_campaign_2, terran_campaign_6, terran_campaign_7, zerg_campaign_5, zerg_campaign_6, zerg_campaign_7, zerg_campaign_8, bw_zerg_campaign_2, bw_zerg_campaign_3, bw_terran_campaign_2, bw_protoss_campaign_3, bw_terran_campaign_3, bw_protoss_campaign_4, bw_terran_campaign_4, zerg_campaign_9, protoss_campaign_5, protoss_campaign_6, protoss_campaign_7, protoss_campaign_8, protoss_campaign_9, protoss_campaign_10, terran_campaign_8, terran_campaign_9, terran_campaign_10, zerg_campaign_10, bw_terran_campaign_6, terran_boot_camp };
+static_assert(unsigned(Scenario::bw_zerg_campaign)==savegame::early_bw_zerg_scenario,"Preserve saved scenario identity");
 inline bool arena_scenario(Scenario s) {return s>=Scenario::terran_battle && s<=Scenario::zerg_lab;}
 inline unsigned scenario_race(Scenario s) {
     if(campaign::scenario(unsigned(s)))return campaign::race(unsigned(s));
@@ -147,12 +148,13 @@ public:
     std::size_t image_types(unsigned* output, std::size_t capacity) const;
     std::uint32_t terrain_signature() const;
 private:
+    bool load_with_rules(const char* root,const char* path,Scenario scenario,const MatchSetup* setup,const std::function<void()>& progress,savegame::Rules rules);
     bool load_journal(const char* root,const char* path,const char* session,const char* extracted,SaveView& view,const std::function<bool(unsigned,unsigned)>& progress);
     bool apply_journal_commands(savegame::Reader& reader);
     bool journal_matches(const savegame::Reader& reader) const;
     bool replay_step();
     bool simulate_frame();
-    std::uint32_t state_digest(unsigned campaign_identity) const;
+    std::uint32_t state_digest(unsigned campaign_identity,bool old_ai_digest=false) const;
     struct Impl;
     std::unique_ptr<Impl> impl_;
 };

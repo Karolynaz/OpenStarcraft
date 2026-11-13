@@ -21,6 +21,16 @@ constexpr unsigned format_version = 2;
 // Platform, presentation, and catalogue additions do not change this value.
 constexpr unsigned simulation_version = 1;
 constexpr unsigned simulation_field = 31;
+constexpr unsigned rules_field = 40;
+constexpr unsigned early_bw_zerg_scenario = 21;
+enum class Rules : unsigned { current, early_bw_zerg };
+inline unsigned rules_version(Rules rules) {
+ // Older executables must reject a migrated save that needs historical rules.
+ return rules == Rules::early_bw_zerg ? 2 : simulation_version;
+}
+inline bool valid_rules(Rules rules, unsigned scenario) {
+ return rules == Rules::current || (rules == Rules::early_bw_zerg && scenario == early_bw_zerg_scenario);
+}
 static_assert(sizeof(float) == 4 && std::numeric_limits<float>::is_iec559,
               "Save view requires IEEE-754 binary32");
 
@@ -44,6 +54,19 @@ struct Header {
  SaveInfo info()const{SaveInfo i;i.saved_at=uint64_t(field(29))|(uint64_t(field(30))<<32);i.frame=field(1);i.scenario=field(6);i.raw_map=field(4);i.setup.enabled=field(14);i.setup.difficulty=AiDifficulty(field(15));i.setup.game_type=field(16);i.setup.observer=field(17);for(unsigned p=0;p<3;++p){i.setup.races[p]=int32_t(field(18+p));i.setup.teams[p]=field(21+p);i.setup.side_difficulty[p]=int32_t(field(24+p));}float* a[]={&i.view.camera_x,&i.view.camera_y,&i.view.cursor_x,&i.view.cursor_y};for(unsigned p=0;p<4;++p){auto b=field(9+p);std::memcpy(a[p],&b,4);}i.view.auto_camera=field(13);return i;}
  void setup(const SaveInfo& i){field(6,i.scenario);field(14,i.setup.enabled);field(15,unsigned(i.setup.difficulty));field(16,i.setup.game_type);field(17,i.setup.observer);for(unsigned p=0;p<3;++p){field(18+p,i.setup.races[p]);field(21+p,i.setup.teams[p]);field(24+p,i.setup.side_difficulty[p]);}}
 };
+inline Rules rules(const Header& h) {
+ if(h.field(0)==legacy_version){
+  constexpr char known_build[]="src-57d2ac684dbb34be";
+  if(h.field(6)==early_bw_zerg_scenario && !std::memcmp(h.bytes.data()+136,known_build,sizeof known_build))
+   return Rules::early_bw_zerg;
+  return Rules::current;
+ }
+ return Rules(h.field(rules_field));
+}
+inline void set_rules(Header& h,Rules rules) {
+ h.field(rules_field,unsigned(rules));
+ h.field(simulation_field,rules_version(rules));
+}
 struct Record {unsigned frame=0,op=0;int a=0,b=0,c=0,d=0;};
 inline void encode(const Record& r,unsigned char* b){put(b,r.frame);put(b+4,r.op);put(b+8,r.a);put(b+12,r.b);put(b+16,r.c);put(b+20,r.d);}
 inline Record decode(const unsigned char* b){return {get(b),get(b+4),int32_t(get(b+8)),int32_t(get(b+12)),int32_t(get(b+16)),int32_t(get(b+20))};}

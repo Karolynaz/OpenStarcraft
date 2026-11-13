@@ -70,6 +70,7 @@ struct Engine::Impl {
     bool loaded = false,fog=false;
     savegame::Writer journal;std::string initial_map,initial_root;Scenario initial_scenario=Scenario::empty;MatchSetup initial_setup;
     std::unique_ptr<savegame::Reader> replay;
+    savegame::Rules rules=savegame::Rules::current;
     static_vector<unit_id_32,192> selected;
     std::array<static_vector<unit_id_32,192>,4> groups;
     detail::FogMemory memory;
@@ -233,7 +234,11 @@ bool Engine::preview_map(const char* data_root,const char* map_path,MapPreview& 
 Engine::Engine() : impl_(new Impl) {}
 Engine::~Engine() = default;
 bool Engine::load(const char* data_root, const char* map_path, Scenario scenario,const MatchSetup* setup,const std::function<void()>& progress) {
+    return load_with_rules(data_root,map_path,scenario,setup,progress,savegame::Rules::current);
+}
+bool Engine::load_with_rules(const char* data_root,const char* map_path,Scenario scenario,const MatchSetup* setup,const std::function<void()>& progress,savegame::Rules rules) {
     impl_->replay.reset();
+    impl_->rules=rules;
     impl_->journal.close();impl_->initial_root=data_root;impl_->alert_hp.fill(-1);impl_->alert_ids.fill(0);impl_->alert_frame=0;impl_->initial_map=map_path;impl_->initial_scenario=scenario;impl_->initial_setup=setup?*setup:MatchSetup{};
     const bool campaign=campaign::scenario(unsigned(scenario));
     const bool custom=!campaign && setup && setup->enabled;
@@ -449,7 +454,10 @@ bool Engine::load(const char* data_root, const char* map_path, Scenario scenario
         impl_->sound->fog=impl_->fog;
         impl_->sound->campaign.active=scripted;impl_->sound->campaign.mission=campaign::index(unsigned(scenario));
         if(scripted)for(size_t at=0;at+8<=chk.size();){unsigned n=data_loading::value_at<uint32_t,true>(chk.data()+at+4);if(!std::memcmp(chk.data()+at,"UPRP",4)){if(n>64*20 || n%20)throw std::runtime_error("Campaign unit property bounds");for(unsigned i=0;i<n/20;++i)std::copy_n(chk.data()+at+8+i*20,20,impl_->sound->campaign.properties[i].begin());}at+=8+n;}
-        if(scripted)impl_->sound->campaign_ai.load(load_asset);
+        if(scripted){
+            impl_->sound->campaign_ai.load(load_asset);
+            impl_->sound->campaign_ai.use_valued_regions=rules==savegame::Rules::current;
+        }
         presentation_assets.reset();
         if(progress)progress();
         if(campaign){impl_->sound->campaign.camera=player.st().game->start_locations[0];impl_->sound->campaign.camera_serial=1;}
@@ -457,7 +465,7 @@ bool Engine::load(const char* data_root, const char* map_path, Scenario scenario
         // generators start damaged; the Psi Disrupter and other missions keep
         // their original HP and native destruction / victory triggers.
         if(scenario==Scenario::bw_zerg_campaign_2)for(auto* u:ptr(player.st().player_units[7]))if(loader.unit_is(u,UnitTypes::Special_Power_Generator) && u->hp>fp8::integer(150))loader.set_unit_hp(u,fp8::integer(150));
-        if(scenario==Scenario::bw_zerg_campaign)detail::CampaignRuntime::prepare_burrowed_ambushers(loader);
+        if(scenario==Scenario::bw_zerg_campaign && rules==savegame::Rules::current)detail::CampaignRuntime::prepare_burrowed_ambushers(loader);
         impl_->loaded = true;
         std::snprintf(impl_->message, sizeof impl_->message, "Loaded %ux%u tiles", width, height);
         return true;

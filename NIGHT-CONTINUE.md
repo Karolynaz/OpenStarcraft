@@ -2992,3 +2992,20 @@ adapter currently hardcodes the human slot to 0 and has no network
 transport. Start by validating player-slot-aware commands on two host peers
 before exposing a lobby. Classic .rep import also needs bounded decoding
 of action/map payloads before connecting it to the native UI.
+
+## 2026-11-13 — Restore November 5 BW Zerg saves
+
+Historical simulation rules are selected for V1 Vile Disruption journals
+from build src-57d2ac684dbb34be. This restores the prior ambusher setup and
+AI value-area behavior and verifies the historical digest layout. Re-saving
+writes V2 with a dedicated simulation version, so a loader can reproduce
+the same rules from frame zero on subsequent loads. New campaigns use
+the current rules.
+
+Host ASan opened the four November 5 V1 Zerg journals at frames 7873,
+24055, 19801 (backup) and 21966, migrated them to V2, reopened them, and
+compared 48 continuation frames. The November 6 V1 Protoss 1 journal at
+8395 passed the same procedure. The save/replay suite and ARMv6K/VFPv2
+checks passed. The user requested a manual continuation, so the scheduled
+10:05 run was deleted. Next: bounded classic .rep import and multiplayer
+player-slot work. Test build src-8562d06a9ab587c8 is in out/legacy-save.
