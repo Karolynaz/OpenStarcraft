@@ -2984,9 +2984,10 @@ ending against restore.
 A host build of the 2026-11-05 engine (689fb3a), using the source ID stored
 in the file for its then-mandatory version check, restored the rejected BW
 Zerg 1 save at frame 7873. That confirms the file still works with the older
-simulation. A compatibility path needs to preserve the older ambusher
-initialization and verify the full recorded digest before trusting the
-result. Keep the modern behavior for new games. For multiplayer, the 3DS
+simulation. The newer ambusher initialization and the additional AI
+region data in the digest both need investigation. Keep the modern
+behavior for new games and require a full digest match when testing a
+compatibility path. For multiplayer, the 3DS
 adapter currently hardcodes the human slot to 0 and has no network
 transport. Start by validating player-slot-aware commands on two host peers
 before exposing a lobby. Classic .rep import also needs bounded decoding
