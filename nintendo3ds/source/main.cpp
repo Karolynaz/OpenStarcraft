@@ -85,7 +85,9 @@ int main() {
         C2D_Fini(); C3D_Fini(); gfxExit(); return 1;
     }
     port3ds::Frontend front;port3ds::BriefingArt presentation_art;port3ds::SaveSlots save_slots;
-    auto scan_slots=[&](){save_slots.scan(userdata,port3ds::Engine::inspect_save);};
+    constexpr const char* terrain_cache="sdmc:/3ds/openbw/map-terrain.bin";
+    bool terrain_cache_written=false;
+    auto scan_slots=[&](){save_slots.scan(userdata,port3ds::Engine::inspect_save_header);};
     auto loading_screen=[&](int restore_percent=-1){
         // The native briefing frame is already presented. Keep its framebuffer
         // during blocking IO instead of replacing it with a thumbnail.
@@ -262,10 +264,18 @@ int main() {
                 const bool custom_match=scenario==unsigned(launch_scenario) && match_setup.enabled;
                 const bool restoring=pending_restore;port3ds::SaveView restored_view;
                 int shown_percent=-1;
+                u64 last_restore_draw=0;
                 auto progress=[&](unsigned done,unsigned total){
-                    if(!aptMainLoop())return false;hidScanInput();if(hidKeysDown()&KEY_B)return false;
-                    const int percent=total?int(uint64_t(done)*100/total):100;
-                    if(percent!=shown_percent){shown_percent=percent;loading_screen(percent);}
+                    if(!aptMainLoop())return false;
+                    hidScanInput();
+                    if(hidKeysHeld()&KEY_B)return false;
+                    const int percent=total?int(uint64_t(done)*100/total):0;
+                    const auto time=now_us();
+                    if(percent!=shown_percent && (shown_percent<0 || time-last_restore_draw>=100000 || percent==100)){
+                        shown_percent=percent;
+                        last_restore_draw=time;
+                        loading_screen(percent);
+                    }
                     return true;
                 };
                 mkdir("sdmc:/3ds/openbw/saves",0777);
@@ -288,11 +298,21 @@ int main() {
                     std::snprintf(front.error,sizeof front.error,"Missing updated race HUD assets");front.dialog=port3ds::Frontend::Dialog::error;return_custom=true;break;
                 }
                 bool terrain_ok=true;
-                if(custom_match || campaign_mode || restoring){load_stage(scenario,"terrain-cache-start",launch_map.c_str());terrain_ok=engine.write_terrain(root,"sdmc:/3ds/openbw/map-terrain.bin");if(terrain_ok)graphics.load("sdmc:/3ds/openbw/map-terrain.bin",engine.terrain_signature());}
+                if((custom_match || campaign_mode || restoring) && engine.ready()){
+                    const auto signature=engine.terrain_signature();
+                    if(terrain_cache_written && graphics.load(terrain_cache,signature)){
+                        load_stage(scenario,"terrain-cache-hit");
+                    }else{
+                        load_stage(scenario,"terrain-cache-start",launch_map.c_str());
+                        terrain_ok=engine.write_terrain(root,terrain_cache);
+                        terrain_cache_written=terrain_ok;
+                        if(terrain_ok)graphics.load(terrain_cache,signature);
+                    }
+                }
                 else if (engine.ready()) graphics.load((std::string(root)+(arena_mode?"graphics-arena.bin":"graphics.bin")).c_str(), engine.terrain_signature());
                 else graphics.clear();
                 load_stage(scenario,graphics.ready()?"graphics-ready":"graphics-off",graphics.ready()?"":graphics.error());
-                if((custom_match || campaign_mode) && (!terrain_ok || !graphics.ready())){std::snprintf(front.error,sizeof front.error,"%s",terrain_ok?graphics.error():engine.error());front.dialog=port3ds::Frontend::Dialog::error;return_custom=true;break;}
+                if((custom_match || campaign_mode || restoring) && (!terrain_ok || !graphics.ready())){std::snprintf(front.error,sizeof front.error,"%s",terrain_ok?graphics.error():engine.error());front.dialog=port3ds::Frontend::Dialog::error;return_custom=true;break;}
                 std::string effect_path=std::string(root)+"audio/effects-all.bin";if(campaign_mode)effect_path=(std::string(root)+"campaign/")+port3ds::campaign::missions[port3ds::campaign::index(scenario)].key+"-effects.bin";
                 const unsigned next_race=engine.ready()?engine.snapshot().human_race:port3ds::scenario_race(mode);
                 if(engine.ready())sound.load((std::string(root)+(next_race==0?"audio/zerg":next_race==2?"audio/protoss":"audio")).c_str(),R_SUCCEEDED(audio),next_race==0?"zerg":next_race==2?"protoss":"terran",effect_path.c_str(),engine.snapshot().width*engine.snapshot().height>128*128?2*1024*1024:4*1024*1024);

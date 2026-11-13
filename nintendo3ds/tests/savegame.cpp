@@ -15,6 +15,8 @@ int main(int argc,char** argv){assert(argc==4);const std::string tmp="/tmp/sc3ds
  restored.select_workers();restored.move_selected(1000,1000);ticks(restored,24);
  assert(restored.save_game(slot.c_str(),view));assert(access((slot+".bak").c_str(),F_OK)==0);Engine twice;assert(twice.load_save(argv[1],slot.c_str(),session.c_str(),map.c_str(),loaded));compare(restored,twice,100);
  std::ifstream in(slot,std::ios::binary);std::string bytes((std::istreambuf_iterator<char>(in)),{});auto damaged=bytes;damaged.back()^=1;{std::ofstream bad(tmp+"/bad",std::ios::binary);bad.write(damaged.data(),damaged.size());}const auto digest=twice.state_digest();assert(!twice.load_save(argv[1],(tmp+"/bad").c_str(),session.c_str(),map.c_str(),loaded) && twice.ready() && twice.state_digest()==digest);
+ assert(Engine::inspect_save_header((tmp+"/bad").c_str(),info,error,sizeof error));
+ assert(!Engine::inspect_save((tmp+"/bad").c_str(),info,error,sizeof error));
  auto variant=[&](const std::string& name,unsigned format,unsigned simulation){
   savegame::Header header;
   std::memcpy(header.bytes.data(),bytes.data(),header.bytes.size());
@@ -40,9 +42,10 @@ int main(int argc,char** argv){assert(argc==4);const std::string tmp="/tmp/sc3ds
   assert(migrated.read(reinterpret_cast<char*>(header.bytes.data()),header.bytes.size()));
   assert(header.field(0)==savegame::format_version);
  }
- {std::ofstream bad(tmp+"/short",std::ios::binary);bad.write(bytes.data(),100);bad.close();assert(!Engine::inspect_save((tmp+"/short").c_str(),info,error,sizeof error));}
+ {std::ofstream bad(tmp+"/short",std::ios::binary);bad.write(bytes.data(),bytes.size()-1);bad.close();assert(!Engine::inspect_save_header((tmp+"/short").c_str(),info,error,sizeof error));}
  bool cancelled=false;assert(!twice.load_save(argv[1],slot.c_str(),session.c_str(),map.c_str(),loaded,[&](unsigned,unsigned){cancelled=true;return false;}));assert(cancelled);
- Engine interrupted;unsigned callbacks=0;assert(!interrupted.load_save(argv[1],slot.c_str(),session2.c_str(),map.c_str(),loaded,[&](unsigned done,unsigned){++callbacks;return done<48;}));assert(callbacks>=3 && !interrupted.ready());
+ Engine interrupted;unsigned callbacks=0;assert(!interrupted.load_save(argv[1],slot.c_str(),session2.c_str(),map.c_str(),loaded,[&](unsigned done,unsigned){assert(!done);return ++callbacks<2;}));assert(callbacks==2 && !interrupted.ready() && std::string(interrupted.error())=="Load cancelled");
+ unsigned last_frame=0;assert(!interrupted.load_save(argv[1],slot.c_str(),session2.c_str(),map.c_str(),loaded,[&](unsigned done,unsigned){last_frame=done;return done<48;}));assert(last_frame==48 && !interrupted.ready() && std::string(interrupted.error())=="Load cancelled");
  puts("Save queue/cancel/selection/groups/fog/camera + exact continuation + re-save/backup + corrupt preflight PASS");
  }
  {

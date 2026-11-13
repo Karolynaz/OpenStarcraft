@@ -2920,3 +2920,38 @@ copy_state routine is an in-memory pointer-rebased clone, not a portable or
 streaming file codec. Do not store raw state memory as a save format.
 The requested continuation is scheduled for 05:00 Vilnius time on Nov 13,
 after the verified 04:56:10 reset.
+
+Verification: src-36306f8e2722610a. Host ASan frontend, two-root map picker,
+Custom Play with remapped open slot and scripted victory, and portable save
+suite passed. Azahar original model displayed Use Map Settings, loaded
+The Small Divide, and reached the map's immediate authored victory. That
+stock melee map has no player army preplaced, so it is an entry point smoke
+test. The synthetic host test covers preplaced units, scripted victory and
+exact save restore. Private package: out/custom-map-settings/StarCraft-3DS.cia
+and out/custom-map-settings/StarCraft-3DS.3ds. Commit 1f3a61b contains the code.
+
+## 2026-11-13 — Save loading
+
+The five-slot menu checks headers and file lengths. Opening a slot verifies
+the full checksum and uses that slot's backup if preflight rejects the primary.
+Validation reads journal records in bounded batches. Restore reuses the
+presentation MPQ reader, skips historical sound effects, polls B during core
+asset loading and catch-up, and limits progress redraws. Matching terrain from
+this process is reused across loads, with regeneration if it cannot be opened.
+The portable on-disk format and simulation version are unchanged.
+
+ASan passed v1/v2 migration, save/cancel and exact continuation, corrupt and
+truncated saves, all five campaign slots and backup selection, 20,000-frame
+mixed AI restore with 720-frame continuation, wall-clock journals and UMS.
+Azahar original mode (src-51c522e5ae41ca19) loaded the genuine November 6 v1
+Brood War Protoss 1 save twice. The second load hit the terrain cache. A B
+press during a different restore returned to the title with Load cancelled.
+The November 5 Brood War Zerg 1 v1 save failed the deterministic digest in this
+build. The current compatibility check rejects saves when older simulation
+behavior cannot be reproduced. Cancelling after replacement begins returns
+to the title because only one core fits on the original 3DS. Long matches
+still simulate all recorded frames. Portable state snapshots remain open.
+
+ARMv6K/VFPv2 passed. Private test files are in
+`nintendo3ds/out/save-loading/StarCraft-3DS.cia` and
+`nintendo3ds/out/save-loading/StarCraft-3DS.3ds`.

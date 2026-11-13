@@ -1,6 +1,6 @@
 // Engine definitions, included inside namespace port3ds after Impl is complete.
 namespace {
-bool checked_save(const char* path,savegame::Header& h,char* error,size_t capacity){
+bool checked_save(const char* path,savegame::Header& h,char* error,size_t capacity,bool verify_payload=true){
  auto fail=[&](const char* s){std::snprintf(error,capacity,"%s",s);return false;};FILE* file=std::fopen(path,"rb");if(!file)return fail("No saved game in this slot");
  bool ok=false;do{
   if(std::fread(h.bytes.data(),1,h.bytes.size(),file)!=h.bytes.size() || !h.supported_format()){fail("Unsupported or invalid save format");break;}
@@ -11,17 +11,42 @@ bool checked_save(const char* path,savegame::Header& h,char* error,size_t capaci
   for(unsigned p=0;p<3;++p)valid=valid && info.setup.races[p]>=-1 && info.setup.races[p]<=2 && info.setup.teams[p]<=2 && info.setup.side_difficulty[p]>=-1 && info.setup.side_difficulty[p]<=1;
   for(float v:{info.view.camera_x,info.view.camera_y,info.view.cursor_x,info.view.cursor_y})valid=valid && std::isfinite(v) && std::abs(v)<1000000;
   if(!valid){fail("Invalid save settings");break;}
+  if(!verify_payload){
+   const long size=long(savegame::header_size)+h.field(3)+long(h.field(2))*savegame::record_size;
+   if(std::fseek(file,0,SEEK_END) || std::ftell(file)!=size){fail("Save file has an invalid length");break;}
+   ok=true;break;
+  }
   uint32_t digest=2166136261u;if(!savegame::copy(file,nullptr,h.field(3),&digest)){fail("Truncated saved map");break;}
-  unsigned previous=0;valid=true;unsigned char bytes[savegame::record_size];
-  for(unsigned n=0;n<h.field(2);++n){if(std::fread(bytes,1,sizeof bytes,file)!=sizeof bytes){valid=false;break;}digest=savegame::hash(digest,bytes,sizeof bytes);auto r=savegame::decode(bytes);if(r.frame<previous || r.frame>h.field(1) || r.op<1 || r.op>savegame::last){valid=false;break;}previous=r.frame;
-   if((r.op==savegame::store || r.op==savegame::recall) && unsigned(r.a)>=4)valid=false;
-   if(r.op==savegame::command && unsigned(r.a)>unsigned(Command::refinery))valid=false;
+  constexpr unsigned batch_size=4096/savegame::record_size;
+  unsigned previous=0;
+  unsigned char bytes[batch_size*savegame::record_size];
+  for(unsigned remaining=h.field(2);remaining && valid;){
+   const unsigned count=std::min(remaining,batch_size);
+   const size_t length=count*savegame::record_size;
+   if(std::fread(bytes,1,length,file)!=length){valid=false;break;}
+   digest=savegame::hash(digest,bytes,length);
+   for(unsigned i=0;i<count;++i){
+    const auto r=savegame::decode(bytes+i*savegame::record_size);
+    if(r.frame<previous || r.frame>h.field(1) || r.op<1 || r.op>savegame::last ||
+       ((r.op==savegame::store || r.op==savegame::recall) && unsigned(r.a)>=4) ||
+       (r.op==savegame::command && unsigned(r.a)>unsigned(Command::refinery))){
+     valid=false;break;
+    }
+    previous=r.frame;
+   }
+   remaining-=count;
   }
   if(!valid || digest!=h.field(7) || std::fgetc(file)!=EOF || std::ferror(file)){fail("Save checksum failed or file truncated");break;}ok=true;
  }while(false);std::fclose(file);return ok;
 }
 }
 bool Engine::inspect_save(const char* path,SaveInfo& info,char* error,size_t capacity){savegame::Header h;if(!checked_save(path,h,error,capacity))return false;info=h.info();return true;}
+bool Engine::inspect_save_header(const char* path,SaveInfo& info,char* error,size_t capacity){
+ savegame::Header h;
+ if(!checked_save(path,h,error,capacity,false))return false;
+ info=h.info();
+ return true;
+}
 uint32_t Engine::state_digest() const {
  return state_digest(unsigned(impl_->initial_scenario));
 }
@@ -62,16 +87,27 @@ bool Engine::load_save(const char* root,const char* path,const char* session,con
  FILE* input=std::fopen(path,"rb");if(!input)return false;const auto map_path=std::string(extracted)+(h.field(4)?".chk":".scx");FILE* map=std::fopen(map_path.c_str(),"wb");bool ok=map && std::fseek(input,savegame::header_size,SEEK_SET)==0 && savegame::copy(input,map,h.field(3));if(map && std::fclose(map))ok=false;
  if(!ok){std::fclose(input);std::snprintf(impl_->message,sizeof impl_->message,"Cannot extract saved map");return false;}
  const auto info=h.info();if(progress && !progress(0,h.field(1))){std::fclose(input);std::snprintf(impl_->message,sizeof impl_->message,"Load cancelled");return false;}
- if(!load(root,map_path.c_str(),Scenario(info.scenario),&info.setup)){std::fclose(input);return false;}
- bool cancelled=false;unsigned char bytes[savegame::record_size];unsigned n=0;savegame::Record next{};bool have=false;
+ bool cancelled=false;
+ const auto poll_loading=[&](){
+  if(!progress(0,h.field(1))){
+   cancelled=true;
+   throw std::runtime_error("Load cancelled");
+  }
+ };
+ if(!load(root,map_path.c_str(),Scenario(info.scenario),&info.setup,progress?std::function<void()>(poll_loading):std::function<void()>{})){
+  std::fclose(input);return false;
+ }
+ // Old effects must never be queued or visibility-tested during replay.
+ impl_->sound->mute=true;
+ unsigned char bytes[savegame::record_size];unsigned n=0;savegame::Record next{};bool have=false;
  auto read=[&](){if(n>=h.field(2)){have=false;return true;}if(std::fread(bytes,1,sizeof bytes,input)!=sizeof bytes)return false;next=savegame::decode(bytes);++n;have=true;return true;};ok=read();
  while(ok){
   while(have && next.frame==frame()){
    auto r=next;switch(r.op){case savegame::similar:select_similar(r.a,r.b,r.c,r.d);break;case savegame::rectangle:select_area(r.a,r.b,r.c,r.d);break;case savegame::select:select(r.a,r.b);break;case savegame::clear:clear_selection();break;case savegame::activate:activate(r.a,r.b);break;case savegame::army:select_army(r.a,r.b);break;case savegame::workers:select_workers(r.a,r.b);break;case savegame::store:store_group(r.a);break;case savegame::recall:recall_group(r.a);break;case savegame::command:command(Command(r.a),r.b,r.c);break;case savegame::perform:perform(unsigned(r.a),r.b,r.c);break;case savegame::move:move_selected(r.a,r.b);break;case savegame::cancel:cancel_selected_work(r.a);break;case savegame::fog:set_fog_enabled(r.a);break;case savegame::surrender:surrender();break;case savegame::elapsed:advance_wall_time(uint64_t(uint32_t(r.a))|(uint64_t(uint32_t(r.b))<<32));break;default:ok=false;break;}if(!ok || !(ok=read()))break;
   }
   if(!ok || frame()==h.field(1))break;
-  if(!(ok=tick()))break;impl_->sound->count=0;impl_->sound->dropped=0;
-  if(frame()%24==0 && progress && !progress(frame(),h.field(1))){cancelled=true;ok=false;break;}
+  if(!(ok=tick()))break;
+  if((frame()%8==0 || frame()==h.field(1)) && progress && !progress(frame(),h.field(1))){cancelled=true;ok=false;break;}
  }
  std::fclose(input);
  if(ok) {
@@ -89,5 +125,5 @@ bool Engine::load_save(const char* root,const char* path,const char* session,con
  }
  if(ok)ok=impl_->journal.clone(path,session,h);
  if(!ok){impl_->loaded=false;std::snprintf(impl_->message,sizeof impl_->message,"%s",cancelled?"Load cancelled":"Save replay differs from this version or its assets");return false;}
- impl_->sound->count=0;impl_->sound->dropped=0;view=info.view;impl_->command_message="Saved game loaded";return true;
+ impl_->sound->mute=false;impl_->sound->count=0;impl_->sound->dropped=0;view=info.view;impl_->command_message="Saved game loaded";return true;
 }

@@ -88,6 +88,8 @@ public:
     bool start_recording(const char* session_path);
     bool save_game(const char* path,const SaveView& view,std::uint64_t saved_at=0);
     static bool inspect_save(const char* path,SaveInfo& info,char* error,std::size_t capacity);
+    // Listing validates metadata and length. Opening still validates the payload.
+    static bool inspect_save_header(const char* path,SaveInfo& info,char* error,std::size_t capacity);
     bool load_save(const char* data_root,const char* path,const char* session_path,const char* extracted_map,SaveView& view,const std::function<bool(unsigned,unsigned)>& progress={});
     std::uint32_t state_digest() const;
     bool surrender();

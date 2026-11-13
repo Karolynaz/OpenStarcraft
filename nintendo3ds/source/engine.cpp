@@ -25,7 +25,7 @@ bool player_sees(const state_functions& f,const unit_t* unit) {
 struct Engine::Impl {
     struct SoundFunctions : state_functions {
         std::array<SoundEvent,256> events{};
-        unsigned count=0, dropped=0;bool fog=false;
+        unsigned count=0, dropped=0;bool fog=false, mute=false;
         detail::CampaignRuntime campaign;
         detail::CampaignAI campaign_ai;
         bool execute_trigger_action(execute_trigger_struct& ets,int owner,running_trigger& rt,running_trigger::action& ra,const trigger::action& a)override{
@@ -53,7 +53,7 @@ struct Engine::Impl {
         #include "campaign_triggers.h"
         explicit SoundFunctions(state& st) : state_functions(st) {}
         void play_sound(int id, xy pos, const unit_t* source,bool race) override {
-            if(id<0)return;
+            if(mute || id<0)return;
             // Frozen fog memories are silent. Global UI sounds have no map
             // position; native local effects require current player sight.
             if(fog){
@@ -386,9 +386,16 @@ bool Engine::load(const char* data_root, const char* map_path, Scenario scenario
         if(!impl_->fog)for(auto& tile:player.st().tiles)tile.explored&=~3;
         // GRPs are already resident because native iscript/collision requires
         // them. Load only palette tables, then expand frames on GPU-cache miss.
+        const bool loose_assets=exists(root+"arr/units.dat");
+        // Reuse the archive tables and page caches across presentation reads.
+        // Keep this separate from core initialization so their temporary
+        // allocations still have disjoint lifetimes on original hardware.
+        std::unique_ptr<data_loading::data_files_loader<>> presentation_assets;
+        if(!loose_assets)
+            presentation_assets.reset(new data_loading::data_files_loader<>(data_loading::data_files_directory(root)));
         auto load_asset=[&](a_vector<uint8_t>& dst,const a_string& name) {
-            if(exists(root+"arr/units.dat"))read_file(dst,root+name);
-            else {auto files=data_loading::data_files_directory(root);files(dst,name);}
+            if(loose_assets)read_file(dst,root+name);
+            else (*presentation_assets)(dst,name);
         };
         auto pcx=[&](const a_string& name) {
             a_vector<uint8_t> src;load_asset(src,name);
@@ -419,6 +426,7 @@ bool Engine::load(const char* data_root, const char* map_path, Scenario scenario
                 const unsigned at=256*(c-1);
                 impl_->lights[i][c]=at<table.size()?impl_->palette[table[at]]:0;
             }
+            if(progress)progress();
         }
         // Original cursor canvases are 128x128 with the pointer hotspot at
         // (64,64). Keep the native frame offsets; do not center cropped frames.
@@ -429,8 +437,7 @@ bool Engine::load(const char* data_root, const char* map_path, Scenario scenario
             for(const auto& frame:grp.frames)if(frame.size.x>64 || frame.size.y>64 || frame.offset.x+frame.size.x>128 || frame.offset.y+frame.size.y>128)throw std::runtime_error("Cursor frame bounds");
             impl_->cursors[i]=std::move(grp);
         }};
-        if(exists(root+"arr/units.dat"))load_cursors(load_asset);
-        else {auto files=data_loading::data_files_directory(root);load_cursors(files);}
+        load_cursors(load_asset);
         if(scripted || scenario_race(scenario)==0 || (custom && (setup->races[1]==0 || setup->races[2]==0))){impl_->creep.reset(new detail::CreepGraphics);impl_->creep->load(player.st(),terrain,impl_->palette,load_asset);}
         // UI art is optional for loose-asset installations; core gameplay can
         // retain its text menu if the original command assets were not supplied.
@@ -441,6 +448,8 @@ bool Engine::load(const char* data_root, const char* map_path, Scenario scenario
         impl_->sound->campaign.active=scripted;impl_->sound->campaign.mission=campaign::index(unsigned(scenario));
         if(scripted)for(size_t at=0;at+8<=chk.size();){unsigned n=data_loading::value_at<uint32_t,true>(chk.data()+at+4);if(!std::memcmp(chk.data()+at,"UPRP",4)){if(n>64*20 || n%20)throw std::runtime_error("Campaign unit property bounds");for(unsigned i=0;i<n/20;++i)std::copy_n(chk.data()+at+8+i*20,20,impl_->sound->campaign.properties[i].begin());}at+=8+n;}
         if(scripted)impl_->sound->campaign_ai.load(load_asset);
+        presentation_assets.reset();
+        if(progress)progress();
         if(campaign){impl_->sound->campaign.camera=player.st().game->start_locations[0];impl_->sound->campaign.camera_serial=1;}
         // User-requested shorter Reign of Fire intro: only the four authored
         // generators start damaged; the Psi Disrupter and other missions keep
@@ -452,6 +461,7 @@ bool Engine::load(const char* data_root, const char* map_path, Scenario scenario
         return true;
     } catch (const std::exception& e) {
         std::snprintf(impl_->message, sizeof impl_->message, "%s", e.what());
+        impl_->sound.reset();
         impl_->player.reset();
         return false;
     }
