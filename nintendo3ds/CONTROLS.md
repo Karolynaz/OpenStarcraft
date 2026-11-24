@@ -24,7 +24,6 @@ races; the command recipes and resource supply icon remain race-specific.
 | L+D-pad direction | Save selection to one of four groups |
 | R+D-pad direction | Recall group; repeat within 350 ms to center camera |
 | START | Pause and bottom-screen Game Menu; START/B returns |
-| Touch MENU | Same pause menu |
 | Touch minimap | Move camera; aspect-fit blank margins ignore touches |
 | Touch blinking red attack marker | Center on the recent attack (marker lasts ten simulation seconds) |
 | Touch a command/power | Same action as its displayed shortcut |
@@ -58,7 +57,7 @@ place with Circle Pad and A, cancel with B. Refinery placement snaps to geysers.
 The lower screen uses the supplied 320×240 background and Figma node28:30:
 4+5 commands with native 23px single-key badges and 35×23px combination
 capsules (following the Diablo3Ds HUD), centered aspect-fit minimap, clock,
-MENU, 60×56 static original
+60×56 original
 portrait, and the selected-unit/production panel. This panel uses native10px Roboto
 Bold glyphs, a64×64 wireframe at(17,153), HP then shields side by side at
 y219, and the name/stats column starting atx94. Armor/shield/ground/air upgrade
@@ -140,12 +139,13 @@ matching source build as before; completion progress is a separate file.
 ### Lower screen layout (2026-11-06)
 
 The player race selects its own approved Terran/Protoss/Zerg background.
-The left panel holds twelve selected units in two columns, or a single
+The left panel shows up to twelve selected units in two columns. For larger
+groups it shows eleven units and a green count of the remaining selection.
+With one unit selected, it displays that
 unit name/kills, 64×64 wireframe, HP/shields and up to four native 36×34
 upgrade icons. Busy buildings show a cancellable five-slot production grid
 in that panel instead of upgrades. Command icons use native 36×34 pixels
 in the upper-right four-plus-five grid, with uniform 12px key labels.
-MENU is at (122,130), the original 60×56 portrait at (122,152), the clock
-below it, and the aspect-fit minimap in the 96×96 area at (206,130).
+The 60×56 portrait is at (122,130), with the clock below it and the aspect-fit minimap in the 96×96 area at (206,130).
 Rendering and touch routing share these coordinates. Existing key chords
 and catalogue/world input precedence are unchanged.

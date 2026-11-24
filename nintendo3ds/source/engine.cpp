@@ -82,8 +82,11 @@ struct Engine::Impl {
     savegame::Writer journal;std::string initial_map,initial_root;Scenario initial_scenario=Scenario::empty;MatchSetup initial_setup;
     std::unique_ptr<savegame::Reader> replay;
     savegame::Rules rules=savegame::Rules::current;
-    static_vector<unit_id_32,192> selected;
-    std::array<static_vector<unit_id_32,192>,4> groups;
+    using Selection=static_vector<unit_id_32,Engine::unit_capacity>;
+    Selection selected;
+    std::array<Selection,4> groups;
+    // Only historical journal operations retain the original selection cap.
+    unsigned selection_limit=Engine::unit_capacity;
     detail::FogMemory memory;
     std::array<int,1700> alert_hp;std::array<unsigned,1700> alert_ids{};unsigned alert_frame=0;xy alert{};
     detail::BattleAI ai;
@@ -764,14 +767,14 @@ bool Engine::select(int x, int y) {savegame::Writer::Guard record(impl_->journal
 unsigned Engine::own_unit_at(int x,int y)const{
     if(!ready())return 0;auto& f=impl_->player->funcs();auto* u=hit_unit(f,x,y,true,impl_->fog);return u?f.get_unit_id_32(u).raw_value:0;
 }
-unsigned Engine::select_similar(int x,int y,int cx,int cy){savegame::Writer::Guard record(impl_->journal,{frame(),savegame::similar,x,y,cx,cy});
+unsigned Engine::select_similar(int x,int y,int cx,int cy){savegame::Writer::Guard record(impl_->journal,{frame(),savegame::similar_all,x,y,cx,cy});
     if(!ready())return 0;auto& f=impl_->player->funcs();auto* target=hit_unit(f,x,y,true,impl_->fog);if(!target)return 0;
     if(f.ut_building(target)){select(x,y);return impl_->selected.size();}
     impl_->selected.clear();
     for(auto* u:ptr(f.st.player_units[0])){
         if(u->unit_type!=target->unit_type || f.unit_dead(u) || f.ut_turret(u) || f.us_hidden(u) || (impl_->fog && !player_sees(f,u)))continue;
         const auto pos=u->sprite->position;if(pos.x<cx || pos.y<cy || pos.x>=cx+400 || pos.y>=cy+240)continue;
-        if(impl_->selected.size()==192)break;impl_->selected.push_back(f.get_unit_id_32(u));
+        if(impl_->selected.size()==impl_->selection_limit)break;impl_->selected.push_back(f.get_unit_id_32(u));
     }
     impl_->command_message="Matching units on screen selected";return impl_->selected.size();
 }
@@ -811,7 +814,7 @@ bool Engine::activate(int x,int y) {savegame::Writer::Guard record(impl_->journa
     if(!current || current->owner!=0) { const bool ok=select(x,y); impl_->command_message=ok?"Unit selected":"Select a unit first"; return ok; }
     return command(Command::context,x,y);
 }
-unsigned Engine::select_army(int cx,int cy) {savegame::Writer::Guard record(impl_->journal,{frame(),savegame::army,cx,cy});
+unsigned Engine::select_army(int cx,int cy) {savegame::Writer::Guard record(impl_->journal,{frame(),savegame::army_all,cx,cy});
     impl_->selected.clear();
     if(!ready()) return 0;
     const auto& f=impl_->player->funcs();
@@ -819,19 +822,19 @@ unsigned Engine::select_army(int cx,int cy) {savegame::Writer::Guard record(impl
         if(u->owner!=0 || f.unit_dead(u) || f.ut_turret(u) || !f.u_completed(u) || f.ut_worker(u) || f.ut_building(u) || f.us_hidden(u) || f.unit_is(u,UnitTypes::Zerg_Larva) || f.unit_is(u,UnitTypes::Zerg_Egg) || f.unit_is(u,UnitTypes::Zerg_Cocoon) || f.unit_is(u,UnitTypes::Zerg_Lurker_Egg)) continue;
         const auto p=u->sprite->position;
         if(p.x<cx || p.x>=cx+400 || p.y<cy || p.y>=cy+240) continue;
-        if(impl_->selected.size()==192) break;
+        if(impl_->selected.size()==impl_->selection_limit) break;
         impl_->selected.push_back(f.get_unit_id_32(u));
     }
     return impl_->selected.size();
 }
-unsigned Engine::select_workers(int camera_x,int camera_y) {savegame::Writer::Guard record(impl_->journal,{frame(),savegame::workers,camera_x,camera_y});
+unsigned Engine::select_workers(int camera_x,int camera_y) {savegame::Writer::Guard record(impl_->journal,{frame(),savegame::workers_all,camera_x,camera_y});
     impl_->selected.clear();
     if(!ready()) return 0;
     const auto& f=impl_->player->funcs();
     for(const auto* u:ptr(impl_->player->st().visible_units)) {
         if(u->owner!=0 || f.unit_dead(u) || !f.u_completed(u) || !f.ut_worker(u) || f.us_hidden(u)) continue;
         const auto pos=u->sprite->position;if(camera_x>=0 && (pos.x<camera_x || pos.x>=camera_x+400 || pos.y<camera_y || pos.y>=camera_y+240))continue;
-        if(impl_->selected.size()==192) break;
+        if(impl_->selected.size()==impl_->selection_limit) break;
         impl_->selected.push_back(f.get_unit_id_32(u));
     }
     return impl_->selected.size();
@@ -849,7 +852,7 @@ bool Engine::recall_group(unsigned slot,int* x,int* y) {savegame::Writer::Guard 
     impl_->selected.clear();
     const auto& f=impl_->player->funcs();
     int sx=0,sy=0;
-    static_vector<unit_id_32,192> retained;
+    Impl::Selection retained;
     for(auto id:impl_->groups[slot]) if(auto* u=f.get_unit(id)) {
         if(f.unit_dead(u) || (u->owner!=0 && !impl_->ai.observer() && !impl_->battle.enabled())) continue;
         retained.push_back(id);
@@ -1137,7 +1140,7 @@ bool Engine::perform(unsigned code,int x,int y) {savegame::Writer::Guard record(
     if(!ready())return fail("Load a scenario first");
     if(impl_->ai.enabled(0) || impl_->battle.enabled())return fail("Observer: AI controls both armies");
     const auto kind=static_cast<OptionKind>(code>>16);const unsigned id=code&65535;
-    struct SelectionRestore{Impl* p;static_vector<unit_id_32,192> saved;bool restore=false;~SelectionRestore(){if(restore)p->selected=saved;}} selection{impl_.get(),impl_->selected,false};
+    struct SelectionRestore{Impl* p;Impl::Selection saved;bool restore=false;~SelectionRestore(){if(restore)p->selected=saved;}} selection{impl_.get(),impl_->selected,false};
     if(impl_->selected.size()>1 && (kind==OptionKind::merge || kind==OptionKind::morph || kind==OptionKind::train || kind==OptionKind::stim || kind==OptionKind::siege || kind==OptionKind::cloak || kind==OptionKind::order || kind==OptionKind::unload || kind==OptionKind::burrow)){
         unit_id_32 chosen{};for(auto uid:selection.saved){impl_->selected.clear();impl_->selected.push_back(uid);MenuOption rows[32];unsigned count=options(OptionPage::primary,rows,32);for(unsigned i=0;i<count;++i)if(rows[i].code==code && rows[i].enabled){chosen=uid;break;}if(chosen.raw_value)break;}
         impl_->selected=selection.saved;if(chosen.raw_value && !impl_->selected.empty() && impl_->selected.front().raw_value!=chosen.raw_value){auto it=std::find(impl_->selected.begin(),impl_->selected.end(),chosen);std::rotate(impl_->selected.begin(),it,it+1);selection.restore=true;}
@@ -1281,13 +1284,13 @@ UnitView Engine::Impl::unit_view(const unit_t* u,bool is_selected) const {
 std::size_t Engine::visible_units(UnitView* output, std::size_t capacity) const {
     if(!ready())return 0;
     const auto& funcs=impl_->player->funcs();
+    std::array<bool,unit_capacity> selected{};
+    for(auto id:impl_->selected)if(const auto* unit=funcs.get_unit(id))selected[unit->index]=true;
     std::size_t n=0;
     for(const auto* unit:ptr(impl_->player->st().visible_units)){
         if(n==capacity)break;
         if(funcs.unit_dead(unit) || funcs.ut_turret(unit) || (impl_->fog && !player_sees(funcs,unit)))continue;
-        const auto id=funcs.get_unit_id_32(unit);
-        const bool selected=std::find(impl_->selected.begin(),impl_->selected.end(),id)!=impl_->selected.end();
-        output[n++]=impl_->unit_view(unit,selected);
+        output[n++]=impl_->unit_view(unit,selected[unit->index]);
     }
     return n;
 }

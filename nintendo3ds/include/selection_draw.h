@@ -22,9 +22,12 @@ inline void draw_unit_bars(const UnitView& u,int cx,int cy,Graphics& graphics,co
  row(at,u.hp,u.max_hp,u.hp*3>=u.max_hp*2?1:u.hp*3>=u.max_hp?2:3);at+=4;
  if(u.max_energy)row(at,u.energy,u.max_energy,5);
 }
-inline void draw_group_wireframe(const UnitView& u,Graphics& graphics,const Engine& engine,HudLayout::Rect cell){
+inline void draw_group_cell(HudLayout::Rect cell){
  C2D_DrawRectSolid(cell.x,cell.y,0,cell.w,cell.h,C2D_Color32(9,21,44,255));
  ui_border({cell.x,cell.y,cell.w,cell.h},C2D_Color32(46,94,172,255));
+}
+inline void draw_group_wireframe(const UnitView& u,Graphics& graphics,const Engine& engine,HudLayout::Rect cell){
+ draw_group_cell(cell);
  const auto frame=engine.unit_wireframe(u.type,u.hp,u.max_hp,u.shields,true);
  if(!graphics.ui_image(frame,cell.x+2,cell.y+1,frame.image==group_wireframe_image?1.f:.5f,engine))
     graphics.ui_image(engine.command_icon(u.type),cell.x+4,cell.y+3,.8f,engine);
@@ -41,17 +44,18 @@ inline void draw_selection_info(const SelectionInfo& info,Graphics& graphics,con
   if(second.empty() && panel_width(art,candidate.c_str())<=86)first=candidate;
   else {if(!second.empty())second+=' ';second+=word;}
  }
- selection_text(art,first.c_str(),second.empty()?16:12);if(!second.empty())selection_text(art,second.c_str(),23);
+ selection_text(art,first.c_str(),second.empty()?21:17);if(!second.empty())selection_text(art,second.c_str(),28);
+ const int stats_y=second.empty()?37:41;
  char text[96];
  if(info.work!=WorkKind::none){
   const char* label=info.work==WorkKind::training?"Training":info.work==WorkKind::research?"Research":info.work==WorkKind::upgrade?"Upgrading":info.work==WorkKind::morph?"Morphing":"Building";
-  selection_text(art,label,37);
+  selection_text(art,label,stats_y);
   const float progress=info.total>0?std::max(0.f,std::min(1.f,1-info.remaining/float(info.total))):0;
   C2D_DrawRectSolid(20,116,0,77,3,blue);C2D_DrawRectSolid(21,117,0,75*progress,1,green);
  }else{
   if(info.max_energy)std::snprintf(text,sizeof text,"K%d E%d/%d",info.kills,info.energy,info.max_energy);
   else std::snprintf(text,sizeof text,"Kills: %d",info.kills);
-  selection_text(art,text,37);
+  selection_text(art,text,stats_y);
  }
  if(!graphics.ui_image(engine.selection_wireframe(),27,51,1,engine))graphics.ui_image(engine.command_icon(info.type),41,66,1,engine);
  std::snprintf(text,sizeof text,"%d/%d",info.hp,info.max_hp);selection_text(art,text,120,'G');
@@ -65,8 +69,8 @@ inline void draw_selection_info(const SelectionInfo& info,Graphics& graphics,con
    else {std::snprintf(text,sizeof text,"%u",i+1);panel_text(art,text,c.x+12,c.y+5,'B',12);}
   }
  }else{
-  for(unsigned i=0;i<info.upgrade_count;++i){const auto c=HudLayout::upgrade(i);graphics.ui_image(engine.command_icon(info.upgrades[i].icon),c.x,c.y,1,engine);
-   C2D_DrawRectSolid(c.x+24,c.y+22,0,12,12,C2D_Color32(12,20,32,235));
+  for(unsigned i=0;i<info.upgrade_count;++i){const auto c=HudLayout::upgrade(i);graphics.ui_image(engine.command_icon(info.upgrades[i].icon,info.upgrades[i].level>0),c.x,c.y,1,engine);
+   C2D_DrawRectSolid(c.x+24,c.y+22,0,12,12,C2D_Color32(0,0,0,255));
    std::snprintf(text,sizeof text,"%d",info.upgrades[i].level);panel_text(art,text,c.x+27,c.y+22,'W',9);
   }
   if(info.carried_powerup && info.upgrade_count<4){const auto c=HudLayout::upgrade(info.upgrade_count);graphics.ui_image(engine.command_icon(info.carried_powerup),c.x,c.y,1,engine);panel_text(art,"Carry",c.x+2,c.y+22,'W',34);}

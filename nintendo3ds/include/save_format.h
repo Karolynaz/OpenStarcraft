@@ -40,7 +40,7 @@ inline bool valid_rules(Rules rules, unsigned scenario) {
 static_assert(sizeof(float) == 4 && std::numeric_limits<float>::is_iec559,
               "Save view requires IEEE-754 binary32");
 
-enum Op:unsigned {select=1,clear,activate,army,workers,store,recall,command,perform,move,cancel,fog,surrender,elapsed,rectangle,similar,deselect_passengers,last=deselect_passengers};
+enum Op:unsigned {select=1,clear,activate,army,workers,store,recall,command,perform,move,cancel,fog,surrender,elapsed,rectangle,similar,deselect_passengers,rectangle_all,similar_all,army_all,workers_all,last=workers_all};
 inline uint32_t get(const unsigned char* p){return uint32_t(p[0])|uint32_t(p[1])<<8|uint32_t(p[2])<<16|uint32_t(p[3])<<24;}
 inline void put(unsigned char* p,uint32_t v){for(unsigned i=0;i<4;++i)p[i]=v>>(8*i);}
 inline uint32_t hash(uint32_t h,const void* data,size_t n){auto* p=static_cast<const unsigned char*>(data);while(n--){h^=*p++;h*=16777619u;}return h;}

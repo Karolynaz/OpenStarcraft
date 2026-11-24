@@ -144,6 +144,7 @@ public:
     const char* command_status() const;
     PlacementView placement(Command building, int world_x, int world_y) const;
     std::size_t visible_units(UnitView* output, std::size_t capacity) const;
+    static constexpr unsigned unit_capacity=1700;
     std::size_t selected_units(UnitView* output, std::size_t capacity) const;
     std::size_t visible_images(SpriteView* output, std::size_t capacity, int camera_x, int camera_y,bool selection_rings=false) const;
     std::size_t remembered_units(UnitView* output,std::size_t capacity) const;

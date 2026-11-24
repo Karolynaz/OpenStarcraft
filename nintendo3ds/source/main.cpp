@@ -272,7 +272,7 @@ int main() {
         bool paused = true;
         bool pending_load = false;
         bool placing = false;
-        unsigned ability_page=0,catalogue_page=0,selection_page=0;bool production_focus=false;
+        unsigned ability_page=0,catalogue_page=0;bool production_focus=false;
         bool drag_pending=false,drag_box=false;int drag_x=0,drag_y=0;
         unsigned placing_code=0, target_code=0;
         char target_help[128]{};
@@ -291,13 +291,7 @@ int main() {
         constexpr unsigned unit_view_capacity=512;
         // Reused frame scratch stays off the 256 KiB stack during map and save loading.
         static port3ds::UnitView units[unit_view_capacity];
-        static port3ds::UnitView selected_units[192];
-        auto selection_layout=[&](unsigned total){
-            const unsigned per_page=total>12?10:12;
-            const unsigned pages=std::max(1u,(total+per_page-1)/per_page);
-            selection_page=std::min(selection_page,pages-1);
-            return std::make_pair(per_page,pages);
-        };
+        static port3ds::UnitView selected_units[port3ds::Engine::unit_capacity];
         static port3ds::SpriteView images[2048];
         unsigned missing_images = 0;
         auto toggle_log=[&]() {
@@ -322,7 +316,7 @@ int main() {
             if (load_now) {
                 loading_screen();double_click.reset();
                 result_art.clear();
-                placing = false; attacking=false;drag_pending=drag_box=false;ability_page=catalogue_page=selection_page=0;menu=Menu::none;result_shown=false;
+                placing = false; attacking=false;drag_pending=drag_box=false;ability_page=catalogue_page=0;menu=Menu::none;result_shown=false;
                 // Release resident PCM and sprite scratch before the core's
                 // temporary MPQ/GRP initialization peak on original hardware.
                 load_stage(scenario,"release-start");
@@ -618,7 +612,6 @@ int main() {
             if(down&KEY_TOUCH) {
                 touchPosition t{};hidTouchRead(&t);
                 if(overlay(menu)){const int hit=(menu==Menu::result?port3ds::ResultScreen::hit(t.px,t.py,menu_count()):port3ds::PauseMenu::hit(t.px,t.py,menu_count()));if(hit>=0){choice=unsigned(hit);activate_menu();}}
-                else if(port3ds::HudLayout::menu().hit(t.px,t.py)){menu=Menu::system;choice=0;menu_x=160;menu_y=60;}
                 else if(menu==Menu::none || menu==Menu::catalogue){
                     if(menu==Menu::none)refresh_world();
                     const int hit=port3ds::CommandGrid::hit(t.px,t.py,9);
@@ -627,19 +620,13 @@ int main() {
                         const auto info=engine.selection_info();const int production=port3ds::ProductionPanel::hit(t.px,t.py,info);
                         if(production>=0){engine.cancel_selected_work(unsigned(production));action=engine.command_status();}
                         else if(info.count>1){
-                            const auto total=engine.selected_units(selected_units,192);
-                            const auto layout=selection_layout(total);
-                            const auto arrows=port3ds::HudLayout::selection_pages();
-                            if(layout.second>1 && arrows.hit(t.px,t.py)){
-                                selection_page=(selection_page+layout.second+(t.px<arrows.x+arrows.w/2?-1:1))%layout.second;
-                            }else{
-                                const unsigned first=selection_page*layout.first;
-                                for(unsigned slot=0;slot<layout.first && first+slot<total;++slot)
-                                    if(port3ds::HudLayout::selection(slot).hit(t.px,t.py)){
-                                        const auto& u=selected_units[first+slot];
-                                        engine.select(u.x,u.y);selection_page=0;break;
-                                    }
-                            }
+                            const auto total=engine.selected_units(selected_units,port3ds::Engine::unit_capacity);
+                            for(unsigned slot=0;slot<port3ds::HudLayout::selection_cards(total);++slot)
+                                if(port3ds::HudLayout::selection(slot).hit(t.px,t.py)){
+                                    const auto& u=selected_units[slot];
+                                    engine.select(u.x,u.y);
+                                    break;
+                                }
                         }
                     }
                 }
@@ -775,7 +762,7 @@ int main() {
             }
             const u64 render_begin=now_us();
             const auto count = engine.visible_units(units, unit_view_capacity);
-            const auto group_count=engine.selected_units(selected_units,192);
+            const auto group_count=engine.selected_units(selected_units,port3ds::Engine::unit_capacity);
             const u32 bg = C2D_Color32(8, 16, 24, 255), grid = C2D_Color32(25, 49, 57, 255);
             const u32 green = C2D_Color32(100, 240, 180, 255), white = C2D_Color32(215, 230, 235, 255);
             const u64 wait_begin=now_us();
@@ -850,13 +837,14 @@ int main() {
             C2D_TargetClear(bottom, bg); C2D_SceneBegin(bottom);
             hud_art.draw("hud",0,0);
             char clock[20];const unsigned seconds=state.countdown_active?state.countdown_seconds:state.frame/24;std::snprintf(clock,sizeof clock,"%s%02lu:%02lu",state.countdown_active?"T-":"",static_cast<unsigned long>(seconds/60),static_cast<unsigned long>(seconds%60));
-            port3ds::ui_centered(hud_buf,clock,{120,208,64,20},.47f,white);
+            const auto clock_rect=port3ds::HudLayout::clock();
+            port3ds::ui_centered(hud_buf,clock,{clock_rect.x,clock_rect.y,clock_rect.w,clock_rect.h},.47f,white);
             if(watching){
                 port3ds::ui_text(hud_buf,engine.replay_finished()?"REPLAY ENDED":paused?"PAUSED":"REPLAY",152,130,.38f,white,true);
                 if(!engine.replay_finished())
                     port3ds::ui_text(hud_buf,paused?"START: Play":"START: Pause",152,153,.34f,white,true);
                 port3ds::ui_text(hud_buf,"B: Exit",152,170,.40f,white,true);
-            }else port3ds::ui_text(hud_buf,"MENU",152,130,.48f,white,true);
+            }
             if(!watching && menu==Menu::none)refresh_world();
             if(!watching && (menu==Menu::none || menu==Menu::catalogue)){
                 for(unsigned i=0;i<option_count;++i){if(!option_rows[i].label[0])continue;auto cell=port3ds::CommandGrid::cell(i);
@@ -864,7 +852,7 @@ int main() {
                     if((menu==Menu::catalogue || (menu==Menu::none && production_focus && production_grid())) && i==choice)port3ds::ui_border({cell.x,cell.y,36,34},green);
                     const char* keys=(menu==Menu::catalogue || production_grid())?port3ds::CommandGrid::key(i):i<4?(i==0?"A":i==1?"R+A":i==2?"R+B":"L+A"):(i==4?"X":i==5?"Y":i==6?"L+X":i==7?"L+Y":"L+R");
                     char badge[24];std::snprintf(badge,sizeof badge,"key_%s",keys);unsigned bw=0,bh=0;
-                    if(hud_art.size(badge,bw,bh))hud_art.draw(badge,cell.x+(36-int(bw))/2,cell.y+28);
+                    if(hud_art.size(badge,bw,bh))hud_art.draw(badge,cell.x+(36-int(bw))/2,port3ds::CommandGrid::badge_y(i));
 
                 }
             }
@@ -882,21 +870,22 @@ int main() {
             if(state.observer && !selected_info.count){
                 int y=20;for(unsigned p=0;p<3;++p)if(state.players[p].ai){const auto& side=state.players[p];char row[80];std::snprintf(row,sizeof row,"AI %u %s\nScout %u\nCast %u Drop %u",p+1,side.difficulty==port3ds::AiDifficulty::medium?"M":"E",side.scouts,side.casts,side.drop_units);port3ds::panel_text(hud_art,row,18,y,'W',81);y+=54;}
             }
-            const auto layout=selection_layout(group_count);
             if(group_count>1){
-                const unsigned first=selection_page*layout.first;
-                for(unsigned slot=0;slot<layout.first && first+slot<group_count;++slot)
-                    port3ds::draw_group_wireframe(selected_units[first+slot],graphics,engine,port3ds::HudLayout::selection(slot));
-                if(layout.second>1){
-                    const auto arrows=port3ds::HudLayout::selection_pages();
-                    char page[24];std::snprintf(page,sizeof page,"<  %u/%u  >",selection_page+1,layout.second);
-                    port3ds::ui_centered(hud_buf,page,{arrows.x,arrows.y,arrows.w,arrows.h},.40f,white);
+                const auto cards=port3ds::HudLayout::selection_cards(group_count);
+                for(unsigned slot=0;slot<cards;++slot)
+                    port3ds::draw_group_wireframe(selected_units[slot],graphics,engine,port3ds::HudLayout::selection(slot));
+                if(group_count>cards){
+                    const auto cell=port3ds::HudLayout::selection(cards);
+                    port3ds::draw_group_cell(cell);
+                    char extra[12];std::snprintf(extra,sizeof extra,"+%u",unsigned(group_count-cards));
+                    port3ds::ui_centered(hud_buf,extra,{cell.x,cell.y,cell.w,cell.h},.43f,green);
                 }
             }
             if(front.show_portraits && !watching){
                 auto portrait=engine.portrait();
                 if(portrait.image)portrait.frame+=110*(1+(state.frame/3)%16);
-                graphics.ui_image(portrait,122,152,1,engine);
+                const auto rect=port3ds::HudLayout::portrait();
+                graphics.ui_image(portrait,rect.x,rect.y,1,engine);
             }
             const auto mini=controls.minimap_bounds();
             C2D_DrawRectSolid(mini.x, mini.y, 0, mini.w, mini.h, grid);
@@ -930,7 +919,8 @@ int main() {
                 }
                 for(unsigned i=0;i<menu_count();++i){const auto r=port3ds::PauseMenu::row(i,menu_count());
                     C2D_DrawRectSolid(r.x,r.y,0,r.w,r.h,C2D_Color32(8,16,35,240));
-                    port3ds::ui_border(r,i==choice?C2D_Color32(88,130,255,255):C2D_Color32(30,55,125,255));
+                    port3ds::ui_border(r,i==choice?C2D_Color32(245,225,75,255):C2D_Color32(56,89,171,255));
+                    port3ds::ui_border({r.x+2,r.y+2,r.w-4,r.h-4},C2D_Color32(30,55,125,255));
                     const bool slots=menu==Menu::save_slots || menu==Menu::load_slots;const float size=slots?.43f:menu_count()>6?.49f:.55f;float w,h;C2D_TextGetDimensions(&menu_rows[i],size,size,&w,&h);
                     const auto color=slots && menu==Menu::load_slots && !save_slots.slots[i].available?C2D_Color32(90,100,115,255):i==choice?C2D_Color32(245,240,110,255):white;
                     if(slots){const auto& slot=save_slots.slots[i];const auto& label=port3ds::ui_fits(slot.label.c_str(),size,r.w-12)?slot.label:slot.short_label;port3ds::ui_centered(hud_buf,label.c_str(),r,size,color);}

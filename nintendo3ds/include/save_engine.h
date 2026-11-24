@@ -89,15 +89,18 @@ bool Engine::save_game(const char* path,const SaveView& view,std::uint64_t saved
 bool Engine::apply_journal_commands(savegame::Reader& reader){
  while(reader.pending && reader.next.frame==frame()){
   const auto r=reader.next;
+  const bool capped=r.op==savegame::similar || r.op==savegame::rectangle ||
+                    r.op==savegame::army || r.op==savegame::workers;
+  impl_->selection_limit=capped?192:Engine::unit_capacity;
   switch(r.op){
-  case savegame::similar:select_similar(r.a,r.b,r.c,r.d);break;
-  case savegame::rectangle:select_area(r.a,r.b,r.c,r.d);break;
+  case savegame::similar:case savegame::similar_all:select_similar(r.a,r.b,r.c,r.d);break;
+  case savegame::rectangle:case savegame::rectangle_all:select_area(r.a,r.b,r.c,r.d);break;
   case savegame::select:select(r.a,r.b);break;
   case savegame::clear:clear_selection();break;
   case savegame::deselect_passengers:deselect_passengers();break;
   case savegame::activate:activate(r.a,r.b);break;
-  case savegame::army:select_army(r.a,r.b);break;
-  case savegame::workers:select_workers(r.a,r.b);break;
+  case savegame::army:case savegame::army_all:select_army(r.a,r.b);break;
+  case savegame::workers:case savegame::workers_all:select_workers(r.a,r.b);break;
   case savegame::store:store_group(r.a);break;
   case savegame::recall:recall_group(r.a);break;
   case savegame::command:command(Command(r.a),r.b,r.c);break;
@@ -109,6 +112,7 @@ bool Engine::apply_journal_commands(savegame::Reader& reader){
   case savegame::elapsed:advance_wall_time(uint64_t(uint32_t(r.a))|(uint64_t(uint32_t(r.b))<<32));break;
   default:return false;
   }
+  impl_->selection_limit=Engine::unit_capacity;
   if(!reader.advance())return false;
  }
  return !reader.pending || reader.next.frame>frame();
