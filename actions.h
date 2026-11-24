@@ -646,6 +646,7 @@ struct action_functions: state_functions {
 			if (!unit_can_receive_order(u, get_order_type(Orders::Unload), owner)) continue;
 			if (loaded_units(u).empty()) continue;
 			issue_order(u, queue, get_order_type(Orders::Unload), {});
+			retval = true;
 		}
 		return retval;
 	}

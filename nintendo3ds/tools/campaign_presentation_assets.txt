@@ -118,3 +118,10 @@ rez/estz06.txt
 rez/estz07.txt
 rez/estz08.txt
 rez/estz02x.txt
+rez/estz04x.txt
+rez/estz05x.txt
+rez/estz06x.txt
+rez/estz07x.txt
+rez/estz08x.txt
+rez/estz09x.txt
+rez/estz10x.txt

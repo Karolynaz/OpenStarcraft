@@ -44,7 +44,7 @@ public:
  unsigned sprites(const SpriteView*,std::size_t,int,int,const Engine&);
  void fog(const Engine&,int camera_x,int camera_y);
  void fog_minimap(const Engine&,float,float,float,float);
- bool ui_image(const SpriteView&,float x,float y,float scale,const Engine&);
+ bool ui_image(const SpriteView&,float x,float y,float scale,const Engine&,unsigned clip_width=0,unsigned clip_left=0);
  bool cursor(const SpriteView&,float,float,const Engine&);
  void minimap(float,float,float,float);
 };

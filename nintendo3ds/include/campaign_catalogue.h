@@ -30,11 +30,26 @@ static constexpr Mission missions[]={
  {"zerg08","Eye for an Eye",38,0,false},
  {"expzerg02","Reign of Fire",39,0,true},
  {"expzerg03","The Kel-Morian Combine",40,0,true},
+ {"expzerg04a","The Liberation of Korhal",68,0,true},
+ {"expzerg04b","The Liberation of Korhal",69,0,true},
+ {"expzerg04c","The Liberation of Korhal",70,0,true},
+ {"expzerg04d","The Liberation of Korhal",71,0,true},
+ {"expzerg04e","The Liberation of Korhal",72,0,true},
+ {"expzerg04f","The Liberation of Korhal",73,0,true},
+ {"expzerg05","True Colors",67,0,true},
+ {"expzerg06","Fury of the Swarm",74,0,true},
+ {"expzerg07","The Drawing of the Web",75,0,true},
+ {"expzerg08","To Slay the Beast",76,0,true},
+ {"expzerg09","The Reckoning",77,0,true},
+ {"expbonus","Dark Origin",79,0,true},
+ {"expzerg10","Omega",78,0,true},
  {"expterran02","The Dylarian Shipyards",41,1,true},
  {"expprotoss03","Legacy of the Xel\'Naga",42,2,true},
  {"expterran03","Ruins of Tarsonis",43,1,true},
  {"expprotoss04","The Quest for Uraj",44,2,true},
  {"expterran04","Assault on Korhal",45,1,true},
+ {"expterran05a","Emperor's Fall (Ground Zero)",65,1,true},
+ {"expterran05b","Emperor's Fall (Birds of War)",66,1,true},
  {"expterran06","Emperor's Flight",57,1,true},
  {"zerg09","The Invasion of Aiur",46,0,false},
  {"protoss05","Choosing Sides",47,2,false},
@@ -45,17 +60,51 @@ static constexpr Mission missions[]={
  {"protoss10","Eye of the Storm",52,2,false},
  {"terran12","The Hammer Falls",55,1,false},
  {"zerg10","Full Circle",56,0,false},
- {"tutorial","Boot Camp",58,1,false}
+ {"tutorial","Boot Camp",58,1,false},
+ {"expterran07","Patriot's Blood",59,1,true},
+ {"expterran08","To Chain the Beast",60,1,true},
+ {"expprotoss05","The Battle of Braxis",64,2,true},
+ {"expprotoss06","Return to Char",61,2,true},
+ {"expprotoss07","The Insurgent",62,2,true},
+ {"expprotoss08","Countdown",63,2,true}
 };
 constexpr unsigned tutorial_scenario=58;
+constexpr unsigned true_colors_scenario=67;
+constexpr unsigned reckoning_scenario=77;
+constexpr unsigned omega_scenario=78;
+constexpr unsigned dark_origin_scenario=79;
 constexpr unsigned count=sizeof(missions)/sizeof(missions[0]);
 inline unsigned index(unsigned scenario){for(unsigned i=0;i<count;++i)if(missions[i].scenario==scenario)return i;return ~0u;}
 inline bool scenario(unsigned value){return index(value)<count;}
+inline bool bonus(const Mission& mission){return mission.scenario==dark_origin_scenario;}
+inline unsigned play_race(const Mission& mission){return bonus(mission)?2:mission.race;}
+inline std::string archive_directory(const Mission& mission){
+ const char* race=mission.race==0?"zerg":mission.race==2?"protoss":"terran";
+ return std::string("campaign/")+(mission.brood?"exp":"")+race+"/"+(mission.key+(mission.brood?3:0))+"/";
+}
 // Author-selected branch names are local SCX basenames, never file paths.
 inline unsigned key_episode(const std::string& key){unsigned prefix=key.compare(0,3,"exp")==0?3:0;auto stem=key.substr(prefix);unsigned race=stem.compare(0,4,"zerg")==0?0:stem.compare(0,6,"terran")==0?1:stem.compare(0,7,"protoss")==0?2:~0u;if(race==~0u)return prefix && stem=="bonus"?3:~0u;unsigned n=race==0?4:race==1?6:7;if(stem.size()<n+2 || stem.size()>n+3 || stem[n]<'0' || stem[n]>'9' || stem[n+1]<'0' || stem[n+1]>'9' || (stem.size()==n+3 && (stem[n+2]<'a' || stem[n+2]>'f')))return ~0u;return (prefix?3:0)+race;}
 inline std::string next_key(unsigned current,const std::string& filename){const auto i=index(current);if(i>=count || filename.size()<5 || filename.size()>31)return {};std::string stem;for(unsigned char c:filename){if(c>='A' && c<='Z')c+=32;if(!((c>='a' && c<='z') || (c>='0' && c<='9') || c=='.'))return {};stem+=char(c);}if(stem.substr(stem.size()-4)!=".scx")return {};stem.resize(stem.size()-4);if(missions[i].brood)stem="exp"+stem;return key_episode(stem)==unsigned(missions[i].brood?3:0)+missions[i].race?stem:std::string{};}
 inline unsigned key_index(const std::string& key){for(unsigned i=0;i<count;++i)if(key==missions[i].key)return i;return ~0u;}
-inline unsigned race(unsigned value){auto i=index(value);return i<count?missions[i].race:1;}
-inline unsigned adjacent(unsigned current,int step){if(current>=count)return 0;const auto& m=missions[current];for(unsigned n=1;n<=count;++n){unsigned next=(current+count+(step>0?n:count-n))%count;if(missions[next].scenario!=tutorial_scenario && missions[next].brood==m.brood && missions[next].race==m.race)return next;}return current;}
+inline std::string chapter_key(const char* key){
+ std::string chapter=key;
+ const auto n=chapter.size();
+ if(n>=3 && chapter.back()>='a' && chapter.back()<='f' &&
+    chapter[n-2]>='0' && chapter[n-2]<='9' && chapter[n-3]>='0' && chapter[n-3]<='9')
+  chapter.pop_back();
+ return chapter;
+}
+inline bool same_chapter(unsigned a,unsigned b){
+ return chapter_key(missions[a].key)==chapter_key(missions[b].key);
+}
+inline unsigned route_index(const std::string& key){
+ const auto exact=key_index(key);
+ if(exact<count || key.empty())return exact;
+ for(unsigned i=0;i<count;++i)
+  if(chapter_key(missions[i].key)==key)return i;
+ return ~0u;
+}
+inline unsigned race(unsigned value){auto i=index(value);return i<count?play_race(missions[i]):1;}
+inline unsigned adjacent(unsigned current,int step){if(current>=count)return 0;const auto& m=missions[current];for(unsigned n=1;n<=count;++n){unsigned next=(current+count+(step>0?n:count-n))%count;if(missions[next].scenario!=tutorial_scenario && !bonus(missions[next]) && missions[next].brood==m.brood && missions[next].race==m.race)return next;}return current;}
 inline unsigned opening(bool brood,unsigned race){for(unsigned i=0;i<count;++i)if(missions[i].brood==brood && missions[i].race==race)return i;return 0;}
 }}

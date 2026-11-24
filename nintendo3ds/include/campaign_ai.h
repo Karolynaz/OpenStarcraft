@@ -164,7 +164,19 @@ class CampaignAI {
    case 19:case 20:case 21:case 22:{unsigned n=byte(),id=word();if(id>=228)throw std::runtime_error("Campaign AI defense bounds");side.defense[id]=std::max(side.defense[id],n);break;}
    case 23:case 24:case 25:case 26:byte();word();break; // Native guards engage nearby threats.
    case 31:{byte();side.enabled=true;side.suicide=true;side.center=t.center;attack(f,t.owner,true);break;}
-   case 32:case 33:if(t.owner){f.st.alliances[t.owner][0]=f.st.alliances[0][t.owner]=op==32?0:2;}break;
+   case 32:case 33:{
+    const int alliance=op==32?0:2;
+    if(!use_location_alliances){
+     if(t.owner)f.st.alliances[t.owner][0]=f.st.alliances[0][t.owner]=alliance;
+     break;
+    }
+    // Enmy/Ally use the owners represented in the script's target area.
+    for(auto* u:f.find_units(t.area)){
+     if(u->owner>=8 || u->owner==t.owner || f.unit_dying(u) || f.us_hidden(u))continue;
+     f.st.alliances[t.owner][u->owner]=f.st.alliances[u->owner][t.owner]=alliance;
+    }
+    break;
+   }
    case 34:byte();break;
    case 35:case 56:break;
    case 36:t.active=false;break;
@@ -201,6 +213,7 @@ class CampaignAI {
    case 104:spell_at(f,t.owner,t.center,UnitTypes::Protoss_Arbiter,Orders::CastRecall,TechTypes::Recall);break;
    case 38:{action_state state;action_functions a(f.st,state);for(auto* u:ptr(f.st.player_units[t.owner]))if((f.unit_is(u,UnitTypes::Protoss_Dark_Templar) || f.unit_is(u,UnitTypes::Hero_Dark_Templar)) && f.u_completed(u) && !f.unit_dying(u) && !f.us_hidden(u)){a.action_select(t.owner,u);a.action_order(t.owner,a.get_order_type(Orders::Move),t.center,nullptr,nullptr,false);}break;}
    case 89:nuclear_at(f,t.owner,t.center);break;
+   case 90:break; // Retail HaHe has no operand or gameplay effect.
    case 109:{xy position;position.x=word();position.y=word();if(position.x>=int(f.st.game->map_width) || position.y>=int(f.st.game->map_height))throw std::runtime_error("Campaign nuclear position bounds");nuclear_at(f,t.owner,position);break;}
    case 41:{action_state state;action_functions a(f.st,state);for(auto* bunker:ptr(f.st.player_units[t.owner]))if(f.unit_is(bunker,UnitTypes::Terran_Bunker))for(auto* u:ptr(f.st.player_units[t.owner]))if(f.unit_is(u,UnitTypes::Terran_Marine) && !f.us_hidden(u)){auto d=u->sprite->position-bunker->sprite->position;if(d.x*d.x+d.y*d.y<256*256){a.action_select(t.owner,u);a.action_default_order(t.owner,bunker->sprite->position,bunker,nullptr,false);}}break;}
    case 46:word();break; // Original force limits exceed our bounded unit request cap.
@@ -256,6 +269,8 @@ class CampaignAI {
   }
  }
 public:
+ // Previously released maps replay with their original port behavior.
+ bool use_location_alliances=false;
  bool use_valued_regions=true;
  template<class Load>void load(Load load){load(original_,"scripts/aiscript.bin");load(brood_,"scripts/bwscript.bin");if(original_.size()>128*1024 || brood_.size()>128*1024)throw std::runtime_error("Campaign AI script size");}
  void start(state_functions& f,unsigned id,unsigned owner,xy center,const rect* location=nullptr){if(owner>=8)throw std::runtime_error("Campaign AI owner bounds");init_sites(f);

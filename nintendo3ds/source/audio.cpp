@@ -15,18 +15,20 @@ constexpr unsigned voice_count=8, voice_bytes=128*1024, chunk_bytes=32768, bank_
 unsigned read32(FILE* f) { unsigned char b[4]; if(std::fread(b,1,4,f)!=4) return ~0u; return b[0]|b[1]<<8|b[2]<<16|unsigned(b[3])<<24; }
 }
 struct Audio::Impl {
-    struct Effect { unsigned id,offset,samples,priority,flags; unsigned cached=~0u; };
+    struct Effect { unsigned id,offset,samples,priority,flags; unsigned cached=~0u,bank=0; };
     struct Voice {
         ndspWaveBuf wave{},tail{};unsigned segment=0,sent=0;bool segmented=false; unsigned id=~0u,priority=0,capacity=0;
-        char* data=nullptr;unsigned offset=0,bytes=0,filled=0;
+        char* data=nullptr;unsigned offset=0,bytes=0,filled=0,bank=0;
         std::atomic<unsigned> audible_sample{~0u};mutable std::atomic<u64> audible_clock{0};
         std::atomic<unsigned> pending{0};std::atomic<bool> cancelled{false};
     };
     std::vector<Effect> effects;std::array<short,audio_sound_limit> effect_index;
     // Small allocations tolerate fragmentation after native scenario reloads.
     std::array<std::unique_ptr<char[]>,cache_bytes/bank_chunk_bytes> pcm;
-    unsigned resident=0,stream_slot=0;long effect_base=0;
-    FILE* effects_file=nullptr;std::atomic<unsigned> streamed{0};
+    unsigned resident=0,stream_slot=0;
+    struct Bank {FILE* file=nullptr;long base=0;unsigned size=0;};
+    std::array<Bank,2> banks{};
+    std::atomic<unsigned> streamed{0};
     std::atomic_flag voice_lock=ATOMIC_FLAG_INIT;
     void lock(){while(voice_lock.test_and_set(std::memory_order_acquire))svcSleepThread(1000);}
     void unlock(){voice_lock.clear(std::memory_order_release);}
@@ -78,12 +80,13 @@ struct Audio::Impl {
         for(unsigned n=0;n<voice_count;++n){auto& v=voices[stream_slot++%voice_count];
             if(!v.pending.load(std::memory_order_acquire))continue;
             if(v.cancelled.load()){v.pending.store(0,std::memory_order_release);continue;}
+            const auto& bank=banks[v.bank];
             if(v.segmented){
                 auto& wave=v.segment%2?v.tail:v.wave;
                 if(wave.status==NDSP_WBUF_QUEUED || wave.status==NDSP_WBUF_PLAYING)continue;
                 const unsigned target=std::min(voice_bytes,v.bytes-v.sent),bytes=std::min(bank_chunk_bytes,target-v.filled);
                 char* dst=v.data+(v.segment%2)*voice_bytes;
-                const bool ok=std::fseek(effects_file,effect_base+long(v.offset+v.sent+v.filled),SEEK_SET)==0 && std::fread(dst+v.filled,1,bytes,effects_file)==bytes;
+                const bool ok=std::fseek(bank.file,bank.base+long(v.offset+v.sent+v.filled),SEEK_SET)==0 && std::fread(dst+v.filled,1,bytes,bank.file)==bytes;
                 if(!ok){++io_errors;v.pending.store(0,std::memory_order_release);return;}
                 detect_speech(v,dst+v.filled,bytes,v.sent+v.filled);v.filled+=bytes;
                 if(v.filled==target){DSP_FlushDataCache(dst,target);lock();
@@ -93,7 +96,7 @@ struct Audio::Impl {
                 return;
             }
             const unsigned bytes=std::min(bank_chunk_bytes,v.bytes-v.filled);
-            bool ok=std::fseek(effects_file,effect_base+long(v.offset+v.filled),SEEK_SET)==0 && std::fread(v.data+v.filled,1,bytes,effects_file)==bytes;
+            bool ok=std::fseek(bank.file,bank.base+long(v.offset+v.filled),SEEK_SET)==0 && std::fread(v.data+v.filled,1,bytes,bank.file)==bytes;
             if(!ok){++io_errors;v.pending.store(0,std::memory_order_release);return;}
             detect_speech(v,v.data+v.filled,bytes,v.filled);v.filled+=bytes;
             if(v.filled==v.bytes){
@@ -128,7 +131,7 @@ struct Audio::Impl {
             linearFree(linear);linear=nullptr;
         }
         if(file) {std::fclose(file);file=nullptr;}
-        if(effects_file){std::fclose(effects_file);effects_file=nullptr;}
+        for(auto& bank:banks)if(bank.file){std::fclose(bank.file);bank={};}
         for(auto& block:pcm)block.reset();
         std::vector<Effect>().swap(effects);resident=0;counters.ready=false;
     }
@@ -136,7 +139,7 @@ struct Audio::Impl {
 };
 Audio::Audio():impl_(new Impl) {}
 Audio::~Audio()=default;
-bool Audio::load(const char* root,bool dsp_ready,const char* music_prefix,const char* effects_path,unsigned cache_limit,bool music_only,bool single_track) {
+bool Audio::load(const char* root,bool dsp_ready,const char* music_prefix,const char* effects_path,unsigned cache_limit,bool music_only,bool single_track,const char* fallback_effects_path) {
     auto& s=*impl_;s.close();s.counters={};s.underruns=0;s.io_errors=0;s.buffers=0;s.track=0;s.next_track=1;s.streamed=0;s.stream_slot=0;s.effect_index.fill(-1);s.long_voice=false;
     std::fill(std::begin(s.last_played),std::end(s.last_played),0);
     auto fail=[&](const char* m) {s.close();std::snprintf(s.message,sizeof s.message,"%s",m);return false;};
@@ -150,43 +153,69 @@ bool Audio::load(const char* root,bool dsp_ready,const char* music_prefix,const 
             if(n<0 || unsigned(n)>=sizeof s.track_paths[i])return fail("Music path too long");
         }
         if(!music_only){
-        std::unique_ptr<FILE,decltype(&std::fclose)> input(std::fopen(path,"rb"),&std::fclose);
-        FILE* f=input.get();
-        if(!f) return fail("Missing audio/effects.bin");
-        char magic[8];bool valid=std::fread(magic,1,8,f)==8;
-        const bool v2=valid && !std::memcmp(magic,"OBWAUD2\0",8);valid=valid && (v2 || !std::memcmp(magic,"OBWAUD1\0",8));
-        const auto count=read32(f),size=read32(f);s.sample_bytes=v2?read32(f):2;
-        valid=valid && count>0 && count<=1200 && size>0 && size<=64*1024*1024 && (s.sample_bytes==1 || s.sample_bytes==2);
-        if(!valid) return fail("Invalid audio header");
-        s.effects.reserve(count);s.long_voice=false;
-        for(unsigned n=0;n<count;++n) {
-            Impl::Effect e{read32(f),read32(f),read32(f),read32(f),read32(f)};
-            if(e.id>=audio_sound_limit || e.offset>size || !e.samples || e.samples>(size-e.offset)/s.sample_bytes || e.samples>(e.id>=campaign_sound_base?2*1024*1024:voice_bytes*2)/s.sample_bytes) valid=false;
-            if(e.samples*s.sample_bytes>voice_bytes)s.long_voice=true;
-            if(e.id<audio_sound_limit){if(s.effect_index[e.id]>=0)valid=false;s.effect_index[e.id]=short(n);}
-            s.effects.push_back(e);
-        }
-        s.effect_base=std::ftell(f);
-        if(std::fseek(f,0,SEEK_END) || std::ftell(f)!=s.effect_base+long(size))valid=false;
-        if(!valid)return fail("Invalid audio effect bounds");
+        auto open_bank=[&](const char* name,unsigned bank)->const char*{
+            std::unique_ptr<FILE,decltype(&std::fclose)> input(std::fopen(name,"rb"),&std::fclose);
+            FILE* f=input.get();
+            if(!f)return "Missing audio/effects.bin";
+            char magic[8];
+            if(std::fread(magic,1,8,f)!=8)return "Invalid audio header";
+            const bool v2=!std::memcmp(magic,"OBWAUD2\0",8);
+            const auto count=read32(f),size=read32(f),width=v2?read32(f):2;
+            if((!v2 && std::memcmp(magic,"OBWAUD1\0",8)) || !count || count>1200 ||
+               !size || size>64*1024*1024 || (width!=1 && width!=2) || (bank && width!=s.sample_bytes))
+                return "Invalid or incompatible audio header";
+            std::array<bool,audio_sound_limit> seen{};
+            const auto start=s.effects.size();
+            for(unsigned n=0;n<count;++n){
+                Impl::Effect e{read32(f),read32(f),read32(f),read32(f),read32(f)};
+                if(e.id>=audio_sound_limit || seen[e.id] || e.offset>size || !e.samples ||
+                   e.samples>(size-e.offset)/width || e.samples>(e.id>=campaign_sound_base?2*1024*1024:voice_bytes*2)/width){
+                    s.effects.resize(start);
+                    return "Invalid audio effect bounds";
+                }
+                seen[e.id]=true;
+                // Mission speech and any mission-specific responses win.
+                if(bank && (e.id>=campaign_sound_base || s.effect_index[e.id]>=0))continue;
+                e.bank=bank;
+                s.effects.push_back(e);
+            }
+            const auto base=std::ftell(f);
+            if(base<0 || std::fseek(f,0,SEEK_END) || std::ftell(f)!=base+long(size)){
+                s.effects.resize(start);
+                return "Invalid audio effect bounds";
+            }
+            s.sample_bytes=width;
+            s.banks[bank]={input.release(),base,size};
+            for(unsigned i=start;i<s.effects.size();++i){
+                const auto& e=s.effects[i];
+                s.effect_index[e.id]=short(i);
+                s.long_voice|=e.samples*width>voice_bytes;
+            }
+            return nullptr;
+        };
+        if(const auto* error=open_bank(path,0))return fail(error);
+        if(fallback_effects_path)open_bank(fallback_effects_path,1);
+        const auto count=s.effects.size();
         // Cache the shortest effects first, so combat sounds remain immediate.
         // A fragmented heap may yield a smaller cache; uncached audio still
         // plays through the bounded background reader without dropping music.
         cache_limit=std::min(cache_bytes,cache_limit)/bank_chunk_bytes*bank_chunk_bytes;
-        for(auto& block:s.pcm){if(s.resident>=size || s.resident>=cache_limit)break;try{block.reset(new char[bank_chunk_bytes]);s.resident+=bank_chunk_bytes;}catch(const std::bad_alloc&){break;}}
+        unsigned bytes_to_cache=s.banks[0].size;
+        for(const auto& e:s.effects)if(e.bank && e.samples*s.sample_bytes<=voice_bytes*2)bytes_to_cache+=e.samples*s.sample_bytes;
+        for(auto& block:s.pcm){if(s.resident>=bytes_to_cache || s.resident>=cache_limit)break;try{block.reset(new char[bank_chunk_bytes]);s.resident+=bank_chunk_bytes;}catch(const std::bad_alloc&){break;}}
         std::vector<unsigned> order(count);for(unsigned i=0;i<count;++i)order[i]=i;
         std::stable_sort(order.begin(),order.end(),[&](unsigned a,unsigned b){return s.effects[a].samples<s.effects[b].samples;});
         unsigned used=0;
         for(unsigned index:order){auto& effect=s.effects[index];const unsigned bytes=effect.samples*s.sample_bytes;
             if(bytes>voice_bytes*2 || bytes>s.resident-used)continue;
-            if(std::fseek(f,s.effect_base+long(effect.offset),SEEK_SET))return fail("Cannot seek audio effect");
+            const auto& bank=s.banks[effect.bank];FILE* f=bank.file;
+            if(std::fseek(f,bank.base+long(effect.offset),SEEK_SET))return fail("Cannot seek audio effect");
             effect.cached=used;unsigned remaining=bytes;
             while(remaining){const unsigned pos=used%bank_chunk_bytes,n=std::min(remaining,bank_chunk_bytes-pos);
                 if(std::fread(s.pcm[used/bank_chunk_bytes].get()+pos,1,n,f)!=n)return fail("Cannot read audio effect");
                 used+=n;remaining-=n;
             }
         }
-        s.effects_file=input.release();
         }
         const unsigned voice_storage=music_only?0:(voice_count+(s.long_voice?1:0))*voice_bytes;
         s.linear=(char*)linearAlloc(voice_storage+3*chunk_bytes);
@@ -213,6 +242,7 @@ void Audio::unload(){impl_->close();}
 void Audio::reset() {
     auto& s=*impl_;if(!s.counters.ready) return;
     s.lock();for(unsigned i=0;i<voice_count;++i) {s.voices[i].cancelled=true;ndspChnWaveBufClear(i+1);s.voices[i].wave={};s.voices[i].tail={};}s.unlock();
+    std::fill(std::begin(s.last_played),std::end(s.last_played),0);
 }
 void Audio::set_volume(unsigned music,unsigned effects){
     auto& s=*impl_;
@@ -265,8 +295,9 @@ void Audio::update(const SoundEvent* events,unsigned count,int cx,int cy,bool pa
         s.voice_mix[slot]={{volume*(pan>0?1-pan:1),volume*(pan<0?1+pan:1)}};
         float mix[12]={};mix[0]=s.voice_mix[slot][0]*s.effects_gain;mix[1]=s.voice_mix[slot][1]*s.effects_gain;
         ndspChnSetMix(slot+1,mix);
+        v.cancelled=false;
         if(it->cached!=~0u){ndspChnWaveBufAdd(slot+1,&v.wave);++s.counters.played;}
-        else {v.offset=it->offset;v.bytes=it->samples*s.sample_bytes;v.filled=0;v.cancelled=false;v.pending.store(1,std::memory_order_release);}
+        else {v.bank=it->bank;v.offset=it->offset;v.bytes=it->samples*s.sample_bytes;v.filled=0;v.pending.store(1,std::memory_order_release);}
         s.last_played[e.id]=now;
     }
 }
@@ -280,6 +311,13 @@ AudioStats Audio::stats() const {
 bool Audio::playing(unsigned id) const {
  const auto& s=*impl_;if(!s.counters.ready)return false;
  for(const auto& v:s.voices)if(v.id==id && (v.wave.status==NDSP_WBUF_PLAYING || v.tail.status==NDSP_WBUF_PLAYING)){const auto now=osGetTime();if(!v.audible_clock.load())v.audible_clock=now;const auto onset=v.audible_sample.load();return onset!=~0u && now-v.audible_clock.load()>=u64(onset)*1000/22050;}return false;
+}
+bool Audio::active(unsigned id) const {
+ const auto& s=*impl_;if(!s.counters.ready || !id)return false;
+ auto busy=[](const ndspWaveBuf& wave){return wave.status==NDSP_WBUF_QUEUED || wave.status==NDSP_WBUF_PLAYING;};
+ for(const auto& v:s.voices)if(v.id==id && !v.cancelled.load() &&
+     (v.pending.load(std::memory_order_acquire) || busy(v.wave) || busy(v.tail)))return true;
+ return false;
 }
 bool Audio::contains(unsigned id)const{return id<audio_sound_limit && impl_->effect_index[id]>=0;}
 const char* Audio::error() const {return impl_->message;}

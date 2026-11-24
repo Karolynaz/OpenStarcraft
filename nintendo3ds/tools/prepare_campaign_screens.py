@@ -22,10 +22,22 @@ def split_screens(image):
     return scaled.crop((0, 0, 400, 240)), scaled.crop((40, 240, 360, 480))
 
 
-def background(raw, key, race, brood):
+def story_card(key, race, brood):
+    if key == 'expbonus':
+        return 'rez/estz09x.txt'
+    if key.startswith('expzerg04'):
+        return 'rez/estz04x.txt'
     code = ['z', 't', 'p'][race]
-    number = '0t' if key == 'tutorial' else key[-2:]
-    path = raw / f'rez_est{code}{number}{"x" if brood else ""}.txt'
+    number = '0t' if key == 'tutorial' else re.search(r'\d{2}[a-f]?$', key).group()
+    return f'rez/est{code}{number}{"x" if brood else ""}.txt'
+
+
+def stock_story_fallback(key):
+    return key == 'expbonus' or (key.startswith('expzerg') and key[7:9] >= '04')
+
+
+def background(raw, key, race, brood):
+    path = raw / story_card(key, race, brood).replace('/', '_')
     pages = re.findall(r'</BACKGROUND\s+([^>]+)>', path.read_text(encoding='cp1252'), re.I)
     if not pages:
         raise ValueError(f'No background in {path}')
@@ -53,6 +65,8 @@ def prepare(source, output, raw=None, stage=None):
         for key, _, _, race, brood in re.findall(r'\{"([^"]+)","([^"]+)",(\d+),(\d+),(true|false)\}', catalogue.read_text()):
             name = background(raw, key, int(race), brood == 'true')
             if name not in pairs:
+                if stock_story_fallback(key) and (campaign / f'{key}-story.bin').is_file():
+                    continue
                 raise ValueError(f'Missing completed scene {name} for {key}')
             top, bottom = pairs[name]
             # Native resolution on two pages, resident only during story view.

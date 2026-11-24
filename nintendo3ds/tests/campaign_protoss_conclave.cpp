@@ -1,8 +1,9 @@
-// Homeland and The Trial of Tassadar use paid defenses and a Scout fleet.
+// Homeland, The Trial of Tassadar and The Insurgent use paid Scout fleets.
 // Uses public controls and native restrictions, resources and placement only.
 // Fog is disabled for repeatable test navigation; no map/triggers/unit stats edited.
 #include "bwenums.h"
 #include "engine.h"
+#include "sound_ids.h"
 #include <cassert>
 #include <cstdio>
 #include <cstdlib>
@@ -12,16 +13,36 @@ using namespace port3ds;
 int main(int argc, char **argv) {
     assert(argc == 4);
     std::string key = argv[3];
-    assert(key == "protoss07" || key == "protoss08");
+    assert(key == "protoss07" || key == "protoss08" || key == "expprotoss07");
     const bool trial = key == "protoss08";
+    const bool insurgent = key == "expprotoss07";
+    const auto scenario = insurgent ? Scenario::bw_protoss_campaign_7 :
+                          trial ? Scenario::protoss_campaign_8 : Scenario::protoss_campaign_7;
     Engine e;
-    assert(e.load(argv[1], argv[2],
-                  trial ? Scenario::protoss_campaign_8 : Scenario::protoss_campaign_7));
+    assert(e.load(argv[1], argv[2], scenario));
     assert(e.start_recording((std::string("/tmp/sc3ds-original-") + key).c_str()));
     e.set_fog_enabled(false);
+    if (!trial && !insurgent) {
+        UnitView units[1700];
+        const auto count = e.visible_units(units, 1700);
+        unsigned armed_reavers = 0;
+        for (unsigned i = 0; i < count; ++i) {
+            const auto& unit = units[i];
+            if (unit.owner == 7 && unit.type == unsigned(bwgame::UnitTypes::Protoss_Reaver) &&
+                unit.fighters == 5)
+                ++armed_reavers;
+        }
+        assert(armed_reavers == 2);
+    }
     const unsigned worker = 64, base = 154, supply = 156, gas = 157;
     unsigned build_pending = 0, build_at = 0, build_count = 0;
     unsigned cast_after = 0;
+    unsigned voices = 0;
+    unsigned fewest_enemy_archons = 3;
+    bool kerrigan_arrived = false;
+    // The original map uses the Tassadar unit ID for its Ascended Archons.
+    constexpr unsigned enemy_archon = unsigned(bwgame::UnitTypes::Hero_Tassadar);
+    constexpr unsigned scout = unsigned(bwgame::UnitTypes::Protoss_Scout);
     bool attack = false;
     int home_x = 0, home_y = 0;
     for (unsigned frame = 0; frame < 240000 && e.snapshot().winner < 0; ++frame) {
@@ -29,8 +50,17 @@ int main(int argc, char **argv) {
             fprintf(stderr, "%s frame%u: %s\n", key.c_str(), e.frame(), e.error());
             return 1;
         }
+        if (insurgent && frame == 0) assert(e.count_units(7, enemy_archon, false) == 3);
+        if (insurgent) {
+            fewest_enemy_archons = std::min(fewest_enemy_archons,
+                                          e.count_units(7, enemy_archon, false));
+            kerrigan_arrived |= e.count_units(3, unsigned(bwgame::UnitTypes::Hero_Infested_Kerrigan),
+                                             false) > 0;
+        }
         SoundEvent events[256];
-        e.drain_sounds(events, 256);
+        const auto sounds = e.drain_sounds(events, 256);
+        for (unsigned i = 0; i < sounds; ++i)
+            if (events[i].id >= campaign_sound_base) ++voices;
         if (frame % 48)
             continue;
         UnitView list[1700];
@@ -44,7 +74,7 @@ int main(int argc, char **argv) {
             if (u.owner == 0) {
                 if (u.type == worker && u.completed)
                     workers.push_back(u);
-                if (u.type == base) {
+                if (u.type == base && (!insurgent || u.y > 3200)) {
                     home_x = u.x;
                     home_y = u.y;
                 }
@@ -53,19 +83,50 @@ int main(int argc, char **argv) {
             }
             if (u.mineral)
                 minerals.push_back(u);
-            if (u.owner == 7 || u.owner == (trial ? 3 : 4))
+            if (u.owner == 7 || u.owner == (insurgent ? 5 : trial ? 3 : 4))
                 enemies.push_back(u);
         }
         if (!home_x)
             continue;
         // Native guards defend the colony until a paid army has assembled.
         unsigned army = e.count_units(0, 65) + e.count_units(0, 66) + e.count_units(0, 70);
-        if (army >= (trial ? 40u : 24u) || e.count_units(0, 70) >= 16)
+        if (insurgent ? e.count_units(0, scout) >= 18 :
+            army >= (trial ? 40u : 24u) || e.count_units(0, scout) >= 16)
             attack = true;
-        if (army < (trial ? 12u : 6u))
+        if (insurgent ? e.count_units(0, scout) == 0 : army < (trial ? 12u : 6u))
             attack = false;
 
-        if (attack && frame % 240 == 0 && !enemies.empty()) {
+        if (insurgent && attack && frame % 144 == 0 && !enemies.empty()) {
+            int x = 0, y = 0, scouts = 0;
+            for (const auto& u : parents) if (u.type == scout) {
+                x += u.x;
+                y += u.y;
+                ++scouts;
+            }
+            assert(scouts);
+            x /= scouts;
+            y /= scouts;
+            const UnitView* target = nullptr;
+            int nearest = std::numeric_limits<int>::max();
+            for (const auto& u : enemies) {
+                const bool objective = u.type == enemy_archon && u.owner == 7;
+                const bool prior_objective = target && target->type == enemy_archon && target->owner == 7;
+                const int dx = u.x - x, dy = u.y - y, distance = dx * dx + dy * dy;
+                if ((!target || (objective && !prior_objective)) ||
+                    (objective == prior_objective && distance < nearest)) {
+                    nearest = distance;
+                    target = &u;
+                }
+            }
+            for (unsigned i = 0; i < n; ++i) {
+                const auto& u = list[i];
+                if (u.owner || u.type != scout || !e.select(u.x, u.y)) continue;
+                const int distance = std::abs(u.x - target->x) + std::abs(u.y - target->y);
+                const auto command = target->type == enemy_archon && distance <= 380 ?
+                                     Command::context : Command::attack;
+                e.command(command, target->x, target->y);
+            }
+        } else if (!insurgent && attack && frame % 240 == 0 && !enemies.empty()) {
             const UnitView *target = &enemies.front();
             int distance = std::numeric_limits<int>::max();
             for (const auto &u : enemies) {
@@ -106,7 +167,8 @@ int main(int argc, char **argv) {
                     e.command(Command::context, target->x, target->y);
             }
         // Assign three workers to the paid refinery once it has completed.
-        if (frame % 480 == 0 && e.count_units(0, gas) && workers.size() >= 7) {
+        if (frame % 480 == 0 && e.count_units(0, gas) && workers.size() >= 7 &&
+            (!insurgent || state.gas < 800)) {
             UnitView *refinery = nullptr;
             for (unsigned i = 0; i < n; ++i)
                 if (list[i].owner == 0 && list[i].type == gas && list[i].completed)
@@ -140,13 +202,21 @@ int main(int argc, char **argv) {
             anchor_x = home_x + 320;
             anchor_y = home_y + 320;
         }
+        if (insurgent && !want && !e.count_units(0, base, false))
+            want = base;
+        if (insurgent && !want && e.count_units(0, base, false) < 2 &&
+            e.count_units(0, scout) >= 6 && state.minerals > 1200) {
+            want = base;
+            anchor_x = 3680;
+            anchor_y = 2270;
+        }
         if (!want && !e.count_units(0, gas))
             want = gas;
         if (!want && key == "protoss07" && e.count_units(0, 160, false) < 4)
             want = 160;
         if (!want && !e.count_units(0, 164))
             want = 164;
-        if (!want && e.count_units(0, 167, false) < (trial ? 3u : 2u))
+        if (!want && e.count_units(0, 167, false) < (trial || insurgent ? 3u : 2u))
             want = 167;
         if (!build_pending && want && !workers.empty()) {
             bool placed = false;
@@ -182,7 +252,9 @@ int main(int argc, char **argv) {
                 e.perform(option_code(OptionKind::train, worker));
             else if (p.type == 167 && !e.snapshot().queue)
                 e.perform(option_code(OptionKind::train, 70));
-            else if (p.type == 160 && (trial ? e.count_units(0, 65) + e.count_units(0, 66) < 12 &&
+            else if (p.type == 160 && (insurgent ? e.count_units(0, 65) + e.count_units(0, 66) < 20 &&
+                                                       state.minerals > 340 :
+                                       trial ? e.count_units(0, 65) + e.count_units(0, 66) < 12 &&
                                                    state.minerals > 500
                                              : e.count_units(0, 65) < 64 && state.minerals > 250)) {
                 unsigned next =
@@ -235,6 +307,14 @@ int main(int argc, char **argv) {
     fflush(stdout);
     if (s.winner != 0)
         return 1;
+    if (insurgent) {
+        assert(fewest_enemy_archons == 1);
+        // Kerrigan arrives for the cutscene and its final trigger removes her.
+        assert(kerrigan_arrived);
+        assert(!e.count_units(3, unsigned(bwgame::UnitTypes::Hero_Infested_Kerrigan), false));
+        assert(voices >= 2);
+        printf("Insurgent scripted ending: Kerrigan arrived, %u voice events\n", voices);
+    }
     SaveView view;
     assert(
         e.save_game((std::string("/tmp/sc3ds-") + key.c_str() + "-completed.sav").c_str(), view));
@@ -244,6 +324,6 @@ int main(int argc, char **argv) {
         argv[1], (std::string("/tmp/sc3ds-") + key.c_str() + "-completed.sav").c_str(),
         (std::string("/tmp/sc3ds-third-replay-") + key.c_str()).c_str(),
         (std::string("/tmp/sc3ds-third-map-") + key.c_str()).c_str(), restored));
-    assert(e.state_digest() == replay.state_digest());
+    assert(replay.snapshot().winner == 0 && e.state_digest() == replay.state_digest());
     puts("Original late Protoss paid fleet victory and exact replay PASS");
 }

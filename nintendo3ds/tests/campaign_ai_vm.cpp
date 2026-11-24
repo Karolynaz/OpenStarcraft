@@ -24,6 +24,13 @@ auto* barracks_type=f.get_unit_type(UnitTypes::Terran_Barracks);unit_t* barracks
 // Actual retail one-shot vision/attitude/rescue scripts execute immediately,
 // so repeated trigger calls never occupy persistent waiting-thread slots.
 CampaignAI retail;retail.load([&](a_vector<uint8_t>& out,const a_string& name){assets(out,name);});for(unsigned i=0;i<100;++i)retail.start(f,0x3169562bu,0,{384,384});assert(st.shared_vision[1]&1);retail.start(f,0x3169562du,0,{384,384});assert(!(st.shared_vision[1]&1));retail.start(f,0x796d6e45u,1,{384,384});assert(!st.alliances[0][1] && !st.alliances[1][0]);retail.start(f,0x796c6c41u,1,{384,384});assert(st.alliances[0][1]==2 && st.alliances[1][0]==2);retail.start(f,0x75637352u,1,{384,384});assert(st.players[1].controller==player_t::controller_rescue_passive);
+// Countdown's one-shot script must return its thread to the pool.
+for(unsigned i=0;i<100;++i)retail.start(f,0x65486148u,4,{384,384}); // HaHe
+CampaignAI harass;
+load(harass,bank({90,87,5,36}));
+harass.start(f,0x54534554,0,{384,384});
+assert(st.shared_vision[5]==33);
+puts("Campaign VM: retail HaHe and next opcode alignment PASS");
 // Malformed bytecode stays bounded and fails with explicit errors.
 for(auto bad:{a_vector<uint8_t>{65},a_vector<uint8_t>{64,36,0}}){CampaignAI invalid;load(invalid,bank(bad));bool caught=false;try{invalid.start(f,0x54534554,0,{});}catch(const std::runtime_error&){caught=true;}assert(caught);}
 CampaignAI full;load(full,bank({2,255,255,36}));for(unsigned i=0;i<64;++i)full.start(f,0x54534554,0,{});bool bounded=false;try{full.start(f,0x54534554,0,{});}catch(const std::runtime_error&){bounded=true;}assert(bounded);

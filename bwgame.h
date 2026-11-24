@@ -16417,6 +16417,13 @@ struct state_functions {
 	}
 
 	void destroy_unit(unit_t* u) {
+		// Scripted removal hides the refinery before dying. Its usual cleanup
+		// restores a neutral geyser in place, so retain that unit and its sprite.
+		if (unit_is_refinery(u)) {
+			if (us_hidden(u)) show_unit(u);
+			destroy_unit_impl(u);
+			return;
+		}
 		unit_t* turret = unit_turret(u);
 		if (turret) {
 			destroy_unit(turret);
@@ -17439,6 +17446,30 @@ struct state_functions {
 		finish_building_unit(u);
 		complete_unit(u);
 		return u;
+	}
+
+	void load_authored_hangar(unit_t* parent, unsigned count) {
+		const bool carrier = unit_is_carrier(parent);
+		if (!carrier && !unit_is_reaver(parent)) return;
+		// Maps can fill a hangar to the upgraded capacity without granting the upgrade.
+		const unsigned capacity = carrier ? 8 : 10;
+		const auto* type = get_unit_type(carrier ? UnitTypes::Protoss_Interceptor : UnitTypes::Protoss_Scarab);
+		for (unsigned i = 0; i != std::min(count, capacity); ++i) {
+			auto* fighter = create_unit(type, parent->sprite->position, parent->owner);
+			if (!fighter) break;
+			fighter->fighter.parent = parent;
+			finish_building_unit(fighter);
+			complete_unit(fighter);
+			hide_unit(fighter);
+			fighter->fighter.is_outside = false;
+			if (carrier) {
+				parent->carrier.inside_units.push_front(*fighter);
+				++parent->carrier.inside_count;
+			} else {
+				parent->reaver.inside_units.push_front(*fighter);
+				++parent->reaver.inside_count;
+			}
+		}
 	}
 
 	void display_last_error_for_player(int player) {
@@ -19991,8 +20022,10 @@ struct game_load_functions : state_functions {
 		int resource_type = 0;
 		int starting_minerals = 50;
 		bool create_no_units = false;
+		bool load_preplaced_hangars = false;
 	};
 	setup_info_t setup_info;
+	bool has_preplaced_hangars = false;
 
 	unit_type_t* get_unit_type(UnitTypes id) const {
 		if ((size_t)id >= 228) error("invalid unit id %d", (size_t)id);
@@ -21444,6 +21477,7 @@ struct game_load_functions : state_functions {
 	}
 
 	void load_map_data(uint8_t* data, size_t data_size, std::function<void()> setup_f = {}, bool initial_processing = true) {
+		has_preplaced_hangars = false;
 		game_st.start_location_count=0;
 
 		using data_loading::data_reader_le;
@@ -21806,6 +21840,7 @@ struct game_load_functions : state_functions {
 		tag_funcs["UNIT"] = [&](data_reader_le r) {
 			struct initial_link { uint32_t serial, related; unit_t* unit; };
 			a_vector<initial_link> initial_links;
+			a_vector<std::pair<unit_t*, unsigned>> preplaced_hangars;
 			while (r.left()) {
 
 				int id = r.get<uint32_t>();
@@ -21830,7 +21865,7 @@ struct game_load_functions : state_functions {
 					owner = 8;
 				}
 
-				(void)link; (void)units_in_hangar;
+				(void)link;
 
 				if ((size_t)unit_type_id >= 228) error("UNIT: invalid unit type %d", (int)unit_type_id);
 				if ((size_t)owner >= 12) error("UNIT: invalid owner %d", owner);
@@ -21893,6 +21928,10 @@ struct game_load_functions : state_functions {
 				if (valid_flags & 8 && flags & 8) {
 					make_unit_hallucination(u);
 				}
+				if (use_map_settings && setup_info.load_preplaced_hangars && (valid_properties & 0x20) &&
+					units_in_hangar && (unit_is_carrier(u) || unit_is_reaver(u))) {
+					preplaced_hangars.emplace_back(u, units_in_hangar);
+				}
 				// StarEdit initial-unit flags are part of campaign scripting.
 				// In BW Zerg1 the protected hives and ambush forces rely on them.
 				if (valid_flags & 16) u_set_status_flag(u, unit_t::status_flag_invincible, (flags & 16) != 0);
@@ -21926,6 +21965,11 @@ struct game_load_functions : state_functions {
 					break;
 				}
 			}
+
+			// Keep all placed units and their relationships in map order before
+			// assigning unit slots to hangar contents.
+			for (const auto& hangar : preplaced_hangars) load_authored_hangar(hangar.first, hangar.second);
+			has_preplaced_hangars = !preplaced_hangars.empty() || has_preplaced_hangars;
 
 			for (unit_t* u : ptr(st.visible_units)) {
 				update_unit_sprite(u);

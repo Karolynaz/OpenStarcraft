@@ -5,6 +5,7 @@ namespace port3ds {
 struct HudLayout {
  struct Rect {int x,y,w,h;bool hit(int px,int py)const{return px>=x && py>=y && px<x+w && py<y+h;}};
  static Rect selection(unsigned i){return {19+int(i%2)*41,16+int(i/2)*35,36,34};}
+ static Rect selection_pages(){return {19,195,77,25};}
  static Rect upgrade(unsigned i){return {20+int(i%2)*41,150+int(i/2)*39,36,34};}
  static Rect menu(){return {122,130,60,18};}
  static Rect portrait(){return {122,152,60,56};}

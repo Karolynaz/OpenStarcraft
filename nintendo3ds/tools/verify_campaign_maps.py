@@ -7,7 +7,7 @@ catalogue=(Path(__file__).parents[1]/'include/campaign_catalogue.h').read_text()
 missions=re.findall(r'\{"([^"\n]+)","[^"\n]+",(\d+),(\d+),(?:true|false)\}',catalogue)
 assert missions
 for key,scenario,race in missions:
- race=int(race)
+ race=2 if key=='expbonus' else int(race)
  data=(a.directory/f'{key}.chk').read_bytes();at=0;chunks={}
  while at+8<=len(data):
   tag,n=struct.unpack_from('<4sI',data,at);at+=8

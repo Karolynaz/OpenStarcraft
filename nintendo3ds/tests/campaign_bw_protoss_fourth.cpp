@@ -26,7 +26,13 @@ if(unloaded && has_hero && e.select(hero.x,hero.y))e.activate(2770,3510);
 }printf("FERRY result%d f%u\n",e.snapshot().winner,e.frame());if(e.snapshot().winner==0){SaveView v;assert(e.save_game("/tmp/sc3ds-expprotoss04-completed.sav",v));Engine replay;SaveView restored;assert(replay.load_save(root,"/tmp/sc3ds-expprotoss04-completed.sav","/tmp/sc3ds-expprotoss04-replay","/tmp/sc3ds-expprotoss04-replay-map",restored));assert(e.state_digest()==replay.state_digest() && replay.snapshot().winner==0);puts("Original BW Protoss4 paid base + eight-Shuttle Kerrigan/Uraj victory / exact completed replay PASS");return 0;}return 1;}
 int main(int argc,char**argv){assert(argc==3 || argc==4);Engine e;assert(e.load(argv[1],argv[2],Scenario::bw_protoss_campaign_4));assert(e.start_recording("/tmp/sc3ds-expprotoss04-session"));e.set_fog_enabled(false);if(argc==4){for(unsigned f=0;f<12000 && e.snapshot().winner<0;++f){assert(e.tick());if(f%48)continue;UnitView list[1700];auto n=e.visible_units(list,1700);for(unsigned i=0;i<n;++i)if(!list[i].owner && list[i].type==51 && e.select(list[i].x,list[i].y))e.command(Command::attack,1408,1696);}assert(e.snapshot().winner==1 && e.count_units(0,51)==0);printf("Original BW Protoss4 Kerrigan-loss defeat f%u PASS\n",e.frame());return 0;}std::set<unsigned>gas_ids;unsigned pending=0,pending_at=0,pending_before=0;unsigned builder=0,builder_at=0,cast_until=0;bool hero_cloaked=false;bool boarding=false;bool launched=false,unloaded=false;unsigned stage=0;std::vector<Point> path;
 for(unsigned frame=0;frame<150000 && e.snapshot().winner<0;++frame){if(!e.tick()){fprintf(stderr,"f%u %s\n",e.frame(),e.error());return 1;}if(frame%48)continue;UnitView list[1700];unsigned n=e.visible_units(list,1700);auto s=e.snapshot();std::vector<UnitView> own,workers,minerals;UnitView ship{},hero{},courier{};bool has_ship=false,has_hero=false,has_courier=false;int hx=1248,hy=800;for(unsigned i=0;i<n;++i){const auto&u=list[i];if(!u.owner && u.completed){own.push_back(u);if(u.type==64)workers.push_back(u);if(u.type==154){hx=u.x;hy=u.y;}if(u.type==69 && !has_ship){ship=u;has_ship=true;}if(u.type==51){hero=u;has_hero=true;}}if(u.mineral && abs(u.x-hx)+abs(u.y-hy)<1400)minerals.push_back(u);}
-if(frame==31200){assert(ferry(e,argv[1])==0);return 0;}
+// Authored Scarabs change how early the starting base is cleared. Begin
+// the ferry only when its production and speed-upgrade buildings are ready.
+if(frame>=31200 && has_ship && e.count_units(0,unsigned(bwgame::UnitTypes::Protoss_Robotics_Facility)) &&
+   e.count_units(0,unsigned(bwgame::UnitTypes::Protoss_Robotics_Support_Bay))){
+ assert(ferry(e,argv[1])==0);
+ return 0;
+}
 if(!has_hero && !(has_ship && ship.cargo))continue;
 if(!launched && !workers.empty())courier=workers.front();
 if(has_hero && !launched && !boarding && frame>=cast_until && (!has_ship || !ship.cargo) && e.select(hero.x,hero.y))e.move_selected(1360,500);

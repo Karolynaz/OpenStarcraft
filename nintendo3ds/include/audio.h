@@ -11,11 +11,12 @@ struct AudioStats {
 class Audio {
 public:
     Audio(); ~Audio();
-    bool load(const char* root, bool dsp_ready,const char* music_prefix="terran",const char* effects_path=nullptr,unsigned cache_limit=4*1024*1024,bool music_only=false,bool single_track=false);
+    bool load(const char* root, bool dsp_ready,const char* music_prefix="terran",const char* effects_path=nullptr,unsigned cache_limit=4*1024*1024,bool music_only=false,bool single_track=false,const char* fallback_effects_path=nullptr);
     void set_volume(unsigned music,unsigned effects);
     void update(const SoundEvent* events, unsigned count, int camera_x, int camera_y, bool paused);
     AudioStats stats() const;
     bool playing(unsigned id) const;
+    bool active(unsigned id) const;
     bool contains(unsigned id) const;
     const char* error() const;
     void reset();

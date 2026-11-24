@@ -193,7 +193,7 @@ build/main.o build/engine.o: build/source_id.h
 
 build/frontend-export: tools/frontend_export.cpp tools/original_archive.h $(HEADERS) | build
 	$(HOST_CXX) $(COMMON) tools/frontend_export.cpp -o $@
-build/frontend-test: tests/frontend.cpp include/frontend.h include/pause_menu.h | build
+build/frontend-test: tests/frontend.cpp include/frontend.h include/pause_menu.h include/skirmish.h include/result_screen.h include/campaign_catalogue.h include/engine.h | build
 	$(HOST_CXX) -std=c++14 -O1 -g -fsanitize=address -Iinclude tests/frontend.cpp -o $@
 .PHONY: test-frontend
 test-frontend: build/frontend-test
@@ -265,6 +265,12 @@ build/campaign-test: tests/campaign.cpp source/engine.cpp $(HEADERS) build/sourc
 test-campaign: build/campaign-test
 	ASAN_OPTIONS=detect_leaks=0 ./build/campaign-test "$(ASSET_ROOT)" local-data/3ds/openbw/campaign/terran01.chk
 
+build/campaign-transport-test: tests/campaign_transport.cpp source/engine.cpp $(HEADERS) build/source_id.h | build
+	$(HOST_CXX) $(COMMON) -O1 -g -fsanitize=address -fno-omit-frame-pointer tests/campaign_transport.cpp source/engine.cpp -o $@
+.PHONY: test-campaign-transport
+test-campaign-transport: build/campaign-transport-test
+	ASAN_OPTIONS=detect_leaks=0 ./build/campaign-transport-test "$(ASSET_ROOT)" local-data/campaign-all-audit/expprotoss05.chk
+
 build/campaign-audio-export: tools/campaign_audio_export.cpp tools/original_archive.h include/sound_ids.h $(HEADERS) | build
 	$(HOST_CXX) $(COMMON) tools/campaign_audio_export.cpp -o $@
 build/portrait-export: tools/portrait_export.cpp tools/original_archive.h $(HEADERS) | build
@@ -279,6 +285,15 @@ test-hud-controls: build/hud-controls-test
 
 build/campaign-openings-test: tests/campaign_openings.cpp source/engine.cpp $(HEADERS) build/source_id.h | build
 	$(HOST_CXX) $(COMMON) -O1 -g -fsanitize=address -fno-omit-frame-pointer tests/campaign_openings.cpp source/engine.cpp -o $@
+
+build/campaign-bw-zerg-true-colors-test: tests/campaign_bw_zerg_true_colors.cpp source/engine.cpp $(HEADERS) build/source_id.h | build
+	$(HOST_CXX) $(COMMON) -O1 -g -fsanitize=address -fno-omit-frame-pointer tests/campaign_bw_zerg_true_colors.cpp source/engine.cpp -o $@
+
+build/campaign-bw-zerg-dark-origin-test: tests/campaign_bw_zerg_dark_origin.cpp source/engine.cpp $(HEADERS) build/source_id.h | build
+	$(HOST_CXX) $(COMMON) -O1 -g -fsanitize=address -fno-omit-frame-pointer tests/campaign_bw_zerg_dark_origin.cpp source/engine.cpp -o $@
+
+build/campaign-bw-zerg-reckoning-test: tests/campaign_bw_zerg_reckoning.cpp source/engine.cpp $(HEADERS) build/source_id.h | build
+	$(HOST_CXX) $(COMMON) -O1 -g -fsanitize=address -fno-omit-frame-pointer tests/campaign_bw_zerg_reckoning.cpp source/engine.cpp -o $@
 
 build/campaign-audio-test: tests/campaign_audio.cpp source/audio.cpp include/audio.h tests/fake3ds/3ds.h | build
 	$(HOST_CXX) $(COMMON) -Itests/fake3ds -O1 -g -fsanitize=address -pthread tests/campaign_audio.cpp source/audio.cpp -o $@
@@ -310,11 +325,41 @@ build/campaign-bw-terran-second-test: tests/campaign_bw_terran_second.cpp source
 	$(HOST_CXX) $(COMMON) -O1 -g -fsanitize=address tests/campaign_bw_terran_second.cpp source/engine.cpp -o $@
 build/campaign-bw-terran-third-test: tests/campaign_bw_terran_third.cpp source/engine.cpp $(HEADERS) build/source_id.h | build
 	$(HOST_CXX) $(COMMON) -O1 -g -fsanitize=address tests/campaign_bw_terran_third.cpp source/engine.cpp -o $@
+build/campaign-bw-terran-ground-zero-test: tests/campaign_bw_terran_ground_zero.cpp source/engine.cpp $(HEADERS) build/source_id.h | build
+	$(HOST_CXX) $(COMMON) -O1 -g -fsanitize=address -fno-omit-frame-pointer tests/campaign_bw_terran_ground_zero.cpp source/engine.cpp -o $@
+.PHONY: test-campaign-bw-terran-ground-zero
+test-campaign-bw-terran-ground-zero: build/campaign-bw-terran-ground-zero-test
+	ASAN_OPTIONS=detect_leaks=0 ./build/campaign-bw-terran-ground-zero-test "$(ASSET_ROOT)" local-data/campaign-all-audit/expterran05a.chk /tmp/sc3ds-expterran05a-session
 build/campaign-bw-terran-sixth-test: tests/campaign_bw_terran_sixth.cpp source/engine.cpp $(HEADERS) build/source_id.h | build
 	$(HOST_CXX) $(COMMON) -O1 -g -fsanitize=address tests/campaign_bw_terran_sixth.cpp source/engine.cpp -o $@
 .PHONY: test-campaign-bw-terran-sixth
 test-campaign-bw-terran-sixth: build/campaign-bw-terran-sixth-test
 	ASAN_OPTIONS=detect_leaks=0 ./build/campaign-bw-terran-sixth-test "$(ASSET_ROOT)" local-data/campaign-all-audit/expterran06.chk /tmp/sc3ds-expterran06-session
+build/campaign-bw-protoss-sixth-test: tests/campaign_bw_protoss_sixth.cpp source/engine.cpp $(HEADERS) build/source_id.h | build
+	$(HOST_CXX) $(COMMON) -O1 -g -fsanitize=address -fno-omit-frame-pointer tests/campaign_bw_protoss_sixth.cpp source/engine.cpp -o $@
+.PHONY: test-campaign-bw-protoss-sixth
+test-campaign-bw-protoss-sixth: build/campaign-bw-protoss-sixth-test
+	ASAN_OPTIONS=detect_leaks=0 ./build/campaign-bw-protoss-sixth-test "$(ASSET_ROOT)" local-data/campaign-all-audit/expprotoss06.chk /tmp/sc3ds-expprotoss06-session
+build/campaign-protoss-conclave-test: tests/campaign_protoss_conclave.cpp source/engine.cpp $(HEADERS) build/source_id.h | build
+	$(HOST_CXX) $(COMMON) -O1 -g -fsanitize=address -fno-omit-frame-pointer tests/campaign_protoss_conclave.cpp source/engine.cpp -o $@
+.PHONY: test-campaign-bw-protoss-seventh
+test-campaign-bw-protoss-seventh: build/campaign-protoss-conclave-test
+	ASAN_OPTIONS=detect_leaks=0 ./build/campaign-protoss-conclave-test "$(ASSET_ROOT)" local-data/campaign-all-audit/expprotoss07.chk expprotoss07
+build/campaign-bw-protoss-eighth-test: tests/campaign_bw_protoss_eighth.cpp source/engine.cpp $(HEADERS) build/source_id.h | build
+	$(HOST_CXX) $(COMMON) -O1 -g -fsanitize=address -fno-omit-frame-pointer tests/campaign_bw_protoss_eighth.cpp source/engine.cpp -o $@
+.PHONY: test-campaign-bw-protoss-eighth
+test-campaign-bw-protoss-eighth: build/campaign-bw-protoss-eighth-test
+	ASAN_OPTIONS=detect_leaks=0 ./build/campaign-bw-protoss-eighth-test "$(ASSET_ROOT)" local-data/campaign-all-audit/expprotoss08.chk /tmp/sc3ds-expprotoss08-session
+build/campaign-bw-terran-seventh-test: tests/campaign_bw_terran_seventh.cpp source/engine.cpp $(HEADERS) build/source_id.h | build
+	$(HOST_CXX) $(COMMON) -O1 -fsanitize=address -fno-omit-frame-pointer tests/campaign_bw_terran_seventh.cpp source/engine.cpp -o $@
+.PHONY: test-campaign-bw-terran-seventh
+test-campaign-bw-terran-seventh: build/campaign-bw-terran-seventh-test
+	ASAN_OPTIONS=detect_leaks=0 ./build/campaign-bw-terran-seventh-test "$(ASSET_ROOT)" local-data/campaign-all-audit/expterran07.chk
+build/campaign-bw-terran-eighth-test: tests/campaign_bw_terran_eighth.cpp source/engine.cpp $(HEADERS) build/source_id.h | build
+	$(HOST_CXX) $(COMMON) -O1 -fsanitize=address -fno-omit-frame-pointer tests/campaign_bw_terran_eighth.cpp source/engine.cpp -o $@
+.PHONY: test-campaign-bw-terran-eighth
+test-campaign-bw-terran-eighth: build/campaign-bw-terran-eighth-test
+	ASAN_OPTIONS=detect_leaks=0 ./build/campaign-bw-terran-eighth-test "$(ASSET_ROOT)" local-data/campaign-all-audit/expterran08.chk
 build/campaign-bw-protoss-third-test: tests/campaign_bw_protoss_third.cpp source/engine.cpp $(HEADERS) build/source_id.h | build
 	$(HOST_CXX) $(COMMON) -O1 -g -fsanitize=address tests/campaign_bw_protoss_third.cpp source/engine.cpp -o $@
 

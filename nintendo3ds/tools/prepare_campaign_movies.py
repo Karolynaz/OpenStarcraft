@@ -22,12 +22,28 @@ MOVIES = (
     (25, "invasion-of-aiur", "02b010f2d7a2a50eb504526c71103932d6e2b82486ef781820509200307e8bc2"),
 )
 
-def prepare(extractor, archive, stage):
+STARTUP_ORIGINAL = (
+    (0, "blizzard-logo", "6b9255bba8dcfa60ddbd28bf4c58f4c15b95069cdb620cc8bca7125530881417"),
+    # The salvage vessel cinematic. Block 1 on this CD is a Diablo promo.
+    (16, "starcraft-opening", "091d187b28fbdd877a3c6a3185579d119d37867b31649c2fed63e17307a900e8"),
+)
+STARTUP_BROOD_WAR = (
+    # The Aleksander and the battle below.
+    (2, "brood-war-opening", "0363c0345f9c719144ce334a04a5c3844036784f50bb6bab80ee365ec673e4a4"),
+)
+BROOD_WAR_ENDINGS = (
+    (3, "brood-war-terran-ending", "1bbc0da9b5e8545909697e4ac4c3c7f04549b95b5f50e8e7d6ebdb0e719082aa"),
+    (4, "brood-war-protoss-ending", "85827c68994273d6a21fcde24575b783dacf445bd1a9d72d780d505b5d0b488d"),
+    (5, "brood-war-zerg-ending", "a85cc09e4fbaab359fb9228eb1030aeeba7741125724c0654971bad5f723eb93"),
+)
+
+
+def prepare(extractor, archive, stage, movies, height):
     output = stage / "campaign" / "movies"
     output.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(dir=output) as directory:
         work = Path(directory)
-        for block, name, digest in MOVIES:
+        for block, name, digest in movies:
             source = work / "movie.smk"
             subprocess.run([extractor.resolve(), archive.resolve(), str(block), source], check=True)
             with source.open("rb") as stream:
@@ -36,12 +52,12 @@ def prepare(extractor, archive, stage):
             video, audio = work / f"{name}.bin", work / f"{name}1.pcm"
             subprocess.run([
                 "ffmpeg", "-v", "error", "-xerror", "-y", "-i", source,
-                "-map", "0:v:0", "-vf", "fps=12,scale=256:128:flags=lanczos",
+                "-map", "0:v:0", "-vf", f"fps=12,scale=256:{height}:flags=lanczos",
                 "-pix_fmt", "rgb565le", "-f", "rawvideo", video,
                 "-map", "0:a:0", "-af", "apad=pad_dur=1", "-ar", "22050",
                 "-ac", "2", "-f", "s16le", audio,
             ], check=True)
-            frames, remainder = divmod(video.stat().st_size, 256 * 128 * 2)
+            frames, remainder = divmod(video.stat().st_size, 256 * height * 2)
             if not 0 < frames <= 12 * 600 or remainder:
                 raise ValueError(f"Invalid movie frame count: {name}")
             video.replace(output / video.name)
@@ -53,4 +69,13 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     for name in ("extractor", "archive", "stage"):
         parser.add_argument(name, type=Path)
-    prepare(**vars(parser.parse_args()))
+    parser.add_argument("--brood-war-archive", type=Path)
+    parser.add_argument("--startup-only", action="store_true")
+    args = parser.parse_args()
+    if not args.startup_only:
+        prepare(args.extractor, args.archive, args.stage, MOVIES, 128)
+    prepare(args.extractor, args.archive, args.stage, STARTUP_ORIGINAL, 256)
+    if args.brood_war_archive:
+        prepare(args.extractor, args.brood_war_archive, args.stage, STARTUP_BROOD_WAR, 256)
+        if not args.startup_only:
+            prepare(args.extractor, args.brood_war_archive, args.stage, BROOD_WAR_ENDINGS, 128)

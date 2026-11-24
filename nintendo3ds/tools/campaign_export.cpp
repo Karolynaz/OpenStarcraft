@@ -7,8 +7,7 @@ int main(int argc,char**argv){if(argc!=3){puts("campaign-export OWNED_DATA OUTPU
  mkdir(argv[2],0777);
  for(const auto& mission:port3ds::campaign::missions){
  data_loading::mpq_file<DiscReader> disc(a_string(argv[1])+(mission.brood?"/BroodWar.mpq":"/StarCraft.mpq"));a_vector<uint8_t> chk;
- const char* race=mission.race==0?"zerg":mission.race==2?"protoss":"terran";
- const auto path=a_string("campaign/")+(mission.brood?"exp":"")+race+"/"+a_string(mission.key+(mission.brood?3:0))+"/staredit/scenario.chk";
+ const auto path=a_string(port3ds::campaign::archive_directory(mission).c_str())+"staredit/scenario.chk";
  if(!extract(disc,path,chk))throw std::runtime_error("Owned campaign opening not found");
  unsigned human=12;for(size_t at=0;at+8<=chk.size();){unsigned n=port3ds::campaign::get(chk.data()+at+4);if(n>chk.size()-at-8)throw std::runtime_error("Campaign bounds");if(!memcmp(chk.data()+at,"OWNR",4)){if(n!=12)throw std::runtime_error("Campaign ownership bounds");for(unsigned i=0;i<8;++i)if(chk[at+8+i]==6){if(human!=12)throw std::runtime_error("Multiple human mission slots");human=i;}}at+=8+n;}
  if(human==12)throw std::runtime_error("Missing human mission slot");

@@ -4,10 +4,11 @@ Usage: prepare_campaign_presentation.py RAW STAGED_ROOT [--screens FILLED_PNGS]
 Extract RAW using campaign_presentation_export; originals remain private.
 """
 from pathlib import Path
-from PIL import Image
+from PIL import Image, ImageOps
 import struct,re,sys,json,hashlib,subprocess,io
 import argparse
 from ui_bank import bank
+from prepare_campaign_screens import stock_story_fallback, story_card
 parser=argparse.ArgumentParser(description=__doc__)
 parser.add_argument('raw',type=Path);parser.add_argument('root',type=Path)
 parser.add_argument('--missions',nargs='+',help='Regenerate only these mission-specific presentation banks')
@@ -23,6 +24,8 @@ def pages(name):
   text=re.sub(r'</[^>]*>','',page).strip();result.append((bg[1],text))
  return result
 summaries={
+ 'expterran05a': "The Dominion's forces defend Mengsk's command center on Korhal. Survive the nuclear assault and destroy the command center.",
+ 'expterran05b': "The Dominion sends its fleet against the UED on Korhal. Defend the landing force and destroy Mengsk's command center.",
  'protoss05':'Tassadar refuses to abandon the Dark Templar trapped beneath Char. Escort him and two Zealots to the installation entrance while hostile forces contest the surrounding islands.',
  'protoss06':'Tassadar enters the abandoned Terran installation to find Zeratul. Explore its locked passages, rescue the trapped allies and survive the Zerg ambushes beneath Char.',
  'protoss07':'Tassadar returns to Aiur with the Dark Templar. The Conclave calls him a traitor. Defend the colony and confront the Conclave while keeping Tassadar, Fenix and Zeratul alive.',
@@ -35,12 +38,26 @@ summaries={
  'zerg10':'The Khaydarin Crystal has been recovered. Destroy the ancient Protoss Temple, then carry the crystal to its remains so the Overmind can establish itself on Aiur.',
 
  'expterran06': "Mengsk escaped the UED assault on Korhal with Raynor's help. Pursue them to Aiur, secure a landing zone for the UED forces and destroy Raynor's command center.",
+ 'expterran07': "Admiral DuGalle sends Duran into the Psi Disrupter to confront Vice Admiral Stukov, who has taken control of the installation.",
+ 'expterran08': "The UED has held on to the Psi Disrupter after the struggle over its control. DuGalle now sends a force to Char to seize the new Overmind before the Zerg can rally around it.",
  'expterran04': "After taking the Psi Disrupter on Tarsonis, the UED attacks the Dominion capital on Korhal. Choose which threat to remove: destroy the enemy Physics Labs to weaken its battlecruisers, or destroy the Nuclear Silos to stop its nuclear strikes.",
  'expprotoss04': "To cleanse Shakuras, the Protoss must recover two crystals that can power the ancient Xel'Naga temple. Kerrigan offers to help retrieve the Uraj crystal from Braxis, where Dominion forces stand between the expedition and its prize.",
+ 'expprotoss05': "The Dominion has trapped the Protoss expedition on Braxis. Destroy the generators powering the blockade and keep Artanis alive.",
+ 'expprotoss06': "The Protoss return to Char for the Khalis crystal. Recover it from the Zerg or force the Overmind into remission.",
+ 'expprotoss07': "Aldaris has rallied Protoss forces against the Dark Templar on Shakuras. Track him down and defeat his forces while the expedition confronts the uprising.",
+ 'expprotoss08': "Artanis and Zeratul must bring the recovered crystals to the Xel'Naga temple. Protect the temple while the crystals activate it.",
  'expterran02': "The UED has secured a foothold in the sector. At the Dylarian shipyards, escort the pilots to commandeer the Dominion's battlecruisers and turn its fleet against Admiral Duke.",
  'expprotoss03': "The survivors have reached Shakuras, but the Zerg have followed them. Dark Templar must sever the broods from their Cerebrates while the fleet protects their landing near the ancient Xel'Naga Temple.",
  'expterran03': "The captured fleet has strengthened the UED offensive. On ruined Tarsonis, Duran proposes securing the Psi Disrupter. Break the defending Zerg broods by destroying their Hives, then escort him to the device.",
  'expzerg03':'With the Psi Disrupter destroyed, Kerrigan prepares to retake Korhal. Fenix leads the Swarm into Kel-Morian mining territory to establish a colony and gather ten thousand minerals. Infesting Terran command centers can provide additional forces for the coming assault.',
+ 'expzerg04':'Kerrigan brings the Swarm to Korhal. Establish your forces and destroy the Terran defenses.',
+ 'expzerg05':'Kerrigan turns against her former allies on Korhal. Take control of the Swarm after the opening ambush and defeat the forces opposing it.',
+ 'expzerg06':'Destroy the renegade Zerg broods. Then hunt down the UED scientists.',
+ 'expzerg07':'Escort Duran to each of the five beacons. Keep him alive as he completes the operation.',
+ 'expzerg08':'Destroy the Overmind with Dark Templar. Preserve the Protoss facilities needed to train them.',
+ 'expzerg09':'Destroy the Protoss base within thirty minutes and recover the Matriarch and Zeratul.',
+ 'expbonus':'Zeratul follows an unusual energy signature. Investigate its source and keep Zeratul alive.',
+ 'expzerg10':'Kerrigan faces the remaining enemy fleets. Destroy their forces.',
  'expzerg02':'The UED Psi Disrupter prevents Kerrigan from controlling the renegade Zerg on Braxis. Raynor\'s raiders will cut its power, then Mengsk\'s SCV will carry a Psi Emitter. Gather the scattered Zerg, establish a colony and destroy the Disrupter.',
  'zerg09':'The Overmind has invaded Aiur. Send a Drone to the Khaydarin Crystal Formation, protect the colony while it gathers a crystal, and bring the crystal back to the beacon at your base.',
  'zerg08':'With the Garm Brood purged, Kerrigan turns back to the Protoss on Char. Destroy their bases, intercept the Dark Templar before they escape, and keep Kerrigan alive.',
@@ -152,16 +169,23 @@ def animations(path,entries):
 cat=Path(__file__).parents[1]/'include/campaign_catalogue.h'
 for key,title,scenario,race,bw in re.findall(r'\{"([^"]+)","([^"]+)",(\d+),(\d+),(true|false)\}',cat.read_text()):
  if args.missions and key not in args.missions:continue
- race=int(race);bw=bw=='true';r=['z','t','p'][race];number='0t' if key=='tutorial' else key[-2:]
- shots=pages(f'rez/est{r}{number}{"x" if bw else ""}.txt')
+ campaign_race=int(race);bw=bw=='true';race=2 if key=='expbonus' else campaign_race
+ shots=pages(story_card(key,campaign_race,bw))
  bg,location=next((s for s in reversed(shots) if 'blank.pcx' not in s[0].lower()),shots[-1])
  story='\n\n'.join(t for b,t in shots if 'blank.pcx' in b.lower())
  if not story and key=='terran01':story=pages('rez/estt0t.txt')[0][1]
- if not story:story=summaries[key]
+ if key=='expbonus':story=summaries[key];location=''
+ if not story:story=summaries['expzerg04' if key.startswith('expzerg04') else key]
  (campaign/f'{key}.intro').write_text(story)
  (campaign/f'{key}.location').write_text(location)
- im=Image.open(owned(bg)).convert('RGBA');im=im.resize((400,round(im.height*400/im.width)),Image.Resampling.LANCZOS)
+ original=Image.open(owned(bg)).convert('RGBA')
+ im=original.resize((400,round(original.height*400/original.width)),Image.Resampling.LANCZOS)
  y=(im.height-240)//2;im=im.crop((0,y,400,y+240));bank(campaign/f'{key}-shot.bin',[('shot',im.resize((256,128),Image.Resampling.LANCZOS))],256,128)
+ story_bank=campaign/f'{key}-story.bin'
+ if not story_bank.exists() and stock_story_fallback(key):
+  top=ImageOps.fit(original,(400,240),Image.Resampling.LANCZOS)
+  bottom=ImageOps.fit(original,(320,240),Image.Resampling.LANCZOS)
+  bank(story_bank,[('top',top),('bottom',bottom)],positions=[(0,0,0),(1,0,0)])
  # Preserve source action order, speaker slot assignments and timings. Original
  # type 4 objectives are metadata, never inserted in the spoken dialogue.
  chk=(campaign/f'{key}.chk').read_bytes();at=0;meta=[];casts=[]

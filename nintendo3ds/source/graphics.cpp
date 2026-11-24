@@ -265,8 +265,8 @@ void Graphics::fog_minimap(const Engine& engine,float x,float y,float w,float h)
     Tex3DS_SubTexture sub={static_cast<u16>(width_),static_cast<u16>(height_),0,1,width_/float(fog_side_),1-height_/float(fog_side_)};
     C2D_DrawImageAt({&fog_texture_[fog_slot_],&sub},x,y,0,nullptr,w/width_,h/height_);
 }
-bool Graphics::ui_image(const SpriteView& view,float x,float y,float scale,const Engine& engine){
-    if(!ready() || view.image<65380 || view.image>65384)return false;
+bool Graphics::ui_image(const SpriteView& view,float x,float y,float scale,const Engine& engine,unsigned clip_width,unsigned clip_left){
+    if(!ready() || view.image<65380 || view.image>group_wireframe_image)return false;
     // Share this frame's pin age with the world, rather than evicting textures
     // still referenced by the top screen's queued GPU draws.
     const auto key=sprite_key(view.image,view.frame,view.owner);auto found=cache_.find(key);
@@ -277,7 +277,11 @@ bool Graphics::ui_image(const SpriteView& view,float x,float y,float scale,const
         // forcing another page would make a same-texture draw sample it.
         C3D_TexBind(0,&pages_[found->second.rect.page]);
     }else found->second.age=frame_;
-    draw(found->second.rect,x+view.x*scale,y+view.y*scale,scale,scale);return true;
+    auto rect=found->second.rect;
+    if(clip_left>=rect.width)return false;
+    rect.x+=clip_left;rect.width-=clip_left;
+    if(clip_width)rect.width=std::min(rect.width,clip_width);
+    draw(rect,x+view.x*scale,y+view.y*scale,scale,scale);return true;
 }
 bool Graphics::cursor(const SpriteView& v,float x,float y,const Engine& engine) {
     if(!ready() || v.image<cursor_image_base || v.image>=cursor_image_base+cursor_count)return false;

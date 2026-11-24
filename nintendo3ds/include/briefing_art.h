@@ -15,7 +15,7 @@ class BriefingArt {
 public:
  ~BriefingArt(){clear();}
  void clear(){shot_.clear();frame_.clear();room_.clear();story_.clear();upper_.clear();panels_.clear();story_ready_=room_ready_=false;clear_faces();mission_=~0u;motions_.clear();origin_=~0u;}
- bool load_shot(const Frontend& f,const char* root){const auto folder=std::string(root)+"campaign/";const char* race=campaign::missions[f.mission].race==0?"zerg":campaign::missions[f.mission].race==2?"protoss":"terran";return shot_.load((folder+"briefing-loading-"+race+".bin").c_str()) && (frame_.load((folder+"briefing-frame-"+race+".bin").c_str()) || frame_.load((folder+"briefing-frame.bin").c_str()));}
+ bool load_shot(const Frontend& f,const char* root){const auto folder=std::string(root)+"campaign/";const char* race=campaign::play_race(campaign::missions[f.mission])==0?"zerg":campaign::play_race(campaign::missions[f.mission])==2?"protoss":"terran";return shot_.load((folder+"briefing-loading-"+race+".bin").c_str()) && (frame_.load((folder+"briefing-frame-"+race+".bin").c_str()) || frame_.load((folder+"briefing-frame.bin").c_str()));}
  void release_room(){room_.clear();story_.clear();upper_.clear();panels_.clear();story_ready_=room_ready_=false;clear_faces();}
  bool sync(const Frontend& f,const char* root){
   if(!f.rich_briefing || !f.presentation()){if(mission_!=~0u)clear();return true;}
@@ -31,7 +31,7 @@ public:
   }else{
    // Release both 256 KiB story pages before room, movies and voices load.
    if(story_ready_){changed=true;story_.clear();story_ready_=false;}
-   if(!room_ready_){changed=true;const char* race=campaign::missions[f.mission].race==0?"zerg":campaign::missions[f.mission].race==2?"protoss":"terran";
+   if(!room_ready_){changed=true;const char* race=campaign::play_race(campaign::missions[f.mission])==0?"zerg":campaign::play_race(campaign::missions[f.mission])==2?"protoss":"terran";
     const auto folder=std::string(root)+"campaign/";
     if(!room_.load((folder+"briefing-"+race+".bin").c_str()) || !upper_.load((folder+"briefing-upper-"+race+".bin").c_str()) || !panels_.load((folder+"briefing-panels-"+race+".bin").c_str())){clear();return false;}room_ready_=true;}
   }

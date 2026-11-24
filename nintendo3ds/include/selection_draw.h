@@ -5,6 +5,30 @@
 #include "panel_text.h"
 #include "hud_layout.h"
 namespace port3ds {
+inline void draw_unit_bars(const UnitView& u,int cx,int cy,Graphics& graphics,const Engine& engine){
+ const int width=std::min(255,(u.bar_width-1)/3*3);
+ const int x=u.x-cx-width/2,y=u.bar_y-cy;
+ if(width<=0 || x+width<=0 || x>=400 || y+15<=0 || y>=240)return;
+ const int rows=1+(u.max_shields>0)+(u.max_energy>0);
+ C2D_DrawRectSolid(x-1,y-1,0,width+2,4*rows+1,C2D_Color32(8,12,13,240));
+ auto row=[&](int at,int value,int max_value,unsigned color){
+  const auto segments=width/3;
+  const unsigned filled=3*std::min(segments,std::max(value>0?1:0,(value*segments+max_value/2)/max_value));
+  if(filled)graphics.ui_image({0,0,selection_bar_image,color,11},x,at,1,engine,filled);
+  if(filled<unsigned(width))graphics.ui_image({0,0,selection_bar_image,0,11},x+int(filled),at,1,engine,width-filled,filled);
+ };
+ int at=y;
+ if(u.max_shields){row(at,u.shields,u.max_shields,4);at+=4;}
+ row(at,u.hp,u.max_hp,u.hp*3>=u.max_hp*2?1:u.hp*3>=u.max_hp?2:3);at+=4;
+ if(u.max_energy)row(at,u.energy,u.max_energy,5);
+}
+inline void draw_group_wireframe(const UnitView& u,Graphics& graphics,const Engine& engine,HudLayout::Rect cell){
+ C2D_DrawRectSolid(cell.x,cell.y,0,cell.w,cell.h,C2D_Color32(9,21,44,255));
+ ui_border({cell.x,cell.y,cell.w,cell.h},C2D_Color32(46,94,172,255));
+ const auto frame=engine.unit_wireframe(u.type,u.hp,u.max_hp,u.shields,true);
+ if(!graphics.ui_image(frame,cell.x+2,cell.y+1,frame.image==group_wireframe_image?1.f:.5f,engine))
+    graphics.ui_image(engine.command_icon(u.type),cell.x+4,cell.y+3,.8f,engine);
+}
 inline void selection_text(UiArt& art,const char* text,int y,char color='W'){
  const int width=std::min(86,panel_width(art,text));panel_text(art,text,58-width/2,y,color,86);
 }

@@ -53,12 +53,20 @@ bool campaign_action(execute_trigger_struct& ets,int owner,running_trigger& rt,r
   const auto& src=location(a.location);const auto& dst=location(a.group2_n);
   const xy target=(dst.area.from+dst.area.to)/2;
   const auto* order=get_order_type(a.num_n==0?Orders::Move:a.num_n==1?Orders::Patrol:Orders::AttackMove);
+  const bool rescue_route=campaign.mission==port3ds::campaign::index(port3ds::campaign::dark_origin_scenario) &&
+    owner==0 && a.num_n==0;
   action_state state;action_functions commands(st,state);
   for(int p:trigger_players(owner,a.group_n)){
    static_vector<unit_t*,12> batch;
    auto send=[&](){if(batch.empty())return;commands.action_select(p,batch);commands.action_order(p,order,target,nullptr,nullptr,false);batch.clear();};
    for(auto* u:find_units(src.area)){
-    if(u->owner!=p || !campaign_matches(u,a.extra_n) || !unit_is_at_elevation_flags(u,src.elevation_flags) || !u_can_move(u) || unit_is_rescuable(u) || unit_is_fighter(u) || unit_is(u,UnitTypes::Terran_Nuclear_Missile))continue;
+    if(u->owner!=p || !campaign_matches(u,a.extra_n) ||
+       !unit_is_at_elevation_flags(u,src.elevation_flags) || !u_can_move(u) ||
+       unit_is_fighter(u) || unit_is(u,UnitTypes::Terran_Nuclear_Missile))continue;
+    // Dark Origin switches its intro shuttle to rescue before the remaining
+    // authored waypoints. Keep those scripted moves legal until the handoff.
+    const bool intro_shuttle=rescue_route && p==2 && unit_is(u,UnitTypes::Protoss_Shuttle);
+    if(unit_is_rescuable(u) && !intro_shuttle)continue;
     if(ut_building(u) && (u->order_type->id==Orders::BuildingLand || u->order_type->id==Orders::BuildingLiftoff))continue;
     if(u_burrowed(u)){unburrow_unit(u);set_queued_order(u,false,order,target);continue;}
     if(!unit_can_receive_order(u,order,p))continue;
@@ -84,6 +92,7 @@ bool campaign_action(execute_trigger_struct& ets,int owner,running_trigger& rt,r
    if((a.flags&8) && a.group2_n>0 && a.group2_n<=64){const auto& prop=campaign.properties[a.group2_n-1];auto word=[&](unsigned n){return unsigned(prop[n])|(unsigned(prop[n+1])<<8);};unsigned valid=word(2),special=word(0),bits=word(14);
     if(valid&2)set_unit_hp(u,std::max(fp8::from_raw(1),u->unit_type->hitpoints*std::min<int>(100,prop[5])/100));if(valid&4)set_unit_shield_points(u,fp8::integer(u->unit_type->shield_points)*std::min<int>(100,prop[6])/100);if(valid&8)set_unit_energy(u,unit_max_energy(u)*std::min<int>(100,prop[7])/100);
     if(valid&16)set_unit_resources(u,data_loading::value_at<uint32_t,true>(prop.data()+8));if((special&8) && (bits&8))make_unit_hallucination(u);
+    if(campaign.use_authored_hangars && (valid&32))load_authored_hangar(u,word(12));
     // A trigger can create a Terran building already in flight, as in UNIT.
     if((special&4) && (bits&4))set_initial_building_in_transit(u);
     if(special&16)u_set_status_flag(u,unit_t::status_flag_invincible,(bits&16)!=0);if((special&2) && (bits&2)){set_unit_burrowed(u);set_unit_order(u,get_order_type(Orders::Burrowed));}if((special&1) && (bits&1))cloak_unit(u);

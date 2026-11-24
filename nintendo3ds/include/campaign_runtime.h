@@ -12,13 +12,41 @@ struct CampaignRuntime {
    if(f.u_burrowed(u) && f.ut_can_burrow(u) && !f.u_requires_detector(u))f.cloak_unit(u);
  }
 
- bool active=false,cinematic=false,suppress_deaths=false;unsigned mission=0,next_scenario=0,objective=0,message=0,message_until=0,camera_serial=0;
+ bool active=false,cinematic=false,suppress_deaths=false,use_authored_hangars=false;
+ bool honor_game_pause=false,game_paused=false;
+ unsigned mission=0,next_scenario=0,objective=0,message=0,message_until=0,camera_serial=0;
  // Countdown advances only with simulation ticks, never with menu/loading time.
  uint64_t countdown_frames=0;bool countdown_paused=false,countdown_active=false;
  unsigned countdown()const{return unsigned((countdown_frames+23)/24);}
  void advance(){if(!countdown_paused && countdown_frames)--countdown_frames;}
  void timer(unsigned seconds,unsigned modifier){countdown_active=true;const uint64_t amount=uint64_t(seconds)*24;if(modifier==7)countdown_frames=amount;else if(modifier==8)countdown_frames=std::min(uint64_t(0xffffffffu)*24,countdown_frames+amount);else if(modifier==9)countdown_frames=countdown_frames>amount?countdown_frames-amount:0;}
  std::array<bool,256> switches{};std::array<int,12> scores{};
+ // True Colors orders these Lurkers to move and then declares the nearby guards
+ // hostile. The campaign controller must supply the computer's burrow order.
+ void true_colors_opening(bwgame::state_functions& f){
+  using namespace bwgame;
+  constexpr unsigned handoff_switch=50, cutscene_player=4;
+  if(switches[handoff_switch])return;
+  action_state state;
+  action_functions orders(f.st,state);
+  for(auto* lurker:ptr(f.st.player_units[cutscene_player])){
+   if(!f.unit_is(lurker,UnitTypes::Zerg_Lurker) || f.unit_dying(lurker) ||
+      !f.u_completed(lurker) || f.us_hidden(lurker) || f.u_burrowed(lurker))continue;
+   const auto order=lurker->order_type->id;
+   if(order!=Orders::Guard && order!=Orders::PlayerGuard)continue;
+   const weapon_type_t* weapon=lurker->unit_type->ground_weapon;
+   if(!weapon)continue;
+   const int range=weapon->max_range;
+   const auto pos=lurker->sprite->position;
+   for(auto* target:f.find_units({pos-xy(range,range),pos+xy(range,range)})){
+    if(f.u_flying(target) || f.unit_dying(target) || f.u_invincible(target) ||
+       !f.unit_target_is_enemy(lurker,target) || !f.unit_can_see_target(lurker,target) ||
+       !f.unit_target_in_range(lurker,target,range))continue;
+    if(orders.action_select(cutscene_player,lurker))orders.action_burrow(cutscene_player,false);
+    break;
+   }
+  }
+ }
  std::array<std::array<unsigned,228>,12> deaths{},kills{};std::array<unsigned,1700> death_ids{};
  std::array<std::array<uint8_t,20>,64> properties{};
  unsigned ping_frame=0;bwgame::xy ping{};

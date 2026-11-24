@@ -1,12 +1,12 @@
 #include "engine.h"
-#include "frontend.h"
+#include "skirmish.h"
 #include <cassert>
 #include <cstdio>
 #include <set>
 using namespace port3ds;
 int main(int argc,char** argv){assert(argc==3 || argc==4);
- for(unsigned scenario=0;scenario<4;++scenario){Frontend front;front.base=argv[2];front.observer_test=scenario;auto setup=front.match(1);Engine e;
-  if(!e.load(argv[1],front.map_path().c_str(),Scenario(front.scenario()),&setup)){fprintf(stderr,"Observer%u: %s\n",scenario,e.error());return 1;}
+ for(unsigned scenario=0;scenario<4;++scenario){const auto& test=ai_observer_tests[scenario];auto setup=test.match();Engine e;
+  if(!e.load(argv[1],test.map_path(argv[2]).c_str(),Scenario(test.scenario),&setup)){fprintf(stderr,"Observer%u: %s\n",scenario,e.error());return 1;}
   auto s=e.snapshot();assert(s.observer && !e.fog_enabled());unsigned sides=scenario==3?3:2;
   for(unsigned p=0;p<sides;++p){assert(s.players[p].ai && s.players[p].workers==4);assert(s.players[p].difficulty==(scenario==3 && p>0?AiDifficulty::easy:AiDifficulty::medium));}
   std::set<std::pair<int,int>> focus;for(unsigned i=0;i<24*8*sides;++i){assert(e.tick());if(i%(24*8)==0){int x,y;assert(e.observer_focus(x,y));focus.emplace(x,y);}SoundEvent sounds[256];e.drain_sounds(sounds,256);}

@@ -11,6 +11,7 @@
 #include "campaign_runtime.h"
 #include "campaign_map.h"
 #include "campaign_ai.h"
+#include <cerrno>
 #include <cstdio>
 #include <cstring>
 #include <stdexcept>
@@ -18,6 +19,8 @@
 namespace port3ds {
 using namespace bwgame;
 namespace {
+constexpr unsigned first_selection_ring=unsigned(ImageTypes::IMAGEID_Selection_Circle_22pixels);
+constexpr unsigned last_selection_ring=unsigned(ImageTypes::IMAGEID_Selection_Circle_Dashed_224pixels);
 bool player_sees(const state_functions& f,const unit_t* unit) {
     return unit->owner==0 || ((unit->sprite->visibility_flags&1) && !f.unit_is_undetected(unit,0));
 }
@@ -36,8 +39,16 @@ struct Engine::Impl {
             if(owner!=0)return state_functions::execute_trigger_action(ets,owner,rt,ra,a);
             auto camera=[&](){if(a.location>0 && unsigned(a.location)<=st.locations.size()){const auto& area=st.locations[a.location-1].area;campaign.camera=(area.from+area.to)/2;++campaign.camera_serial;}};
             switch(a.type){
-            case 5:case 30:campaign.cinematic=true;return true;
-            case 6:case 31:campaign.cinematic=false;return true;
+            case 5:
+                campaign.game_paused=campaign.honor_game_pause;
+                campaign.cinematic=true;
+                return true;
+            case 6:
+                campaign.game_paused=false;
+                campaign.cinematic=false;
+                return true;
+            case 30:campaign.cinematic=true;return true;
+            case 31:campaign.cinematic=false;return true;
             case 7:{
                 if(!(ra.flags&1)){if(a.sound_index>0 && campaign_sound_base+unsigned(a.sound_index)<audio_sound_limit)play_sound(campaign_sound_base+a.sound_index,{},nullptr,false);campaign.message=a.string_index;campaign.message_until=st.current_frame+std::max(96,a.time_n*24/1000);}
                 auto wait=a;wait.type=4;wait.time_n=std::max(1000,a.time_n);return state_functions::execute_trigger_action(ets,owner,rt,ra,wait);
@@ -84,6 +95,7 @@ struct Engine::Impl {
     std::array<uint8_t,128> team{};
     std::array<std::array<uint16_t,256>,4> team_palette;
     std::array<std::array<uint16_t,256>,7> lights;
+    UnitView unit_view(const unit_t* unit,bool selected) const;
     unit_t* first_selected() const {
         if (!loaded) return nullptr;
         for (auto id:selected) if (auto* u=player->funcs().get_unit(id))
@@ -234,16 +246,22 @@ bool Engine::preview_map(const char* data_root,const char* map_path,MapPreview& 
 Engine::Engine() : impl_(new Impl) {}
 Engine::~Engine() = default;
 bool Engine::load(const char* data_root, const char* map_path, Scenario scenario,const MatchSetup* setup,const std::function<void()>& progress) {
-    return load_with_rules(data_root,map_path,scenario,setup,progress,savegame::Rules::current);
+    const bool scripted=campaign::scenario(unsigned(scenario)) || (setup && setup->enabled && setup->game_type==2);
+    auto rules=scripted?savegame::Rules::preplaced_hangars:savegame::Rules::current;
+    if(scenario==Scenario::bw_zerg_bonus)rules=savegame::Rules::dark_origin_pause;
+    return load_with_rules(data_root,map_path,scenario,setup,progress,rules);
 }
 bool Engine::load_with_rules(const char* data_root,const char* map_path,Scenario scenario,const MatchSetup* setup,const std::function<void()>& progress,savegame::Rules rules) {
     impl_->replay.reset();
     impl_->rules=rules;
     impl_->journal.close();impl_->initial_root=data_root;impl_->alert_hp.fill(-1);impl_->alert_ids.fill(0);impl_->alert_frame=0;impl_->initial_map=map_path;impl_->initial_scenario=scenario;impl_->initial_setup=setup?*setup:MatchSetup{};
+    const bool patriots_blood=scenario==Scenario::bw_terran_campaign_7;
     const bool campaign=campaign::scenario(unsigned(scenario));
     const bool custom=!campaign && setup && setup->enabled;
     const bool ums=custom && setup->game_type==2;
     const bool scripted=campaign || ums;
+    const bool honor_game_pause=rules==savegame::Rules::dark_origin_pause;
+    const bool load_preplaced_hangars=rules==savegame::Rules::preplaced_hangars || honor_game_pause;
     impl_->loaded = false;
     impl_->fog=scripted || scenario==Scenario::melee || scenario==Scenario::versus_ai || scenario==Scenario::protoss_versus_ai || scenario==Scenario::zerg_versus_ai;
     if(custom && setup->observer)impl_->fog=false;
@@ -340,6 +358,7 @@ bool Engine::load_with_rules(const char* data_root,const char* map_path,Scenario
             const bool melee=scenario==Scenario::melee || scenario==Scenario::ai_battle || scenario==Scenario::versus_ai || scenario==Scenario::gas_battle || scenario==Scenario::protoss_ai_battle || scenario==Scenario::protoss_versus_ai || scenario==Scenario::zerg_ai_battle || scenario==Scenario::zerg_versus_ai;
             if(scripted){
                 loader.setup_info.create_no_units=false;loader.setup_info.victory_condition=0;loader.setup_info.starting_units=0;loader.setup_info.resource_type=0;
+                loader.setup_info.load_preplaced_hangars=load_preplaced_hangars;
                 // UMS computer slots begin allied across Force boundaries. Preserve
                 // that relationship before replacing the retail AI controller;
                 // original alliance/AI triggers may change it during the mission.
@@ -367,6 +386,10 @@ bool Engine::load_with_rules(const char* data_root,const char* map_path,Scenario
                 loader.setup_info.create_melee_units_for_player[i] = active && melee;
             }
         });
+        // Maps without an authored preplaced hangar still use the previous
+        // replay profile, so both executable versions can open their saves.
+        if(rules==savegame::Rules::preplaced_hangars && !loader.has_preplaced_hangars)
+            impl_->rules=savegame::Rules::authored_hangars;
         if(custom && !ums)for(unsigned p=0;p<3;++p)for(unsigned q=0;q<3;++q)if(p!=q)player.st().alliances[p][q]=setup->teams[p]==setup->teams[q]?2:0;
         if(scripted)for(const auto& trigger:player.st().game->triggers){
             for(const auto& c:trigger.conditions){if(!c.type)break;if(c.flags&2)continue;if(c.type!=1 && c.type!=5 && c.type!=6 && c.type!=7 && c.type!=16 && c.type!=17 && c.type!=23 && c.type!=2 && c.type!=3 && c.type!=4 && c.type!=11 && c.type!=12 && c.type!=14 && c.type!=15 && c.type!=21 && c.type!=22)throw std::runtime_error("Unsupported campaign trigger condition "+std::to_string(c.type));}
@@ -452,11 +475,15 @@ bool Engine::load_with_rules(const char* data_root,const char* map_path,Scenario
         catch(const std::exception&){impl_->icons.reset();}
         impl_->sound.reset(new Impl::SoundFunctions(player.st()));
         impl_->sound->fog=impl_->fog;
+        impl_->sound->campaign.use_authored_hangars=rules==savegame::Rules::authored_hangars ||
+                                                  load_preplaced_hangars;
+        impl_->sound->campaign.honor_game_pause=honor_game_pause;
         impl_->sound->campaign.active=scripted;impl_->sound->campaign.mission=campaign::index(unsigned(scenario));
         if(scripted)for(size_t at=0;at+8<=chk.size();){unsigned n=data_loading::value_at<uint32_t,true>(chk.data()+at+4);if(!std::memcmp(chk.data()+at,"UPRP",4)){if(n>64*20 || n%20)throw std::runtime_error("Campaign unit property bounds");for(unsigned i=0;i<n/20;++i)std::copy_n(chk.data()+at+8+i*20,20,impl_->sound->campaign.properties[i].begin());}at+=8+n;}
         if(scripted){
             impl_->sound->campaign_ai.load(load_asset);
-            impl_->sound->campaign_ai.use_valued_regions=rules==savegame::Rules::current;
+            impl_->sound->campaign_ai.use_valued_regions=rules!=savegame::Rules::early_bw_zerg;
+            impl_->sound->campaign_ai.use_location_alliances=patriots_blood;
         }
         presentation_assets.reset();
         if(progress)progress();
@@ -465,7 +492,7 @@ bool Engine::load_with_rules(const char* data_root,const char* map_path,Scenario
         // generators start damaged; the Psi Disrupter and other missions keep
         // their original HP and native destruction / victory triggers.
         if(scenario==Scenario::bw_zerg_campaign_2)for(auto* u:ptr(player.st().player_units[7]))if(loader.unit_is(u,UnitTypes::Special_Power_Generator) && u->hp>fp8::integer(150))loader.set_unit_hp(u,fp8::integer(150));
-        if(scenario==Scenario::bw_zerg_campaign && rules==savegame::Rules::current)detail::CampaignRuntime::prepare_burrowed_ambushers(loader);
+        if(scenario==Scenario::bw_zerg_campaign && rules!=savegame::Rules::early_bw_zerg)detail::CampaignRuntime::prepare_burrowed_ambushers(loader);
         impl_->loaded = true;
         std::snprintf(impl_->message, sizeof impl_->message, "Loaded %ux%u tiles", width, height);
         return true;
@@ -480,7 +507,12 @@ bool Engine::load_with_rules(const char* data_root,const char* map_path,Scenario
 // uploads then read only the viewport's tiles, independent of map variety.
 bool Engine::write_terrain(const char* data_root,const char* output){
     if(!ready())return false;
-    FILE* out=nullptr;const std::string temporary=std::string(output)+".tmp";
+    FILE* out=nullptr;
+    bool opened=false;
+    auto io_error=[](const char* stage){
+        const int code=errno;
+        return std::runtime_error(std::string(stage)+" (SD error "+std::to_string(code)+")");
+    };
     try{
         const auto& st=impl_->player->st();const auto& game=*st.game;
         const char* names[]={"badlands","platform","install","ashworld","jungle","desert","ice","twilight"};
@@ -491,16 +523,29 @@ bool Engine::write_terrain(const char* data_root,const char* output){
         auto pixel=[&](unsigned id,unsigned x,unsigned y){const auto off=id*32+((y/8)*4+x/8)*2;if(off+2>vx4.size())throw std::runtime_error("Terrain VX4 bounds");const unsigned mini=vx4[off]|vx4[off+1]<<8,src=mini/2*64+(y%8)*8+((mini&1)?7-x%8:x%8);if(src>=vr4.size())throw std::runtime_error("Terrain VR4 bounds");return impl_->palette[vr4[src]];};
         std::vector<unsigned short> ids(st.tiles_mega_tile_index.begin(),st.tiles_mega_tile_index.end());
         std::sort(ids.begin(),ids.end());ids.erase(std::unique(ids.begin(),ids.end()),ids.end());
-        out=std::fopen(temporary.c_str(),"wb");if(!out)throw std::runtime_error("Cannot create map terrain cache on SD");
-        auto put=[&](unsigned v){unsigned char b[4]={uint8_t(v),uint8_t(v>>8),uint8_t(v>>16),uint8_t(v>>24)};if(std::fwrite(b,1,4,out)!=4)throw std::runtime_error("Terrain cache write failed");};
-        if(std::fwrite("OB3DTRN1",1,8,out)!=8)throw std::runtime_error("Terrain cache write failed");
+        // This cache is disposable. Graphics validates the signature and exact
+        // file size before use and rebuilds an interrupted write on next launch.
+        out=std::fopen(output,"wb");
+        if(!out)throw io_error("Cannot open terrain cache");
+        opened=true;
+        auto put=[&](unsigned v){unsigned char b[4]={uint8_t(v),uint8_t(v>>8),uint8_t(v>>16),uint8_t(v>>24)};if(std::fwrite(b,1,4,out)!=4)throw io_error("Cannot write terrain cache");};
+        if(std::fwrite("OB3DTRN1",1,8,out)!=8)throw io_error("Cannot write terrain cache");
         put(game.map_tile_width);put(game.map_tile_height);put(terrain_signature());put(ids.size());
         for(auto id:st.tiles_mega_tile_index)put(std::lower_bound(ids.begin(),ids.end(),id)-ids.begin());
         // Minimap colors sample native map terrain, without UI start markers.
-        for(unsigned y=0;y<128;++y)for(unsigned x=0;x<128;++x){const unsigned wx=(x*2+1)*game.map_width/256,wy=(y*2+1)*game.map_height/256;const auto value=pixel(st.tiles_mega_tile_index[wy/32*game.map_tile_width+wx/32],wx%32,wy%32);unsigned char b[2]={uint8_t(value),uint8_t(value>>8)};if(std::fwrite(b,1,2,out)!=2)throw std::runtime_error("Minimap cache write failed");}
-        for(auto id:ids){uint16_t tile[1024];for(unsigned y=0;y<32;++y)for(unsigned x=0;x<32;++x)tile[y*32+x]=pixel(id,x,y);if(std::fwrite(tile,2,1024,out)!=1024)throw std::runtime_error("Terrain cache write failed");}
-        const int closed=std::fclose(out);out=nullptr;if(closed || std::rename(temporary.c_str(),output))throw std::runtime_error("Cannot finish map terrain cache");return true;
-    }catch(const std::exception& e){if(out)std::fclose(out);std::remove(temporary.c_str());std::snprintf(impl_->message,sizeof impl_->message,"%s",e.what());return false;}
+        for(unsigned y=0;y<128;++y)for(unsigned x=0;x<128;++x){const unsigned wx=(x*2+1)*game.map_width/256,wy=(y*2+1)*game.map_height/256;const auto value=pixel(st.tiles_mega_tile_index[wy/32*game.map_tile_width+wx/32],wx%32,wy%32);unsigned char b[2]={uint8_t(value),uint8_t(value>>8)};if(std::fwrite(b,1,2,out)!=2)throw io_error("Cannot write minimap cache");}
+        for(auto id:ids){uint16_t tile[1024];for(unsigned y=0;y<32;++y)for(unsigned x=0;x<32;++x)tile[y*32+x]=pixel(id,x,y);if(std::fwrite(tile,2,1024,out)!=1024)throw io_error("Cannot write terrain cache");}
+        if(std::fflush(out))throw io_error("Cannot flush terrain cache");
+        const int closed=std::fclose(out);
+        out=nullptr;
+        if(closed)throw io_error("Cannot close terrain cache");
+        return true;
+    }catch(const std::exception& e){
+        if(out)std::fclose(out);
+        if(opened)std::remove(output);
+        std::snprintf(impl_->message,sizeof impl_->message,"%s",e.what());
+        return false;
+    }
 }
 
 bool Engine::surrender(){savegame::Writer::Guard record(impl_->journal,{frame(),savegame::surrender});if(ready() && impl_->sound->campaign.active){impl_->sound->st.players[0].victory_state=2;return true;}return ready() && !impl_->battle.enabled() && impl_->ai.surrender();}
@@ -511,9 +556,18 @@ bool Engine::tick() {
 bool Engine::simulate_frame() {
     if (!impl_->loaded) return false;
     try {
+        if(impl_->sound->campaign.game_paused){
+            // Trigger waits and transmissions advance during the authored pause.
+            ++impl_->sound->st.current_frame;
+            impl_->sound->process_triggers();
+            return true;
+        }
         if(impl_->sound->campaign.active){impl_->sound->campaign.advance();impl_->sound->campaign.rescue(*impl_->sound);}
         impl_->sound->next_frame();
+        if(impl_->sound->campaign.game_paused)return true;
         if(impl_->sound->campaign.active)impl_->sound->campaign_ai.step(*impl_->sound);
+        if(impl_->initial_scenario==Scenario::bw_zerg_campaign_5)
+            impl_->sound->campaign.true_colors_opening(*impl_->sound);
         if(impl_->initial_scenario==Scenario::bw_zerg_campaign_2 && !count_units(0,7,false)){
             auto& f=*impl_->sound;action_state state;action_functions commands(f.st,state);
             for(auto* u:ptr(f.st.visible_units))if((u->owner==1 || u->owner==2) && (f.unit_is(u,UnitTypes::Terran_Marine) || f.unit_is(u,UnitTypes::Hero_Jim_Raynor_Marine)) && u->order_type->id==Orders::AttackMove){
@@ -604,10 +658,23 @@ SelectionInfo Engine::selection_info()const {
     out.building=f.ut_building(u);out.completed=f.u_completed(u);out.hp=snap.selected_hp;out.max_hp=snap.selected_max_hp;
     out.shields=snap.selected_shields;out.max_shields=snap.selected_max_shields;out.energy=snap.selected_energy;out.max_energy=snap.selected_max_energy;
     out.armor=f.unit_armor(u).integer_part();out.kills=u->kill_count;out.armor_level=f.player_upgrade_level(u->owner,t->armor_upgrade);if(t->has_shield)out.shield_level=f.player_upgrade_level(u->owner,UpgradeTypes::Protoss_Plasma_Shields);
-    auto add_upgrade=[&](UpgradeTypes id){if(id==UpgradeTypes::None)return;const auto* up=f.get_upgrade_type(id);if(up->icon<0)return;for(unsigned i=0;i<out.upgrade_count;++i)if(out.upgrades[i].icon==unsigned(up->icon))return;if(out.upgrade_count<out.upgrades.size())out.upgrades[out.upgrade_count++]={unsigned(up->icon),f.player_upgrade_level(u->owner,id)};};
-    add_upgrade(t->armor_upgrade);if(t->has_shield)add_upgrade(UpgradeTypes::Protoss_Plasma_Shields);
-    if(const auto* w=f.unit_or_subunit_ground_weapon(u)){out.ground_weapon=true;out.ground_damage=f.weapon_damage_amount(w,u->owner).integer_part();out.ground_level=f.player_upgrade_level(u->owner,w->damage_upgrade);add_upgrade(w->damage_upgrade);}
-    if(const auto* w=f.unit_or_subunit_air_weapon(u)){out.air_weapon=true;out.air_damage=f.weapon_damage_amount(w,u->owner).integer_part();out.air_level=f.player_upgrade_level(u->owner,w->damage_upgrade);add_upgrade(w->damage_upgrade);}
+    auto add_icon=[&](int icon,int level){
+        if(icon<=0)return;
+        for(unsigned i=0;i<out.upgrade_count;++i)if(out.upgrades[i].icon==unsigned(icon))return;
+        if(out.upgrade_count<out.upgrades.size())out.upgrades[out.upgrade_count++]={unsigned(icon),level};
+    };
+    auto add_upgrade=[&](UpgradeTypes id,int level){if(id!=UpgradeTypes::None)add_icon(f.get_upgrade_type(id)->icon,level);};
+    UpgradeTypes armor_icon=t->armor_upgrade;
+    // Static building armor uses a race icon even when no upgrade applies.
+    if(out.building && (armor_icon==UpgradeTypes::None || f.get_upgrade_type(armor_icon)->icon<=0)){
+        const auto race=f.unit_race(u);
+        if(race==race_t::terran)armor_icon=UpgradeTypes::Terran_Vehicle_Plating;
+        if(race==race_t::zerg)armor_icon=UpgradeTypes::Zerg_Carapace;
+        if(race==race_t::protoss)armor_icon=UpgradeTypes::Protoss_Ground_Armor;
+    }
+    add_upgrade(armor_icon,out.armor_level);if(t->has_shield)add_upgrade(UpgradeTypes::Protoss_Plasma_Shields,out.shield_level);
+    if(const auto* w=f.unit_or_subunit_ground_weapon(u)){out.ground_weapon=true;out.ground_damage=f.weapon_damage_amount(w,u->owner).integer_part();out.ground_level=f.player_upgrade_level(u->owner,w->damage_upgrade);add_icon(w->icon,out.ground_level);}
+    if(const auto* w=f.unit_or_subunit_air_weapon(u)){out.air_weapon=true;out.air_damage=f.weapon_damage_amount(w,u->owner).integer_part();out.air_level=f.player_upgrade_level(u->owner,w->damage_upgrade);add_icon(w->icon,out.air_level);}
     out.supply_used=snap.players[u->owner<3?u->owner:0].supply;out.supply_total=snap.players[u->owner<3?u->owner:0].supply_max;out.supply_provided=t->supply_provided.integer_part();
     out.queue_count=std::min<unsigned>(5,u->build_queue.size());for(unsigned i=0;i<out.queue_count;++i)out.queue[i]=unsigned(u->build_queue[i]->id);
     auto unit_work=[&](WorkKind kind,const unit_type_t* type,int remaining){out.work=kind;out.work_icon=unsigned(type->id);out.work_name=zerg::name(type->id);if(!out.work_name)out.work_name=protoss::name(type->id);if(!out.work_name)out.work_name=terran::name(type->id);out.total=type->build_time;out.remaining=remaining;};
@@ -638,9 +705,22 @@ bool Engine::cancel_selected_work(unsigned slot){savegame::Writer::Guard record(
     impl_->command_message=ok?"Production cancelled":"Cannot cancel this production";return ok;
 }
 SpriteView Engine::selection_wireframe()const {
-    const auto info=selection_info();if(!info.valid || !impl_->icons || !impl_->icons->has_wireframes)return {};
-    const unsigned damage=info.hp>=info.max_hp?0:info.hp>info.max_hp/3?1:2,shield=info.shields>0?1:0;
-    return {0,0,detail::wireframe_image,info.type+228*(damage+3*shield),11,false,false,0,255};
+    const auto info=selection_info();
+    return info.valid?unit_wireframe(info.type,info.hp,info.max_hp,info.shields):SpriteView{};
+}
+SpriteView Engine::unit_wireframe(unsigned type,int hp,int max_hp,int shields,bool group)const {
+    if(type>=228 || !impl_->icons)return {};
+    const unsigned shield=shields>0?1:0;
+    if(group && type<impl_->icons->group_wireframes.frames.size()){
+        const auto& tile=impl_->icons->group_wireframes.frames[type];
+        if(tile.size.x && tile.size.y){
+            const unsigned damage=hp<max_hp?std::min(8,1+(max_hp-std::max(0,hp))*8/max_hp):0;
+            return {0,0,group_wireframe_image,type+228*(damage+9*shield),11,false,false,0,255};
+        }
+    }
+    if(!impl_->icons->has_wireframes)return {};
+    const unsigned damage=hp>=max_hp?0:hp>max_hp/3?1:2;
+    return {0,0,detail::wireframe_image,type+228*(damage+3*shield),11,false,false,0,255};
 }
 const char* Engine::error() const { return impl_->message; }
 bool Engine::ready() const { return impl_->loaded; }
@@ -696,6 +776,18 @@ unsigned Engine::select_similar(int x,int y,int cx,int cy){savegame::Writer::Gua
     impl_->command_message="Matching units on screen selected";return impl_->selected.size();
 }
 void Engine::clear_selection() {savegame::Writer::Guard record(impl_->journal,{frame(),savegame::clear}); impl_->selected.clear(); }
+void Engine::deselect_passengers() {
+    if(!ready() || impl_->selected.empty())return;
+    const auto& f=impl_->player->funcs();
+    const auto end=std::remove_if(impl_->selected.begin(),impl_->selected.end(),[&](auto id){
+        const auto* unit=f.get_unit(id);
+        return unit && f.u_loaded(unit);
+    });
+    const auto size=end-impl_->selected.begin();
+    if(size==impl_->selected.size())return;
+    impl_->journal.append({frame(),savegame::deselect_passengers});
+    impl_->selected.resize(size);
+}
 bool Engine::activate(int x,int y) {savegame::Writer::Guard record(impl_->journal,{frame(),savegame::activate,x,y});
     if(!ready()) return false;
     if(impl_->ai.observer() || impl_->battle.enabled()) { const bool ok=select(x,y); impl_->command_message=ok?"Observer selection":"Selection cleared"; return ok; }
@@ -852,6 +944,18 @@ bool Engine::command(Command command, int x, int y) {savegame::Writer::Guard rec
         // For workers, the explicit item hit wins over Follow/selecting the
         // overlapping friendly unit; pickup still requires physical contact.
         if(funcs.ut_worker(u))if(auto* item=hit_unit(funcs,x,y,false,impl_->fog,true))target=item;
+        if (command == Command::context) {
+            const auto* order = funcs.get_default_order(funcs.default_action(u), u, {x,y}, target, nullptr);
+            message = "Move / interact / rally";
+            if (order) {
+                switch (order->id) {
+                case Orders::MoveToMinerals: message = "Gather minerals"; break;
+                case Orders::MoveToGas: message = "Gather gas"; break;
+                case Orders::AttackDefault: message = "Attack target"; break;
+                default: break;
+                }
+            }
+        }
         // Issue group actions in native batches of at most twelve. Buildings
         // are single-select; no upstream selection limits are changed.
         static_vector<unit_t*,12> batch;
@@ -871,11 +975,8 @@ bool Engine::command(Command command, int x, int y) {savegame::Writer::Guard rec
             batch.push_back(member); if(batch.size()==12) issue();
         }
         issue();
-        if (command == Command::context) {
-            message = target && funcs.unit_is_mineral_field(target) ? "Gather minerals" :
-                target && funcs.unit_is_refinery(target) && target->owner==0 ? "Gather gas" :
-                target && target->owner > 0 && target->owner < 3 ? "Attack target" : "Move / interact / rally";
-        } else message=command==Command::stop ? "Stop" : command==Command::primary ? "Siege mode toggled" : "Attack-move to cursor";
+        if (command != Command::context)
+            message=command==Command::stop ? "Stop" : command==Command::primary ? "Siege mode toggled" : "Attack-move to cursor";
         break;
     }
     case Command::train: {
@@ -921,7 +1022,7 @@ unsigned Engine::options(OptionPage page,MenuOption* output,unsigned capacity) c
         case OptionKind::build:case OptionKind::addon:case OptionKind::train:case OptionKind::morph:o.icon=id;break;
         case OptionKind::research:o.icon=f.get_tech_type(TechTypes(id))->icon;break;
         case OptionKind::upgrade:o.icon=f.get_upgrade_type(UpgradeTypes(id))->icon;break;
-        case OptionKind::order:order_icon(Orders(id));if(id==unsigned(Orders::RechargeShieldsBattery))o.icon=unsigned(UnitTypes::Protoss_Shield_Battery);break;
+        case OptionKind::order:order_icon(id==unsigned(Orders::MoveUnload)?Orders::Unload:Orders(id));if(id==unsigned(Orders::RechargeShieldsBattery))o.icon=unsigned(UnitTypes::Protoss_Shield_Battery);break;
         case OptionKind::stim:o.icon=f.get_tech_type(TechTypes::Stim_Packs)->icon;break;
         case OptionKind::siege:order_icon(f.unit_is(u,UnitTypes::Terran_Siege_Tank_Siege_Mode)?Orders::Unsieging:Orders::Sieging);break;
         case OptionKind::cloak:order_icon(f.u_cloaked(u)?Orders::Decloak:Orders::Cloak);break;
@@ -985,13 +1086,18 @@ unsigned Engine::options(OptionPage page,MenuOption* output,unsigned capacity) c
         for(auto id:impl_->selected)if(const auto* caster=f.get_unit(id))if(caster->owner==0 && caster->unit_type==u->unit_type && !f.unit_dead(caster) && f.unit_can_use_tech(caster,type) && caster->energy>=fp8::integer(type->energy_cost))enabled=true;
         const auto index=n;add(label,OptionKind::order,unsigned(order),true,enabled);if(n>index)output[index].icon=unsigned(type->icon);
     };
+    auto transport_options=[&](){
+        const bool can_unload=!f.loaded_units(u).empty() && f.unit_can_receive_order(u,f.get_order_type(Orders::Unload),0);
+        add("Load unit",OptionKind::order,unsigned(Orders::PickupTransport),true,f.unit_provides_space(u));
+        add("Unload all",OptionKind::unload,0,false,can_unload);
+        add("Unload at target",OptionKind::order,unsigned(Orders::MoveUnload),true,can_unload && f.u_flying(u));
+    };
     switch(u->unit_type->id) {
     case UnitTypes::Zerg_Queen:case UnitTypes::Hero_Matriarch:
         ability("Parasite",Orders::CastParasite,TechTypes::Parasite);ability("Spawn Broodlings",Orders::CastSpawnBroodlings,TechTypes::Spawn_Broodlings);ability("Ensnare",Orders::CastEnsnare,TechTypes::Ensnare);ability("Infest Command Center",Orders::CastInfestation,TechTypes::Infestation);break;
     case UnitTypes::Zerg_Defiler:case UnitTypes::Hero_Unclean_One:
         ability("Dark Swarm",Orders::CastDarkSwarm,TechTypes::Dark_Swarm);ability("Plague",Orders::CastPlague,TechTypes::Plague);ability("Consume",Orders::CastConsume,TechTypes::Consume);break;
-    case UnitTypes::Zerg_Overlord:case UnitTypes::Hero_Yggdrasill:
-        add("Load unit",OptionKind::order,unsigned(Orders::PickupTransport),true,f.unit_provides_space(u));add("Unload all",OptionKind::unload,0,false,!f.loaded_units(u).empty());break;
+    case UnitTypes::Zerg_Overlord:case UnitTypes::Hero_Yggdrasill:transport_options();break;
     case UnitTypes::Protoss_High_Templar:
         ability("Psionic Storm",Orders::CastPsionicStorm,TechTypes::Psionic_Storm);ability("Hallucination",Orders::CastHallucination,TechTypes::Hallucination);
         add("Merge nearest Templar",OptionKind::merge,0,false,true);break;
@@ -1005,7 +1111,7 @@ unsigned Engine::options(OptionPage page,MenuOption* output,unsigned capacity) c
         ability("Feedback",Orders::CastFeedback,TechTypes::Feedback);ability("Mind Control",Orders::CastMindControl,TechTypes::Mind_Control);ability("Maelstrom",Orders::CastMaelstrom,TechTypes::Maelstrom);break;
     case UnitTypes::Protoss_Arbiter:case UnitTypes::Hero_Danimoth:ability("Recall",Orders::CastRecall,TechTypes::Recall);ability("Stasis Field",Orders::CastStasisField,TechTypes::Stasis_Field);break;
     case UnitTypes::Protoss_Corsair:case UnitTypes::Hero_Raszagal:ability("Disruption Web",Orders::CastDisruptionWeb,TechTypes::Disruption_Web);break;
-    case UnitTypes::Protoss_Shuttle:add("Load unit",OptionKind::order,unsigned(Orders::PickupTransport),true,true);add("Unload all",OptionKind::unload,0,false,!f.loaded_units(u).empty());break;
+    case UnitTypes::Protoss_Shuttle:transport_options();break;
     case UnitTypes::Terran_Marine:case UnitTypes::Hero_Jim_Raynor_Marine:case UnitTypes::Terran_Firebat:case UnitTypes::Hero_Gui_Montag:add("Stim Packs",OptionKind::stim,0,false,f.unit_can_use_tech(u,f.get_tech_type(TechTypes::Stim_Packs)));break;
     case UnitTypes::Terran_Siege_Tank_Tank_Mode:case UnitTypes::Terran_Siege_Tank_Siege_Mode:case UnitTypes::Hero_Edmund_Duke_Tank_Mode:case UnitTypes::Hero_Edmund_Duke_Siege_Mode:add("Toggle Siege Mode",OptionKind::siege,0,false,f.unit_can_use_tech(u,f.get_tech_type(TechTypes::Tank_Siege_Mode)));break;
     case UnitTypes::Terran_Vulture:case UnitTypes::Hero_Jim_Raynor_Vulture:ability("Spider Mine",Orders::PlaceMine,TechTypes::Spider_Mines);break;
@@ -1016,7 +1122,7 @@ unsigned Engine::options(OptionPage page,MenuOption* output,unsigned capacity) c
     case UnitTypes::Terran_Medic:ability("Heal",Orders::MedicHeal,TechTypes::Healing);ability("Restoration",Orders::CastRestoration,TechTypes::Restoration);ability("Optical Flare",Orders::CastOpticalFlare,TechTypes::Optical_Flare);break;
     case UnitTypes::Terran_Science_Vessel:case UnitTypes::Hero_Magellan:ability("Defensive Matrix",Orders::CastDefensiveMatrix,TechTypes::Defensive_Matrix);ability("EMP Shockwave",Orders::CastEMPShockwave,TechTypes::EMP_Shockwave);ability("Irradiate",Orders::CastIrradiate,TechTypes::Irradiate);break;
     case UnitTypes::Terran_Battlecruiser:case UnitTypes::Hero_Hyperion:case UnitTypes::Hero_Norad_II:case UnitTypes::Hero_Gerard_DuGalle:ability("Yamato Gun",Orders::FireYamatoGun,TechTypes::Yamato_Gun);break;
-    case UnitTypes::Terran_Dropship:add("Load unit",OptionKind::order,unsigned(Orders::PickupTransport),true,true);add("Unload all",OptionKind::unload,0,false,!f.loaded_units(u).empty());break;
+    case UnitTypes::Terran_Dropship:transport_options();break;
     default:break;
     }
     if(page==OptionPage::secondary) {
@@ -1122,10 +1228,11 @@ bool Engine::perform(unsigned code,int x,int y) {savegame::Writer::Guard record(
                 if(!f.unit_can_use_tech(member,f.get_tech_type(tech)))continue;
                 if(f.u_requires_detector(member))a.action_decloak(0);else if(member->energy>=fp8::integer(f.get_tech_type(tech)->energy_cost))a.action_cloak(0);else continue;
                 ok=true; // Native action_cloak changes state but returns false.
-            } else if(kind==OptionKind::unload) {if(!f.loaded_units(member).empty()) {a.action_unload_all(0,false);ok=true;}}
+            } else if(kind==OptionKind::unload)ok=a.action_unload_all(0,false)||ok;
             else if(kind==OptionKind::order && id<unsigned(Orders::None)) {
                 const auto order=static_cast<Orders>(id);
-                const bool ground=order==Orders::CastDarkSwarm || order==Orders::CastPlague || order==Orders::CastEnsnare || order==Orders::CastPsionicStorm || order==Orders::CastStasisField || order==Orders::CastRecall || order==Orders::CastMaelstrom || order==Orders::CastDisruptionWeb || order==Orders::PlaceMine || order==Orders::CastEMPShockwave || order==Orders::CastScannerSweep || order==Orders::NukePaint || order==Orders::AttackMove || order==Orders::Move || order==Orders::Patrol;
+                if(order==Orders::MoveUnload && (!f.u_flying(member) || f.loaded_units(member).empty()))continue;
+                const bool ground=order==Orders::CastDarkSwarm || order==Orders::CastPlague || order==Orders::CastEnsnare || order==Orders::CastPsionicStorm || order==Orders::CastStasisField || order==Orders::CastRecall || order==Orders::CastMaelstrom || order==Orders::CastDisruptionWeb || order==Orders::PlaceMine || order==Orders::CastEMPShockwave || order==Orders::CastScannerSweep || order==Orders::NukePaint || order==Orders::AttackMove || order==Orders::Move || order==Orders::Patrol || order==Orders::MoveUnload;
                 auto* target=ground?nullptr:hit_unit(f,x,y,false,impl_->fog);
                 ok=a.action_order(0,a.get_order_type(static_cast<Orders>(id)),{x,y},target,nullptr,false)||ok;
             }
@@ -1147,20 +1254,52 @@ bool Engine::move_selected(int x, int y) {savegame::Writer::Guard record(impl_->
     commands.action_select(0, u);
     return commands.action_order(0, commands.get_order_type(Orders::Move), {x, y}, nullptr, nullptr, false);
 }
-std::size_t Engine::visible_units(UnitView* output, std::size_t capacity) const {
-    if (!ready()) return 0;
-    const auto& funcs = impl_->player->funcs();
-    std::size_t n = 0;
-    for (const auto* u : ptr(impl_->player->st().visible_units)) {
-        if (n == capacity) break;
-        if (funcs.unit_dead(u) || funcs.ut_turret(u) || (impl_->fog && !player_sees(impl_->player->funcs(),u))) continue;
+UnitView Engine::Impl::unit_view(const unit_t* u,bool is_selected) const {
+        const auto& funcs=player->funcs();
         const auto* t = u->unit_type;
-        const bool selected=std::find(impl_->selected.begin(),impl_->selected.end(),funcs.get_unit_id_32(u))!=impl_->selected.end();
         unsigned cargo=0;for(auto* passenger:funcs.loaded_units(u)){(void)passenger;++cargo;}
-        output[n++] = {u->sprite->position.x, u->sprite->position.y, static_cast<unsigned>(u->owner), selected,
+        UnitView view ={u->sprite->position.x, u->sprite->position.y, static_cast<unsigned>(u->owner), is_selected,
                        static_cast<unsigned>(t->id), u->hp.integer_part(), t->hitpoints.integer_part(),
                        t->dimensions.from.x + t->dimensions.to.x + 1, t->dimensions.from.y + t->dimensions.to.y + 1,
                        funcs.u_completed(u), funcs.ut_worker(u), funcs.unit_is_mineral_field(u),funcs.unit_is(u,UnitTypes::Resource_Vespene_Geyser),funcs.unit_is_refinery(u),funcs.u_flying(u),cargo,t->has_shield?u->shield_points.integer_part():0,t->has_shield?int(t->shield_points):0,unsigned(funcs.unit_is_carrier(u)?funcs.unit_interceptor_count(u):funcs.unit_is_reaver(u)?funcs.unit_scarab_count(u):0),unsigned(u->order_type->id),u->energy.integer_part(),funcs.u_burrowed(u),funcs.ut_worker(u) && u->worker.powerup?unsigned(u->worker.powerup->unit_type->id):0,funcs.u_disabled(u)};
+        if(is_selected){
+            const auto* sprite=u->sprite->sprite_type;
+            const unsigned ring=first_selection_ring+sprite->selection_circle;
+            const auto& grps=player->st().global->image_grp;
+            const int ring_height=ring<=last_selection_ring && grps[ring] && !grps[ring]->frames.empty()
+                ?int(grps[ring]->frames[0].size.y):view.height;
+            view.bar_width=std::max(19,sprite->health_bar_size);
+            view.bar_y=u->sprite->position.y+sprite->selection_circle_vpos+ring_height/2+6;
+            if(funcs.ut_has_energy(u))view.max_energy=funcs.unit_max_energy(u).integer_part();
+            else if(funcs.u_hallucination(u) || funcs.unit_is(u,UnitTypes::Zerg_Broodling)){
+                view.max_energy=funcs.default_remove_timer(u);
+                view.energy=u->remove_timer;
+            }
+        }
+        return view;
+}
+std::size_t Engine::visible_units(UnitView* output, std::size_t capacity) const {
+    if(!ready())return 0;
+    const auto& funcs=impl_->player->funcs();
+    std::size_t n=0;
+    for(const auto* unit:ptr(impl_->player->st().visible_units)){
+        if(n==capacity)break;
+        if(funcs.unit_dead(unit) || funcs.ut_turret(unit) || (impl_->fog && !player_sees(funcs,unit)))continue;
+        const auto id=funcs.get_unit_id_32(unit);
+        const bool selected=std::find(impl_->selected.begin(),impl_->selected.end(),id)!=impl_->selected.end();
+        output[n++]=impl_->unit_view(unit,selected);
+    }
+    return n;
+}
+std::size_t Engine::selected_units(UnitView* output,std::size_t capacity) const {
+    if(!ready())return 0;
+    const auto& funcs=impl_->player->funcs();
+    std::size_t n=0;
+    for(auto id:impl_->selected){
+        if(n==capacity)break;
+        const auto* unit=funcs.get_unit(id);
+        if(!unit || funcs.unit_dead(unit) || funcs.us_hidden(unit) || (impl_->fog && !player_sees(funcs,unit)))continue;
+        output[n++]=impl_->unit_view(unit,true);
     }
     return n;
 }
@@ -1209,8 +1348,11 @@ SpriteView Engine::cursor_image(CursorKind kind,std::uint64_t elapsed_us) const 
 }
 SpriteInfo Engine::sprite_info(unsigned image,unsigned frame) const {
     if(image==65384)return {60,56,frame<110*17};
+    if(image==selection_bar_image)return {256,3,frame<6};
     if(!ready())return {};
     if(image==detail::wireframe_image)return impl_->icons && impl_->icons->has_wireframes && frame<228*6?SpriteInfo{64,64,true}:SpriteInfo{};
+    if(image==group_wireframe_image)return impl_->icons && frame<228*18 &&
+        frame%228<impl_->icons->group_wireframes.frames.size()?SpriteInfo{32,32,true}:SpriteInfo{};
     if(image==detail::resource_icon_image)return impl_->icons && impl_->icons->has_resources && frame<7?SpriteInfo{14,14,true}:SpriteInfo{};
     if(image==detail::command_icon_image)return impl_->icons?impl_->icons->info(frame):SpriteInfo{};
     if(image==detail::command_button_image)return impl_->icons && frame==0?SpriteInfo{48,40,true}:SpriteInfo{};
@@ -1239,7 +1381,18 @@ bool Engine::sprite_pixels(unsigned image,unsigned frame,unsigned owner,uint16_t
     }
 
     const auto info=sprite_info(image,frame);if(!info.valid || info.width>512 || info.height>512 || size_t(info.width)*info.height>capacity)return false;
+    if(image==selection_bar_image){
+        constexpr unsigned colors[][3]={{73,79,84},{65,214,61},{229,189,55},{226,49,42},{65,130,245},{223,156,64}};
+        for(unsigned y=0;y<info.height;++y)for(unsigned x=0;x<info.width;++x){
+            const unsigned gain=x%3==2?27:y==0?120:y==1?100:63;
+            const auto& c=colors[frame];
+            out[y*info.width+x]=uint16_t((std::min(255u,c[0]*gain/100)>>3)<<11 |
+                (std::min(255u,c[1]*gain/100)>>3)<<6 | (std::min(255u,c[2]*gain/100)>>3)<<1 | 1);
+        }
+        return true;
+    }
     if(image==detail::wireframe_image)return impl_->icons && impl_->icons->wire_pixels(frame,out,capacity);
+    if(image==group_wireframe_image)return impl_->icons && impl_->icons->wire_pixels(frame,out,capacity,true);
     if(image==detail::resource_icon_image){std::copy(impl_->icons->resources[frame].begin(),impl_->icons->resources[frame].end(),out);return true;}
     if(image==detail::command_icon_image)return impl_->icons && impl_->icons->pixels(frame,owner==0,out,capacity);
     if(image==detail::command_button_image){std::copy(impl_->icons->button.begin(),impl_->icons->button.end(),out);return true;}
@@ -1251,18 +1404,23 @@ bool Engine::sprite_pixels(unsigned image,unsigned frame,unsigned owner,uint16_t
     const bool ordinary=!edge && !cursor;
     const auto& type=st.global->image_types.vec[ordinary?image:0];
     const uint16_t* colors=(edge || cursor)?impl_->palette.data():impl_->team_palette[owner<3?owner:3].data();
+    const bool ring=image>=first_selection_ring && image<=last_selection_ring;
+    const auto color=[&](unsigned index){
+        if(ring && index<8)return uint16_t(owner==0?0x3611:owner==11?0xe681:0xd2c5);
+        return colors[index];
+    };
     if(ordinary && type.modifier==9 && type.color_shift!=5 && type.color_shift>=1 && type.color_shift<=7)colors=impl_->lights[type.color_shift-1].data();
     for(unsigned y=0;y<info.height;++y) {
         const auto* p=source.data_container.data()+source.line_data_offset[y];unsigned x=0;
         while(x<info.width) {
             unsigned token=*p++,n=token&127;if(token&128){x+=n;continue;}
-            if(token&64){n=std::min(token&63,info.width-x);const auto c=colors[*p++];std::fill_n(out+y*info.width+x,n,c);x+=n;}
-            else {const unsigned end=x+std::min(n,info.width-x);while(x<end)out[y*info.width+x++]=colors[*p++];}
+            if(token&64){n=std::min(token&63,info.width-x);const auto c=color(*p++);std::fill_n(out+y*info.width+x,n,c);x+=n;}
+            else {const unsigned end=x+std::min(n,info.width-x);while(x<end)out[y*info.width+x++]=color(*p++);}
         }
     }
     // Shadow GRP indices are a coverage mask, not palette colors. Baking
     // black into the cached mask also keeps it independent of GPU tint state.
-    if(ordinary && type.modifier==10)for(size_t i=0;i<size_t(info.width)*info.height;++i)if(out[i]&1)out[i]=1;
+    if(ordinary && !ring && type.modifier==10)for(size_t i=0;i<size_t(info.width)*info.height;++i)if(out[i]&1)out[i]=1;
     return true;
 }
 std::size_t Engine::image_types(unsigned* output,std::size_t capacity) const {
@@ -1279,7 +1437,7 @@ std::size_t Engine::image_types(unsigned* output,std::size_t capacity) const {
         }
     return n;
 }
-std::size_t Engine::visible_images(SpriteView* output, std::size_t capacity, int cx, int cy) const {
+std::size_t Engine::visible_images(SpriteView* output, std::size_t capacity, int cx, int cy,bool selection_rings) const {
     if (!ready()) return 0;
     const auto& st = impl_->player->st();
     const auto& funcs = impl_->player->funcs();
@@ -1295,6 +1453,20 @@ std::size_t Engine::visible_images(SpriteView* output, std::size_t capacity, int
                 const unsigned frame=impl_->creep->edge_frames[mask];if(frame && frame<=impl_->creep->edges.frames.size()){const auto& r=impl_->creep->edges.frames[frame-1];output[n++]={x*32+int(r.offset.x),y*32+int(r.offset.y),detail::creep_edge_image,frame-1,11,false,false,0,255};}
             }
         }
+    }
+    if(selection_rings)for(auto id:impl_->selected){
+        const auto* unit=funcs.get_unit(id);
+        if(!unit || funcs.unit_dead(unit) || funcs.us_hidden(unit) || !unit->sprite ||
+           (impl_->fog && !player_sees(funcs,unit)))continue;
+        const auto& sprite=*unit->sprite;
+        const unsigned image=first_selection_ring+sprite.sprite_type->selection_circle;
+        if(image>last_selection_ring || !sprite_info(image,0).valid || n==capacity)continue;
+        const auto& grp=*st.global->image_grp[image];
+        const auto& frame=grp.frames[0];
+        const int x=sprite.position.x+int(frame.offset.x)-int(grp.width/2);
+        const int y=sprite.position.y+sprite.sprite_type->selection_circle_vpos+int(frame.offset.y)-int(grp.height/2);
+        if(x>=cx+400 || y>=cy+240 || x+int(frame.size.x)<=cx || y+int(frame.size.y)<=cy)continue;
+        output[n++]={x,y,image,0,unit->owner==0?0u:unit->owner==11?11u:1u,false,false,1,255};
     }
     // Detection is per unit; visual effects use the native sprite visibility.
     // The fixed native sprite pool bounds this scratch without frame allocation.

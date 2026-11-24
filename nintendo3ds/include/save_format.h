@@ -1,4 +1,5 @@
 #pragma once
+#include "campaign_catalogue.h"
 #include "skirmish.h"
 #include <array>
 #include <algorithm>
@@ -17,24 +18,29 @@ namespace savegame {
 constexpr unsigned header_size=256,record_size=24,max_map=2*1024*1024,max_events=1000000,max_frames=24*60*60*12;
 constexpr unsigned legacy_version = 1;
 constexpr unsigned format_version = 2;
-// Increase when an existing map and command journal would replay differently.
-// Platform, presentation, and catalogue additions do not change this value.
+// Rule profiles keep the version used by older command journals. A gameplay
+// change that can alter replay needs a new profile and a new version.
 constexpr unsigned simulation_version = 1;
 constexpr unsigned simulation_field = 31;
 constexpr unsigned rules_field = 40;
 constexpr unsigned early_bw_zerg_scenario = 21;
-enum class Rules : unsigned { current, early_bw_zerg };
+enum class Rules : unsigned { current, early_bw_zerg, authored_hangars, preplaced_hangars, dark_origin_pause };
 inline unsigned rules_version(Rules rules) {
- // Older executables must reject a migrated save that needs historical rules.
+ // An executable must reject a save when it cannot replay its rule profile.
+ if(rules == Rules::dark_origin_pause)return 5;
+ if(rules == Rules::preplaced_hangars)return 4;
+ if(rules == Rules::authored_hangars)return 3;
  return rules == Rules::early_bw_zerg ? 2 : simulation_version;
 }
 inline bool valid_rules(Rules rules, unsigned scenario) {
- return rules == Rules::current || (rules == Rules::early_bw_zerg && scenario == early_bw_zerg_scenario);
+ return rules == Rules::current || rules == Rules::authored_hangars || rules == Rules::preplaced_hangars ||
+        (rules == Rules::dark_origin_pause && scenario == campaign::dark_origin_scenario) ||
+        (rules == Rules::early_bw_zerg && scenario == early_bw_zerg_scenario);
 }
 static_assert(sizeof(float) == 4 && std::numeric_limits<float>::is_iec559,
               "Save view requires IEEE-754 binary32");
 
-enum Op:unsigned {select=1,clear,activate,army,workers,store,recall,command,perform,move,cancel,fog,surrender,elapsed,rectangle,similar,last=similar};
+enum Op:unsigned {select=1,clear,activate,army,workers,store,recall,command,perform,move,cancel,fog,surrender,elapsed,rectangle,similar,deselect_passengers,last=deselect_passengers};
 inline uint32_t get(const unsigned char* p){return uint32_t(p[0])|uint32_t(p[1])<<8|uint32_t(p[2])<<16|uint32_t(p[3])<<24;}
 inline void put(unsigned char* p,uint32_t v){for(unsigned i=0;i<4;++i)p[i]=v>>(8*i);}
 inline uint32_t hash(uint32_t h,const void* data,size_t n){auto* p=static_cast<const unsigned char*>(data);while(n--){h^=*p++;h*=16777619u;}return h;}

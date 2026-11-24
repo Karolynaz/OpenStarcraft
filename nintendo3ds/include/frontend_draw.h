@@ -73,7 +73,7 @@ inline void draw_campaign_bottom(const Frontend& f,BriefingArt& art,UiArt& menu,
  }
  art.room(f,animation,tick);art.portraits(f,animation,tick);
  if(f.briefing_loading){ui_centered(text,"Loading",{0,0,320,240},.65f,green);return;}
- const bool zerg=campaign::missions[f.mission].race==0;
+ const bool zerg=campaign::play_race(campaign::missions[f.mission])==0;
  const UiRect start={zerg?237:238,zerg?188:190,66,11};
  ui_centered(text,"Start",start,.40f,f.hover==116?bright:green);
  if(f.briefing_ready()){
@@ -90,7 +90,7 @@ inline void draw_frontend_top(const Frontend& f,UiArt& art,C2D_TextBuf text){
   art.draw("frame_top",8,8,.96f,224.f/240);
   const auto white=C2D_Color32(183,185,241,255);
   ui_text(text,"Mission briefing",200,22,.60f,white,true);
-  if(f.briefing_page<f.briefing.size())ui_limited(text,f.briefing[f.briefing_page].c_str(),26,56,Frontend::briefing_font,Frontend::briefing_width,Frontend::briefing_rows,white);
+  if(f.briefing_started && f.briefing_page<f.briefing.size())ui_limited(text,f.briefing[f.briefing_page].c_str(),26,56,Frontend::briefing_font,Frontend::briefing_width,Frontend::briefing_rows,white);
   return;
  }
  if(f.screen==Frontend::Screen::campaign){art.draw("title",0,0);return;}
@@ -130,7 +130,6 @@ inline void draw_frontend(Frontend& f,UiArt& art,MenuAnimation& animation,C2D_Te
  const bool campaign=f.screen==Frontend::Screen::campaign;
  if(campaign){
   const float shift=340*f.slide();art.draw("campaign_left",-shift,0);art.draw("campaign_right",160+shift,0);
-  art.draw("title_button",112-shift,8,96.f/136,22.f/24);ui_centered(text,"AI tests",{int(112-shift),8,96,22},.49f,f.hover==6?bright:green);
   const char* races[3]={f.brood?"Terr":"Zerg",f.brood?"Prot":"Terr",f.brood?"Zerg":"Prot"};
   const char* names[3]={f.brood?"Terran":"Zerg",f.brood?"Protoss":"Terran",f.brood?"Zerg":"Protoss"};
   const char* episodes[3]={f.brood?"Episode V":"Episode II",f.brood?"Episode IV":"Episode I",f.brood?"Episode VI":"Episode III"};
@@ -205,16 +204,10 @@ inline void draw_frontend(Frontend& f,UiArt& art,MenuAnimation& animation,C2D_Te
    ui_text(text,"B: Back",160,202,.39f,white,true);
   }
   else if(f.dialog==Frontend::Dialog::episode_complete){
-   ui_text(text,f.starcraft_finished?"StarCraft ending":"Episode complete",160,63,.61f,white,true);
+   ui_text(text,f.campaign_finished?(f.brood?"Brood War ending":"StarCraft ending"):"Episode complete",160,63,.61f,white,true);
    ui_centered(text,campaign::missions[f.mission].title,{32,94,256,24},.49f,white);
-   label(f.starcraft_finished?"Campaign Menu":"Next Episode",140,160,150,.50f);
-   if(!f.starcraft_finished)label("Campaign Menu",141,160,185,.47f);
-  }
-  else if(f.dialog==Frontend::Dialog::ai_tests){
-   ui_text(text,"AI observer scenarios",160,43,.55f,white,true);
-   const char* names[]={"Terran island AI vs AI","Protoss island AI vs AI","Zerg island AI vs AI","Medium vs 2 Easy (all races)"};
-   for(unsigned i=0;i<4;++i)ui_centered(text,names[i],{34,70+int(i)*28,252,24},.46f,f.hover==int(100+i)?bright:green);
-   label("Cancel",32,160,194,.44f);
+   label(f.campaign_finished?"Campaign Menu":"Next Episode",140,160,150,.50f);
+   if(!f.campaign_finished)label("Campaign Menu",141,160,185,.47f);
   }
   else if(f.dialog==Frontend::Dialog::map_list){
    ui_text(text,"Select map",160,40,.58f,white,true);

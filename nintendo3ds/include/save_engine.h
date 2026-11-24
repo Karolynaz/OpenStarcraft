@@ -94,6 +94,7 @@ bool Engine::apply_journal_commands(savegame::Reader& reader){
   case savegame::rectangle:select_area(r.a,r.b,r.c,r.d);break;
   case savegame::select:select(r.a,r.b);break;
   case savegame::clear:clear_selection();break;
+  case savegame::deselect_passengers:deselect_passengers();break;
   case savegame::activate:activate(r.a,r.b);break;
   case savegame::army:select_army(r.a,r.b);break;
   case savegame::workers:select_workers(r.a,r.b);break;

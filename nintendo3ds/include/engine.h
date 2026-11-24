@@ -11,7 +11,14 @@
 #include "campaign_catalogue.h"
 
 namespace port3ds {
-enum class Scenario { empty, two_units, melee, ai_battle, versus_ai, gas_battle, terran_battle, terran_lab, protoss_battle, protoss_lab, zerg_battle, zerg_lab, protoss_ai_battle, protoss_versus_ai, zerg_ai_battle, zerg_versus_ai, terran_campaign, zerg_campaign, protoss_campaign, bw_protoss_campaign, bw_terran_campaign, bw_zerg_campaign, terran_campaign_2, zerg_campaign_2, protoss_campaign_2, terran_campaign_3, zerg_campaign_3, protoss_campaign_3, terran_campaign_4, protoss_campaign_4, zerg_campaign_4, terran_campaign_5, bw_protoss_campaign_2, terran_campaign_6, terran_campaign_7, zerg_campaign_5, zerg_campaign_6, zerg_campaign_7, zerg_campaign_8, bw_zerg_campaign_2, bw_zerg_campaign_3, bw_terran_campaign_2, bw_protoss_campaign_3, bw_terran_campaign_3, bw_protoss_campaign_4, bw_terran_campaign_4, zerg_campaign_9, protoss_campaign_5, protoss_campaign_6, protoss_campaign_7, protoss_campaign_8, protoss_campaign_9, protoss_campaign_10, terran_campaign_8, terran_campaign_9, terran_campaign_10, zerg_campaign_10, bw_terran_campaign_6, terran_boot_camp };
+enum class Scenario { empty, two_units, melee, ai_battle, versus_ai, gas_battle, terran_battle, terran_lab, protoss_battle, protoss_lab, zerg_battle, zerg_lab, protoss_ai_battle, protoss_versus_ai, zerg_ai_battle, zerg_versus_ai, terran_campaign, zerg_campaign, protoss_campaign, bw_protoss_campaign, bw_terran_campaign, bw_zerg_campaign, terran_campaign_2, zerg_campaign_2, protoss_campaign_2, terran_campaign_3, zerg_campaign_3, protoss_campaign_3, terran_campaign_4, protoss_campaign_4, zerg_campaign_4, terran_campaign_5, bw_protoss_campaign_2, terran_campaign_6, terran_campaign_7, zerg_campaign_5, zerg_campaign_6, zerg_campaign_7, zerg_campaign_8, bw_zerg_campaign_2, bw_zerg_campaign_3, bw_terran_campaign_2, bw_protoss_campaign_3, bw_terran_campaign_3, bw_protoss_campaign_4, bw_terran_campaign_4, zerg_campaign_9, protoss_campaign_5, protoss_campaign_6, protoss_campaign_7, protoss_campaign_8, protoss_campaign_9, protoss_campaign_10, terran_campaign_8, terran_campaign_9, terran_campaign_10, zerg_campaign_10, bw_terran_campaign_6, terran_boot_camp, bw_terran_campaign_7, bw_terran_campaign_8, bw_protoss_campaign_6, bw_protoss_campaign_7, bw_protoss_campaign_8, bw_protoss_campaign_5, bw_terran_campaign_5_ground_zero, bw_terran_campaign_5_birds,
+    bw_zerg_campaign_5=campaign::true_colors_scenario,
+    bw_zerg_campaign_4a,bw_zerg_campaign_4b,bw_zerg_campaign_4c,
+    bw_zerg_campaign_4d,bw_zerg_campaign_4e,bw_zerg_campaign_4f,
+    bw_zerg_campaign_6,bw_zerg_campaign_7,bw_zerg_campaign_8,
+    bw_zerg_campaign_9=campaign::reckoning_scenario,
+    bw_zerg_campaign_10=campaign::omega_scenario,
+    bw_zerg_bonus=campaign::dark_origin_scenario };
 static_assert(unsigned(Scenario::bw_zerg_campaign)==savegame::early_bw_zerg_scenario,"Preserve saved scenario identity");
 inline bool arena_scenario(Scenario s) {return s>=Scenario::terran_battle && s<=Scenario::zerg_lab;}
 inline unsigned scenario_race(Scenario s) {
@@ -68,7 +75,10 @@ struct UnitView {
     bool flying=false; unsigned cargo=0;
     int shields=0,max_shields=0; unsigned fighters=0;
     unsigned order=0;int energy=0;bool burrowed=false;unsigned carried_powerup=0;bool disabled=false;
+    int max_energy=0,bar_width=0,bar_y=0;
 };
+constexpr unsigned selection_bar_image=65385;
+constexpr unsigned group_wireframe_image=65386;
 struct SpriteInfo {unsigned width=0,height=0;bool valid=false;};
 struct SpriteView {
     int x = 0, y = 0;
@@ -111,6 +121,8 @@ public:
     SelectionInfo selection_info() const;
     bool cancel_selected_work(unsigned slot);
     SpriteView selection_wireframe() const;
+    SpriteView unit_wireframe(unsigned type,int hp,int max_hp,int shields,bool group=false) const;
+    void deselect_passengers();
     const char* error() const;
     bool ready() const;
     bool cinematic_focus(int& x,int& y)const;
@@ -132,7 +144,8 @@ public:
     const char* command_status() const;
     PlacementView placement(Command building, int world_x, int world_y) const;
     std::size_t visible_units(UnitView* output, std::size_t capacity) const;
-    std::size_t visible_images(SpriteView* output, std::size_t capacity, int camera_x, int camera_y) const;
+    std::size_t selected_units(UnitView* output, std::size_t capacity) const;
+    std::size_t visible_images(SpriteView* output, std::size_t capacity, int camera_x, int camera_y,bool selection_rings=false) const;
     std::size_t remembered_units(UnitView* output,std::size_t capacity) const;
     std::uint32_t frame() const;
     bool fog_enabled() const;
